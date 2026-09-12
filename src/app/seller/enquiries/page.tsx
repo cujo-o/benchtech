@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Phone, Mail, MessageSquare, CheckCircle, Send } from 'lucide-react'
+import { ThreadPoller } from '@/components/ThreadPoller'
 
 export default async function SellerEnquiriesPage() {
   const supabase = await createClient()
@@ -27,7 +28,7 @@ export default async function SellerEnquiriesPage() {
     console.error('Error fetching seller enquiries:', enquiriesError.message)
   }
 
-  // 2. Fetch replies for these enquiries separately to avoid join crashes
+  // 2. Fetch replies for these enquiries
   const enquiryIds = enquiries?.map((e) => e.id) || []
   let replies: any[] = []
 
@@ -184,6 +185,9 @@ export default async function SellerEnquiriesPage() {
               </Card>
             )
           })}
+
+          {/* Auto-poll every 5 seconds for incoming buyer replies */}
+          <ThreadPoller intervalMs={5000} />
         </div>
       ) : (
         <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
