@@ -43,33 +43,38 @@ export async function updateSession(request: NextRequest) {
 
   // 2. Role-based Route Protection
   if (user) {
-    // Fetch profile role from public.profiles
+    // Use maybeSingle to prevent exceptions on fresh accounts
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     const role = profile?.role || 'buyer'
 
     // Protect SuperAdmin routes
     if (pathname.startsWith('/admin') && role !== 'admin') {
       const url = request.nextUrl.clone()
-      url.pathname = '/'
+      url.pathname = '/feed'
       return NextResponse.redirect(url)
     }
 
-    // Protect Seller routes
-    if (pathname.startsWith('/seller') && role !== 'seller' && role !== 'admin') {
+    // Protect Seller routes EXCEPT onboarding
+    if (
+      pathname.startsWith('/seller') &&
+      pathname !== '/seller/onboarding' &&
+      role !== 'seller' &&
+      role !== 'admin'
+    ) {
       const url = request.nextUrl.clone()
-      url.pathname = '/become-seller'
+      url.pathname = '/seller/onboarding'
       return NextResponse.redirect(url)
     }
 
     // Redirect logged-in users away from auth pages
     if (pathname === '/login' || pathname === '/register') {
       const url = request.nextUrl.clone()
-      url.pathname = role === 'admin' ? '/admin/overview' : role === 'seller' ? '/seller/dashboard' : '/'
+      url.pathname = role === 'admin' ? '/admin/overview' : role === 'seller' ? '/seller/dashboard' : '/feed'
       return NextResponse.redirect(url)
     }
   }
