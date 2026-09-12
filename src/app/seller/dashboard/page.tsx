@@ -6,29 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PackagePlus, Boxes, Eye, ShieldCheck, ArrowUpRight } from 'lucide-react'
 
 export default async function SellerDashboard() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+ // Inside src/app/seller/dashboard/page.tsx
+const supabase = await createClient()
+const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login?next=/seller/dashboard')
-  }
+if (!user) {
+  redirect('/login?next=/seller/dashboard')
+}
 
-  // Fetch current profile
-  let { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+const { data: profile } = await supabase
+  .from('profiles')
+  .select('*')
+  .eq('id', user.id)
+  .single()
 
-  // Auto-upgrade role to seller if accessing seller hub
-  if (profile && profile.role === 'buyer') {
-    await supabase
-      .from('profiles')
-      .update({ role: 'seller', updated_at: new Date().toISOString() })
-      .eq('id', user.id)
-    
-    profile.role = 'seller'
-  }
+// If user has not set up their store profile yet, redirect to onboarding
+if (!profile?.business_name) {
+  redirect('/seller/onboarding')
+}
 
   // Fetch products listed by this seller
   const { data: products, count: totalListings } = await supabase
