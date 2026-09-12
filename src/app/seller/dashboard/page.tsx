@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,20 +9,35 @@ export default async function SellerDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Fetch count of products listed by this seller
+  if (!user) {
+    redirect('/login?next=/seller/dashboard')
+  }
+
+  // Fetch current profile
+  let { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  // Auto-upgrade role to seller if accessing seller hub
+  if (profile && profile.role === 'buyer') {
+    await supabase
+      .from('profiles')
+      .update({ role: 'seller', updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+    
+    profile.role = 'seller'
+  }
+
+  // Fetch products listed by this seller
   const { data: products, count: totalListings } = await supabase
     .from('products')
     .select('*', { count: 'exact' })
-    .eq('seller_id', user!.id)
+    .eq('seller_id', user.id)
 
   const activeListings = products?.filter((p) => p.status === 'published').length || 0
   const soldListings = products?.filter((p) => p.status === 'sold').length || 0
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user!.id)
-    .single()
 
   return (
     <div className="space-y-8">
@@ -41,36 +57,36 @@ export default async function SellerDashboard() {
       </div>
 
       {/* Verification Alert Banner */}
-{profile?.tech_trust_status !== 'verified' && (
-  <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-    <div className="flex items-start gap-3">
-      <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
-        <ShieldCheck className="w-5 h-5" />
-      </div>
-      <div>
-        <p className="text-xs font-bold text-amber-900">
-          {profile?.tech_trust_status === 'pending'
-            ? 'Verification Under Review'
-            : 'Your store is unverified'}
-        </p>
-        <p className="text-[11px] text-amber-700 mt-0.5">
-          {profile?.tech_trust_status === 'pending'
-            ? 'We are reviewing your uploaded documents. Approval usually takes under 24 hours.'
-            : 'Complete TechTrust verification to get the verified badge and boost buyer inquiries.'}
-        </p>
-      </div>
-    </div>
-    <Link href="/seller/verify" className="shrink-0">
-      <Button
-        size="sm"
-        variant="outline"
-        className="text-xs border-amber-300 text-amber-900 bg-white hover:bg-amber-100 font-bold h-8"
-      >
-        {profile?.tech_trust_status === 'pending' ? 'Check Status' : 'Verify Store'}
-      </Button>
-    </Link>
-  </div>
-)}
+      {profile?.tech_trust_status !== 'verified' && (
+        <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-900">
+                {profile?.tech_trust_status === 'pending'
+                  ? 'Verification Under Review'
+                  : 'Your store is unverified'}
+              </p>
+              <p className="text-[11px] text-amber-700 mt-0.5">
+                {profile?.tech_trust_status === 'pending'
+                  ? 'We are reviewing your uploaded documents. Approval usually takes under 24 hours.'
+                  : 'Complete TechTrust verification to get the verified badge and boost buyer inquiries.'}
+              </p>
+            </div>
+          </div>
+          <Link href="/seller/verify" className="shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs border-amber-300 text-amber-900 bg-white hover:bg-amber-100 font-bold h-8"
+            >
+              {profile?.tech_trust_status === 'pending' ? 'Check Status' : 'Verify Store'}
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

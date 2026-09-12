@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/Navbar'
 import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
 import { BuyerRightSidebar } from '@/components/storefront/BuyerRightSidebar'
+import { MobileNav } from '@/components/storefront/MobileNav'
 import { SaveButton } from '@/components/SaveButton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -26,8 +27,7 @@ import {
   RotateCcw,
   Flame,
   ShoppingBag,
-  ArrowRight,
-  GraduationCap
+  ArrowRight
 } from 'lucide-react'
 
 const CATEGORY_CHIPS = [
@@ -66,7 +66,7 @@ export default async function FeedPage() {
     .limit(8)
 
   return (
-    <div className="min-h-screen bg-slate-100/60 flex flex-col">
+    <div className="min-h-screen bg-slate-100/60 flex flex-col pb-20 lg:pb-0">
       <Navbar />
 
       <div className="max-w-[1700px] w-full mx-auto flex flex-1">
@@ -250,6 +250,9 @@ export default async function FeedPage() {
           activeListingsCount={products?.length || 0}
         />
       </div>
+
+      {/* Mobile Navigation Dock */}
+      <MobileNav profile={userProfile} />
     </div>
   )
 }
