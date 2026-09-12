@@ -17,7 +17,7 @@ export function CompareButton({ product }: { product: ProductItem }) {
       className={`gap-1.5 text-xs ${isCompared ? 'border-blue-600 text-blue-600 bg-blue-50' : ''}`}
     >
       {isCompared ? <Check className="w-3.5 h-3.5" /> : <Scale className="w-3.5 h-3.5" />}
-      {isCompared ? 'In Compare Tray' : 'Compare Specs[cite: 1]'}
+      {isCompared ? 'In Compare Tray' : 'Compare Specs'}
     </Button>
   )
 }

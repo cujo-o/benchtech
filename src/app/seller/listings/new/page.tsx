@@ -131,7 +131,7 @@ export default function NewListingPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Add New Technology Listing</h1>
-        <p className="text-sm text-slate-500 mt-1">Provide clear specifications and condition details for buyers[cite: 1].</p>
+        <p className="text-sm text-slate-500 mt-1">Provide clear specifications and condition details for buyers.</p>
       </div>
 
       {errorMessage && (
@@ -145,7 +145,7 @@ export default function NewListingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Product Details</CardTitle>
-            <CardDescription>Select the exact category to load device-specific fields[cite: 1].</CardDescription>
+            <CardDescription>Select the exact category to load device-specific fields.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -206,7 +206,7 @@ export default function NewListingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Technical Specifications ({selectedCategory})</CardTitle>
-            <CardDescription>These details power the platform comparison matrix[cite: 1].</CardDescription>
+            <CardDescription>These details power the platform comparison matrix.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {selectedCategory === 'phones' && (
@@ -277,7 +277,7 @@ export default function NewListingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Product Images</CardTitle>
-            <CardDescription>Photos are automatically compressed before upload to preserve bandwidth[cite: 1].</CardDescription>
+            <CardDescription>Photos are automatically compressed before upload to preserve bandwidth.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-slate-50 transition cursor-pointer relative">
