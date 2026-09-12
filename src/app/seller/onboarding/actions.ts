@@ -19,23 +19,30 @@ export async function createSellerAccount(formData: FormData) {
     return { error: 'Please provide both your business name and contact phone number.' }
   }
 
+  // Use upsert so missing profile rows are created immediately
   const { error } = await supabase
     .from('profiles')
-    .update({
-      business_name: businessName.trim(),
-      phone: phone.trim(),
-      city: 'Abuja',
-      district: district,
-      role: 'seller',
-      tech_trust_status: 'unverified',
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', user.id)
+    .upsert(
+      {
+        id: user.id,
+        email: user.email,
+        business_name: businessName.trim(),
+        phone: phone.trim(),
+        city: 'Abuja',
+        district: district,
+        role: 'seller',
+        tech_trust_status: 'unverified',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    )
 
   if (error) {
+    console.error('Seller onboarding error:', error)
     return { error: error.message }
   }
 
+  revalidatePath('/', 'layout')
   revalidatePath('/seller/dashboard')
   revalidatePath('/feed')
   return { success: true }

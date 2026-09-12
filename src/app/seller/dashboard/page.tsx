@@ -7,6 +7,7 @@ import { PackagePlus, Boxes, Eye, ShieldCheck, ArrowUpRight } from 'lucide-react
 
 export default async function SellerDashboard() {
  // Inside src/app/seller/dashboard/page.tsx
+// Inside src/app/seller/dashboard/page.tsx
 const supabase = await createClient()
 const { data: { user } } = await supabase.auth.getUser()
 
@@ -18,9 +19,9 @@ const { data: profile } = await supabase
   .from('profiles')
   .select('*')
   .eq('id', user.id)
-  .single()
+  .maybeSingle()
 
-// If user has not set up their store profile yet, redirect to onboarding
+// If user does not have a registered store yet, redirect to onboarding
 if (!profile?.business_name) {
   redirect('/seller/onboarding')
 }
