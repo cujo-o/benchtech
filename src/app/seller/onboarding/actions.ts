@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 export async function createSellerAccount(formData: FormData) {
@@ -9,15 +8,15 @@ export async function createSellerAccount(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/login?next=/seller/onboarding')
+    return { error: 'You must be logged in to register a store.' }
   }
 
   const businessName = formData.get('businessName') as string
   const phone = formData.get('phone') as string
-  const district = (formData.get('district') as string) || 'Central Business District'
+  const district = (formData.get('district') as string) || 'Wuse 2'
 
-  if (!businessName || !phone) {
-    return { error: 'Please enter your business/store name and WhatsApp phone number.' }
+  if (!businessName?.trim() || !phone?.trim()) {
+    return { error: 'Please provide both your business name and contact phone number.' }
   }
 
   const { error } = await supabase
@@ -39,5 +38,5 @@ export async function createSellerAccount(formData: FormData) {
 
   revalidatePath('/seller/dashboard')
   revalidatePath('/feed')
-  redirect('/seller/dashboard')
+  return { success: true }
 }

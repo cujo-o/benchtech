@@ -1,33 +1,38 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createSellerAccount } from './actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Store, ShieldCheck, MapPin, Phone, ArrowRight } from 'lucide-react'
+import { Store, ShieldCheck, MapPin, Phone, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 
-export default async function SellerOnboardingPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+export default function SellerOnboardingPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  if (!user) {
-    redirect('/login?next=/seller/onboarding')
-  }
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setLoading(true)
+    setErrorMsg(null)
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, business_name')
-    .eq('id', user.id)
-    .single()
+    const formData = new FormData(e.currentTarget)
+    const result = await createSellerAccount(formData)
 
-  // If already onboarded, forward to dashboard
-  if (profile?.role === 'seller' && profile?.business_name) {
-    redirect('/seller/dashboard')
+    if (result?.error) {
+      setErrorMsg(result.error)
+      setLoading(false)
+    } else {
+      router.push('/seller/dashboard')
+      router.refresh()
+    }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-[80vh] flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-1.5">
@@ -39,6 +44,13 @@ export default async function SellerOnboardingPage() {
             Start listing gadgets to prospective buyers across Abuja today.
           </p>
         </div>
+
+        {errorMsg && (
+          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         {/* Card Form */}
         <Card className="border border-slate-200/80 shadow-sm rounded-3xl bg-white overflow-hidden">
@@ -53,12 +65,7 @@ export default async function SellerOnboardingPage() {
           </CardHeader>
 
           <CardContent className="p-6">
-            <form
-              action={async (formData: FormData) => {
-                await createSellerAccount(formData)
-              }}
-              className="space-y-4"
-            >
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="businessName" className="text-xs font-bold text-slate-700">
                   Store / Brand Name <span className="text-red-500">*</span>
@@ -116,9 +123,19 @@ export default async function SellerOnboardingPage() {
               <div className="pt-2">
                 <Button
                   type="submit"
+                  disabled={loading}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-10 rounded-xl gap-2 shadow-sm"
                 >
-                  Complete Store Setup <ArrowRight className="w-3.5 h-3.5" />
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Setting Up Store...
+                    </>
+                  ) : (
+                    <>
+                      Complete Store Setup <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
                 </Button>
               </div>
             </form>
