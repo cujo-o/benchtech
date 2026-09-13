@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
@@ -16,6 +17,8 @@ import {
 } from 'lucide-react'
 import { signOut } from '@/app/(auth)/actions'
 import { Button } from '@/components/ui/button'
+import { createBrowserClient } from '@supabase/ssr'
+import { playNotificationTone } from '@/lib/notificationSound'
 
 const NAV_ITEMS = [
   { label: 'Overview', href: '/seller/dashboard', icon: LayoutDashboard },
@@ -30,9 +33,46 @@ const NAV_ITEMS = [
 
 export function SellerSidebar({ profile }: { profile: any }) {
   const pathname = usePathname()
+  const [unreadCount, setUnreadCount] = useState<number>(0)
+  const previousCountRef = useRef<number>(0)
+  const isInitialLoad = useRef<boolean>(true)
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    if (!profile?.id) return
+
+    const checkUnread = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('enquiries')
+          .select('*', { count: 'exact', head: true })
+          .eq('seller_id', profile.id)
+          .eq('status', 'new')
+
+        if (!error && count !== null) {
+          if (!isInitialLoad.current && count > previousCountRef.current) {
+            playNotificationTone()
+          }
+          previousCountRef.current = count
+          setUnreadCount(count)
+        }
+        isInitialLoad.current = false
+      } catch {
+        // Silently handle temporary network hiccups
+      }
+    }
+
+    checkUnread()
+    const interval = setInterval(checkUnread, 5000)
+    return () => clearInterval(interval)
+  }, [profile?.id, supabase])
 
   return (
-    <aside className="w-full lg:w-64 bg-white border-r border-slate-200/80 flex flex-col shrink-0">
+    <aside className="w-full lg:w-64 bg-white border-r border-slate-200/80 flex flex-col shrink-0 min-h-[calc(100vh-4rem)]">
       {/* Brand Header */}
       <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between">
         <Link href="/seller/dashboard" className="flex items-center gap-2 font-black text-xl text-blue-600">
@@ -72,19 +112,29 @@ export function SellerSidebar({ profile }: { profile: any }) {
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
+          const isEnquiries = item.href === '/seller/enquiries'
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl transition ${
+              className={`flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition ${
                 isActive
                   ? 'bg-blue-50 text-blue-600 font-bold shadow-sm'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
-              {item.label}
+              <div className="flex items-center gap-3">
+                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                <span>{item.label}</span>
+              </div>
+
+              {/* Integrated Unread Badge on Buyer Enquiries Tab */}
+              {isEnquiries && unreadCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Link>
           )
         })}
