@@ -100,7 +100,7 @@ export default function RegisterPage() {
                     T
                   </div>
                   <span className="text-xl font-extrabold tracking-tight text-white">
-                    TechMart
+                    BenchTech
                   </span>
                 </Link>
 

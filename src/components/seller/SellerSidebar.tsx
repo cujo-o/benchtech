@@ -79,7 +79,7 @@ export function SellerSidebar({ profile }: { profile: any }) {
           <span className="bg-blue-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-sm shadow-sm">
             T
           </span>
-          TechMart <span className="text-[10px] font-bold tracking-wider px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md">SELLER</span>
+          BenchTech <span className="text-[10px] font-bold tracking-wider px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md">SELLER</span>
         </Link>
       </div>
 

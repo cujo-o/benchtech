@@ -94,7 +94,7 @@ export default async function SellerProfilePage({
           {/* Quick Contact Action */}
           {formattedPhone && (
             <a
-              href={`https://wa.me/${formattedPhone}?text=Hello%20${encodeURIComponent(seller.business_name || 'Seller')},%20I%20saw%20your%20store%20on%20TechMart.`}
+              href={`https://wa.me/${formattedPhone}?text=Hello%20${encodeURIComponent(seller.business_name || 'Seller')},%20I%20saw%20your%20store%20on%20BenchTech.`}
               target="_blank"
               rel="noopener noreferrer"
             >

@@ -24,7 +24,7 @@ export default function SellerSupportPage() {
     },
     {
       q: 'Why are technical specifications required for listings?',
-      a: 'TechMart features a comparison engine. Filling in hardware attributes (like battery health, storage, and RAM) allows buyers to compare items directly.',
+      a: 'BenchTech features a comparison engine. Filling in hardware attributes (like battery health, storage, and RAM) allows buyers to compare items directly.',
     },
     {
       q: 'How do I mark an item as sold?',
@@ -51,7 +51,7 @@ export default function SellerSupportPage() {
             <h3 className="text-sm font-bold text-slate-900">WhatsApp Support</h3>
             <p className="text-xs text-slate-500">Reach the admin team directly for merchant issues.</p>
             <a
-              href="https://wa.me/2348000000000?text=Hello%20TechMart%20Support,%20I%20need%20assistance%20with%20my%20seller%20account"
+              href="https://wa.me/2347078322733?text=Hello%20BenchTech%20Support,%20I%20need%20assistance%20with%20my%20seller%20account"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block pt-1"
@@ -70,7 +70,7 @@ export default function SellerSupportPage() {
             </div>
             <h3 className="text-sm font-bold text-slate-900">Email Support</h3>
             <p className="text-xs text-slate-500">Submit requests regarding account changes or disputes.</p>
-            <a href="mailto:support@techmart.ng" className="inline-block pt-1">
+            <a href="mailto:support@BenchTech.ng" className="inline-block pt-1">
               <Button size="sm" variant="outline" className="text-xs h-8 gap-1.5 border-slate-200 text-slate-700">
                 Send Email <ExternalLink className="w-3 h-3" />
               </Button>

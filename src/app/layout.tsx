@@ -10,7 +10,7 @@ const font = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'TechMart | Buy & Sell Technology in Abuja',
+  title: 'BenchTech | Buy & Sell Technology in Abuja',
   description: 'Verified gadget marketplace for phones, laptops, and electronics.',
 }
 

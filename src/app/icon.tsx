@@ -12,7 +12,7 @@ export default function Icon() {
       <div
         style={{
           fontSize: 20,
-          background: '#2563eb', // TechMart Royal Blue
+          background: '#2563eb', // BenchTech Royal Blue
           width: '100%',
           height: '100%',
           display: 'flex',

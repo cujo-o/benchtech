@@ -109,7 +109,7 @@ export default function SellerVerificationPage() {
     if (res?.error) {
       setMessage({ type: 'error', text: res.error })
     } else {
-      setMessage({ type: 'success', text: 'Documents submitted successfully! TechMart review will be completed in 24 hours.' })
+      setMessage({ type: 'success', text: 'Documents submitted successfully! BenchTech review will be completed in 24 hours.' })
       setProfile((prev: any) => ({ ...prev, tech_trust_status: 'pending' }))
     }
     setLoading(false)
@@ -154,7 +154,7 @@ export default function SellerVerificationPage() {
             <div>
               <p className="text-sm font-bold">Verification Under Compliance Review</p>
               <p className="text-xs text-amber-700 mt-0.5">
-                Your submitted credentials are being reviewed by the TechMart Abuja verification desk. Status will update within 24 hours.
+                Your submitted credentials are being reviewed by the BenchTech Abuja verification desk. Status will update within 24 hours.
               </p>
             </div>
           </CardContent>

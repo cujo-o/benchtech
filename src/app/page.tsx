@@ -48,7 +48,7 @@ export default async function LandingGatewayPage() {
               T
             </div>
             <div>
-              <span className="font-black text-lg text-white tracking-tight leading-none block">TechMart</span>
+              <span className="font-black text-lg text-white tracking-tight leading-none block">BenchTech</span>
               <span className="text-[9px] text-slate-400 font-semibold tracking-wider block">Buy Smart. Sell Easy.</span>
             </div>
           </Link>
@@ -265,7 +265,7 @@ export default async function LandingGatewayPage() {
       {/* Footer CTA */}
       <footer className="mt-auto border-t border-white/10 py-10 px-6 bg-slate-900/60">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-          <p>© 2026 TechMart. Buy Smart. Sell Easy.</p>
+          <p>© 2026 BenchTech. Buy Smart. Sell Easy.</p>
           <div className="flex items-center gap-4">
             <Link href="/login" className="hover:text-white transition">Sign In</Link>
             <Link href="/register" className="hover:text-white transition">Create Account</Link>

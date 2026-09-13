@@ -39,7 +39,7 @@ export default function SellerOnboardingPage() {
           <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white font-black flex items-center justify-center mx-auto shadow-md shadow-blue-500/20 text-lg">
             T
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Open Your TechMart Store</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Open Your BenchTech Store</h1>
           <p className="text-xs text-slate-500">
             Start listing gadgets to prospective buyers across Abuja today.
           </p>

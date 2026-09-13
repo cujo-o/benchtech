@@ -108,7 +108,7 @@ export function BuyerRightSidebar({
           </div>
           <div>
             <h4 className="text-sm font-bold text-slate-900">
-              Welcome to TechMart
+              Welcome to BenchTech
             </h4>
             <p className="text-xs text-slate-500 mt-1">
               Sign in to manage enquiries, list technology, and access seller

@@ -41,7 +41,7 @@ export default async function ProductDetailPage({
     : null
 
   const whatsappMessage = encodeURIComponent(
-    `Hello ${seller?.business_name || 'Vendor'}, I found your listing for "${product.title}" on TechMart Abuja and I am interested in purchasing.`
+    `Hello ${seller?.business_name || 'Vendor'}, I found your listing for "${product.title}" on BenchTech Abuja and I am interested in purchasing.`
   )
 
   return (
@@ -138,7 +138,7 @@ export default async function ProductDetailPage({
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-xs text-slate-900 group-hover:text-blue-600 transition">
-                          {seller.business_name || seller.full_name || 'TechMart Seller'}
+                          {seller.business_name || seller.full_name || 'BenchTech Seller'}
                         </span>
                         {isVerified && (
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />

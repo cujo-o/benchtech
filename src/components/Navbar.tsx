@@ -47,7 +47,7 @@ export async function Navbar() {
             </div>
             <div>
               <span className="font-black text-lg text-slate-900 tracking-tight leading-none block">
-                TechMart
+                BenchTech
               </span>
               <span className="text-[9px] text-slate-400 font-semibold tracking-wider hidden sm:block">
                 Buy Smart. Sell Easy.

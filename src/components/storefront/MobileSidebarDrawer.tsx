@@ -97,7 +97,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
               T
             </div>
             <div>
-              <span className="font-black text-base text-slate-900 tracking-tight leading-none block">TechMart</span>
+              <span className="font-black text-base text-slate-900 tracking-tight leading-none block">BenchTech</span>
               <span className="text-[9px] text-slate-400 font-semibold tracking-wider block">Abuja Tech Hub</span>
             </div>
           </div>
@@ -170,7 +170,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
 
         {/* Footer info */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-400 text-center">
-          TechMart Abuja • Buy Smart. Sell Easy.
+          BenchTech Abuja • Buy Smart. Sell Easy.
         </div>
       </div>
     </div>

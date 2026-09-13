@@ -59,7 +59,7 @@ export default function LoginPage() {
                 T
               </div>
               <span className="font-extrabold text-xl text-slate-900 tracking-tight">
-                TechMart
+                BenchTech
               </span>
             </Link>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">

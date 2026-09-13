@@ -201,7 +201,7 @@ export default async function AdminLayout({
               </div>
               <div>
                 <h1 className="font-black text-white text-base leading-none tracking-tight">
-                  TechMart
+                  BenchTech
                 </h1>
                 <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider block mt-1">
                   Admin Control Centre
