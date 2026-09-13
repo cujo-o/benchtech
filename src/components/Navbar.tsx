@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/(auth)/actions";
 import { MobileSidebarDrawer } from "@/components/storefront/MobileSidebarDrawer";
 import { Button } from "@/components/ui/button";
+import { BenchTechLogo } from "@/components/BenchTechLogo";
 import {
   Search,
   MapPin,
@@ -41,10 +42,11 @@ export async function Navbar() {
           {/* Mobile Sidebar Trigger (Visible on mobile only) */}
           <MobileSidebarDrawer profile={profile} />
 
-          <Link href={user ? "/feed" : "/"} className="flex items-center gap-2">
-            <div className="bg-blue-600 text-white w-8 h-8 rounded-xl flex items-center justify-center font-black text-base shadow-sm shadow-blue-500/30">
-              T
-            </div>
+          <Link
+            href={user ? "/feed" : "/"}
+            className="flex items-center gap-2.5"
+          >
+            <BenchTechLogo size={34} />
             <div>
               <span className="font-black text-lg text-slate-900 tracking-tight leading-none block">
                 BenchTech
