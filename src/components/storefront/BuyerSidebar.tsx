@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { playNotificationTone } from "@/lib/notificationSound";
 import {
@@ -37,30 +37,53 @@ export function BuyerSidebar() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
-  // 1. Sync Saved Items Count from LocalStorage / Storage Events
-  const updateSavedCount = () => {
+  // 1. Sync Saved Items Count across local stores
+  const updateSavedCount = useCallback(() => {
     try {
-      const stored = localStorage.getItem("techmart-compare-storage");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setSavedCount(parsed?.state?.items?.length || 0);
-      } else {
-        setSavedCount(0);
+      // Check Zustand compare store
+      const compareRaw = localStorage.getItem("techmart-compare-storage");
+      if (compareRaw) {
+        const parsed = JSON.parse(compareRaw);
+        const items = parsed?.state?.items || parsed?.items || [];
+        if (items.length > 0) {
+          setSavedCount(items.length);
+          return;
+        }
       }
+
+      // Check generic saved store
+      const savedRaw =
+        localStorage.getItem("techmart_saved_items") ||
+        localStorage.getItem("techmart_saved");
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (Array.isArray(parsed)) {
+          setSavedCount(parsed.length);
+          return;
+        }
+      }
+
+      setSavedCount(0);
     } catch {
       setSavedCount(0);
     }
-  };
+  }, []);
 
-  // 2. Fetch Unread Inquiries & Replies for the current Buyer
-  const checkUnreadMessages = async () => {
+  // 2. Fetch truly unread messages
+  const checkUnreadMessages = useCallback(async () => {
     try {
+      // If user is actively on the messages page, unread is zero
+      if (pathname === "/messages") {
+        setUnreadMessages(0);
+        previousUnreadRef.current = 0;
+        return;
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Find all inquiries initiated by this buyer
       const { data: userEnquiries } = await supabase
         .from("enquiries")
         .select("id")
@@ -69,12 +92,13 @@ export function BuyerSidebar() {
       const enquiryIds = userEnquiries?.map((e) => e.id) || [];
 
       if (enquiryIds.length > 0) {
-        // Count all replies where the sender is not the buyer (i.e. incoming vendor responses)
+        // Only count replies that haven't been read yet
         const { count, error } = await supabase
           .from("enquiry_replies")
           .select("*", { count: "exact", head: true })
           .in("enquiry_id", enquiryIds)
-          .neq("sender_id", user.id);
+          .neq("sender_id", user.id)
+          .eq("is_read", false);
 
         if (!error && count !== null) {
           if (!isInitialLoad.current && count > previousUnreadRef.current) {
@@ -83,28 +107,34 @@ export function BuyerSidebar() {
           previousUnreadRef.current = count;
           setUnreadMessages(count);
         }
+      } else {
+        setUnreadMessages(0);
       }
       isInitialLoad.current = false;
     } catch {
-      // Quiet fail on network hiccups
+      // Ignore transient fetch errors
     }
-  };
+  }, [pathname, supabase]);
 
   useEffect(() => {
     updateSavedCount();
     checkUnreadMessages();
 
-    // Listen for storage changes across tabs or in-page updates
-    window.addEventListener("storage", updateSavedCount);
+    const handleCustomSync = () => {
+      updateSavedCount();
+    };
 
-    // Poll for new incoming replies every 5 seconds
+    window.addEventListener("storage", handleCustomSync);
+    window.addEventListener("savedItemsUpdated", handleCustomSync);
+
     const interval = setInterval(checkUnreadMessages, 5000);
 
     return () => {
-      window.removeEventListener("storage", updateSavedCount);
+      window.removeEventListener("storage", handleCustomSync);
+      window.removeEventListener("savedItemsUpdated", handleCustomSync);
       clearInterval(interval);
     };
-  }, [supabase]);
+  }, [checkUnreadMessages, updateSavedCount]);
 
   const NAV_ITEMS = [
     { label: "Home", href: "/feed", icon: Home },
@@ -114,7 +144,7 @@ export function BuyerSidebar() {
       href: "/products?deals=true",
       icon: Flame,
       badge: "Hot",
-      badgeColor: "bg-red-500",
+      badgeColor: "bg-red-500 text-white",
     },
     { label: "TechSpin", href: "#", icon: Disc },
     { label: "TechPass", href: "#", icon: Crown },
@@ -124,7 +154,11 @@ export function BuyerSidebar() {
       href: "/compare",
       icon: Heart,
       badge: savedCount > 0 ? String(savedCount) : undefined,
-      badgeColor: "bg-blue-600",
+      // Contrast fix: white badge with blue text when active, solid blue badge when inactive
+      badgeColor:
+        pathname === "/compare"
+          ? "bg-white text-blue-600 font-black"
+          : "bg-blue-600 text-white",
     },
     {
       label: "Messages",
@@ -136,7 +170,10 @@ export function BuyerSidebar() {
             ? "9+"
             : String(unreadMessages)
           : undefined,
-      badgeColor: "bg-red-500",
+      badgeColor:
+        pathname === "/messages"
+          ? "bg-white text-red-600 font-black"
+          : "bg-red-500 text-white",
     },
     { label: "Recently Viewed", href: "#", icon: Clock },
     { label: "Price Alerts", href: "#", icon: Bell },
@@ -170,7 +207,7 @@ export function BuyerSidebar() {
               </div>
               {item.badge && (
                 <span
-                  className={`text-[10px] text-white font-bold px-2 py-0.5 rounded-full ${item.badgeColor}`}
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm ${item.badgeColor}`}
                 >
                   {item.badge}
                 </span>
@@ -180,7 +217,7 @@ export function BuyerSidebar() {
         })}
       </nav>
 
-      {/* TechPass Banner Card */}
+      {/* TechPass Banner */}
       <div className="bg-gradient-to-b from-slate-900 to-slate-950 text-white rounded-2xl p-4 space-y-3 relative overflow-hidden">
         <div className="w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
           <Crown className="w-4 h-4 text-amber-400" />
