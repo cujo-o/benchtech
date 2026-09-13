@@ -18,18 +18,20 @@ export async function Navbar() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let profile = null;
+  let profile: any = null;
   if (user) {
     const { data } = await supabase
       .from("profiles")
-      .select("id, role, business_name, email")
+      .select("id, role, roles, business_name, email")
       .eq("id", user.id)
       .maybeSingle();
     profile = data;
   }
 
-  const isAdmin = profile?.role === "admin";
-  const isSeller = profile?.role === "seller" || isAdmin;
+  const userRoles: string[] =
+    profile?.roles || (profile?.role ? [profile.role] : ["buyer"]);
+  const isAdmin = userRoles.includes("admin");
+  const isSeller = userRoles.includes("seller") || isAdmin;
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
@@ -104,6 +106,7 @@ export async function Navbar() {
                 </Link>
               )}
 
+              {/* Seller / Onboarding Switch */}
               <Link
                 href={isSeller ? "/seller/dashboard" : "/seller/onboarding"}
               >

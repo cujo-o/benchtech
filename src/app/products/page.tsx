@@ -1,213 +1,195 @@
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/Navbar'
-import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
-import { SaveButton } from '@/components/SaveButton'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { ProductImageGallery } from '@/components/storefront/ProductImageGallery'
+import { EnquiryFormModal } from '@/components/EnquiryFormModal'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Filter, MapPin, Search, ArrowUpDown } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { 
+  ShieldCheck, 
+  MapPin, 
+  Phone, 
+  ChevronRight, 
+  ShieldAlert, 
+  ArrowLeft 
+} from 'lucide-react'
 
-const ABUJA_DISTRICTS = ['All Abuja', 'Banex / Wuse 2', 'Garki', 'Utako', 'Maitama', 'Apo']
-
-export default async function ProductsCatalogPage({
-  searchParams,
+export default async function ProductDetailPage({
+  params,
 }: {
-  searchParams: Promise<{
-    category?: string
-    location?: string
-    condition?: string
-    minPrice?: string
-    maxPrice?: string
-    q?: string
-    sort?: string
-  }>
+  params: Promise<{ id: string }>
 }) {
-  const params = await searchParams
+  const { id } = await params
   const supabase = await createClient()
 
-  let query = supabase
+  const { data: product, error } = await supabase
     .from('products')
-    .select('*, profiles!products_seller_id_fkey(business_name, tech_trust_status)')
-    .eq('status', 'published')
+    .select('*, profiles!products_seller_id_fkey(*)')
+    .eq('id', id)
+    .single()
 
-  if (params.category && params.category !== 'all') {
-    query = query.eq('category', params.category)
+  if (error || !product) {
+    notFound()
   }
 
-  if (params.location && params.location !== 'All Abuja') {
-    query = query.ilike('location', `%${params.location}%`)
-  }
+  const seller = product.profiles
+  const isVerified = seller?.tech_trust_status === 'verified'
 
-  if (params.condition && params.condition !== 'all') {
-    query = query.eq('condition', params.condition)
-  }
+  const formattedWhatsApp = seller?.phone
+    ? seller.phone.replace(/[^0-9]/g, '').replace(/^0/, '234')
+    : null
 
-  if (params.minPrice) {
-    query = query.gte('price', parseFloat(params.minPrice))
-  }
-
-  if (params.maxPrice) {
-    query = query.lte('price', parseFloat(params.maxPrice))
-  }
-
-  if (params.q) {
-    query = query.ilike('title', `%${params.q}%`)
-  }
-
-  if (params.sort === 'price_asc') {
-    query = query.order('price', { ascending: true })
-  } else if (params.sort === 'price_desc') {
-    query = query.order('price', { ascending: false })
-  } else {
-    query = query.order('created_at', { ascending: false })
-  }
-
-  const { data: products } = await query
+  const whatsappMessage = encodeURIComponent(
+    `Hello ${seller?.business_name || 'Vendor'}, I found your listing for "${product.title}" on TechMart Abuja and I am interested in purchasing.`
+  )
 
   return (
-    <div className="min-h-screen bg-slate-100/60 flex flex-col">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <div className="max-w-[1700px] w-full mx-auto flex flex-1">
-        <BuyerSidebar />
+      <main className="max-w-6xl mx-auto px-4 py-6 md:py-10 space-y-8">
+        {/* Breadcrumb / Back */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+          <Link href="/products" className="hover:text-blue-600 flex items-center gap-1">
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Products
+          </Link>
+          <span>/</span>
+          <span className="capitalize">{product.category || 'Hardware'}</span>
+          <span>/</span>
+          <span className="text-slate-900 truncate max-w-xs">{product.title}</span>
+        </div>
 
-        <main className="flex-1 min-w-0 p-6 md:p-8 space-y-6">
-          {/* Header & Search */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-black text-slate-900">Abuja Gadget Catalog</h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Showing {products?.length || 0} hardware items available locally.
-              </p>
-            </div>
+        {/* Balanced 2-Column Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Image Gallery & Description (7 Cols) */}
+          <div className="lg:col-span-7 space-y-6">
+            <ProductImageGallery images={product.images || []} title={product.title} />
 
-            {/* Quick Abuja Area Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-              {ABUJA_DISTRICTS.map((district) => {
-                const isSelected = (params.location || 'All Abuja') === district
-                return (
-                  <Link
-                    key={district}
-                    href={`/products?${new URLSearchParams({ ...params, location: district }).toString()}`}
-                    className={`text-xs px-3 py-1.5 rounded-full font-semibold shrink-0 transition ${
-                      isSelected
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <MapPin className="w-3 h-3 inline mr-1" />
-                    {district}
-                  </Link>
-                )
-              })}
+            {/* Specifications Card */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-4 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Device Specifications</h3>
+              
+              <div className="divide-y divide-slate-100 text-xs">
+                <div className="py-2.5 flex justify-between">
+                  <span className="text-slate-400 font-medium">Brand</span>
+                  <span className="font-bold text-slate-800 uppercase">{product.brand || 'N/A'}</span>
+                </div>
+                <div className="py-2.5 flex justify-between">
+                  <span className="text-slate-400 font-medium">Condition</span>
+                  <span className="font-bold text-slate-800 capitalize">{product.condition?.replace('_', ' ') || 'Refurbished'}</span>
+                </div>
+                {product.specs?.processor && (
+                  <div className="py-2.5 flex justify-between">
+                    <span className="text-slate-400 font-medium">Processor</span>
+                    <span className="font-bold text-slate-800">{product.specs.processor}</span>
+                  </div>
+                )}
+                {product.specs?.ram && (
+                  <div className="py-2.5 flex justify-between">
+                    <span className="text-slate-400 font-medium">RAM</span>
+                    <span className="font-bold text-slate-800">{product.specs.ram}</span>
+                  </div>
+                )}
+                {product.specs?.storage && (
+                  <div className="py-2.5 flex justify-between">
+                    <span className="text-slate-400 font-medium">Storage</span>
+                    <span className="font-bold text-slate-800">{product.specs.storage}</span>
+                  </div>
+                )}
+              </div>
+
+              {product.description && (
+                <div className="pt-4 border-t border-slate-100 space-y-1.5">
+                  <p className="text-xs font-bold text-slate-900">Seller Notes</p>
+                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                    {product.description}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Filter Bar */}
-          <form method="GET" className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end">
-            <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase">Search</label>
-              <Input name="q" defaultValue={params.q || ''} placeholder="e.g. iPhone, Dell XPS..." className="h-9 text-xs mt-1" />
-            </div>
+          {/* Right Column: Pricing, CTAs & Clickable Seller Card (5 Cols) */}
+          <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-6 shadow-sm">
+              <div>
+                <Badge className="bg-blue-50 text-blue-700 border-none text-[10px] font-bold uppercase mb-2">
+                  {product.category || 'Tech Listing'}
+                </Badge>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-snug">
+                  {product.title}
+                </h1>
+                <p className="text-3xl font-black text-blue-600 mt-2">
+                  ₦{Number(product.price).toLocaleString()}
+                </p>
+              </div>
 
-            <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase">Category</label>
-              <select name="category" defaultValue={params.category || 'all'} className="w-full h-9 mt-1 px-2.5 rounded-md border border-slate-200 text-xs bg-white">
-                <option value="all">All Categories</option>
-                <option value="phones">Phones</option>
-                <option value="laptops">Laptops</option>
-                <option value="gaming">Gaming</option>
-                <option value="accessories">Accessories</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase">Condition</label>
-              <select name="condition" defaultValue={params.condition || 'all'} className="w-full h-9 mt-1 px-2.5 rounded-md border border-slate-200 text-xs bg-white">
-                <option value="all">Any Condition</option>
-                <option value="brand_new">Brand New</option>
-                <option value="open_box">Open Box</option>
-                <option value="fairly_used">Fairly Used</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase">Sort By</label>
-              <select name="sort" defaultValue={params.sort || 'latest'} className="w-full h-9 mt-1 px-2.5 rounded-md border border-slate-200 text-xs bg-white">
-                <option value="latest">Latest Arrivals</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
-              </select>
-            </div>
-
-            <Button type="submit" size="sm" className="h-9 bg-blue-600 hover:bg-blue-700 text-xs font-bold">
-              <Filter className="w-3.5 h-3.5 mr-1" /> Apply Filters
-            </Button>
-          </form>
-
-          {/* Product Grid */}
-          {products && products.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {products.map((item) => (
-                <div key={item.id} className="relative group">
-                  <SaveButton product={item} />
-                  <Link href={`/products/${item.id}`}>
-                    <Card className="h-full border border-slate-200/80 rounded-2xl overflow-hidden hover:shadow-md transition bg-white flex flex-col">
-                      <div className="aspect-[4/3] bg-slate-50 relative p-3 flex items-center justify-center">
-                        {item.images?.[0] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.images[0]} alt={item.title} className="max-h-full object-contain group-hover:scale-105 transition" />
-                        ) : (
-                          <div className="text-xs text-slate-400">No Image</div>
+              {/* Clickable Seller Profile Card */}
+              {seller && (
+                <Link
+                  href={`/sellers/${seller.id}`}
+                  className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:border-blue-500 hover:bg-blue-50/40 transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-bold text-blue-600 shadow-sm text-sm">
+                      {seller.business_name ? seller.business_name[0].toUpperCase() : 'S'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-slate-900 group-hover:text-blue-600 transition">
+                          {seller.business_name || seller.full_name || 'TechMart Seller'}
+                        </span>
+                        {isVerified && (
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         )}
-                        <Badge className="absolute top-2.5 left-2.5 bg-slate-900/80 text-white text-[10px] capitalize">
-                          {item.condition.replace('_', ' ')}
-                        </Badge>
                       </div>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-0.5">
+                        <MapPin className="w-3 h-3 text-slate-400" />
+                        <span>{seller.district ? `${seller.district}, Abuja` : 'Abuja, NG'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition" />
+                </Link>
+              )}
 
-                      <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-2">
-                        <div>
-                          <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                            <MapPin className="w-3 h-3 text-slate-400" />
-                            <span>{item.location || 'Abuja'}</span>
-                          </div>
-                          <h3 className="font-bold text-xs text-slate-900 line-clamp-1 mt-1">{item.title}</h3>
-                          
-                          {item.specs && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {Object.entries(item.specs).slice(0, 2).map(([k, v]) => (
-                                <span key={k} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
-                                  {String(v)}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+              {/* Action Buttons */}
+              <div className="space-y-2.5">
+                {formattedWhatsApp && (
+                  <a
+                    href={`https://wa.me/${formattedWhatsApp}?text=${whatsappMessage}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full block"
+                  >
+                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 text-xs rounded-xl shadow-sm gap-2">
+                      <Phone className="w-4 h-4" /> Contact Seller on WhatsApp
+                    </Button>
+                  </a>
+                )}
 
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                          <p className="text-sm font-black text-slate-900">₦{Number(item.price).toLocaleString()}</p>
-                          {item.profiles?.tech_trust_status === 'verified' && (
-                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px]">Verified Store</Badge>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                <EnquiryFormModal
+                  productId={product.id}
+                  sellerId={seller?.id ?? ''}
+                  productTitle={product.title}
+                />
+              </div>
+
+              {/* Trust & Inspection Guarantee */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2 text-slate-600 text-xs">
+                <div className="flex items-center gap-2 font-bold text-slate-900">
+                  <ShieldAlert className="w-4 h-4 text-blue-600" />
+                  TechTrust Buyer Shield
                 </div>
-              ))}
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  Inspect the physical device in a secure location in Abuja before finalizing payments. Never send deposit funds without mutual agreement.
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
-              <p className="text-xs text-slate-500">No gadgets match your selected filters in Abuja.</p>
-              <Link href="/products">
-                <Button size="sm" variant="outline" className="mt-3 text-xs">Reset All Filters</Button>
-              </Link>
-            </div>
-          )}
-        </main>
-      </div>
+          </div>
+        </div>
+      </main>
     </div>
   )
 }

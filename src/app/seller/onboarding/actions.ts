@@ -19,7 +19,20 @@ export async function createSellerAccount(formData: FormData) {
     return { error: 'Please provide both your business name and contact phone number.' }
   }
 
-  // Use upsert so missing profile rows are created immediately
+  // 1. Fetch existing profile roles first
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, roles')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  // Retain existing roles and append 'seller'
+  const currentRoles: string[] = profile?.roles || (profile?.role ? [profile.role] : ['buyer'])
+  const updatedRoles = Array.from(new Set([...currentRoles, 'buyer', 'seller']))
+
+  // Keep legacy role as 'admin' if the user was an admin, otherwise set to 'seller'
+  const legacyRole = currentRoles.includes('admin') || profile?.role === 'admin' ? 'admin' : 'seller'
+
   const { error } = await supabase
     .from('profiles')
     .upsert(
@@ -30,7 +43,8 @@ export async function createSellerAccount(formData: FormData) {
         phone: phone.trim(),
         city: 'Abuja',
         district: district,
-        role: 'seller',
+        role: legacyRole,
+        roles: updatedRoles,
         tech_trust_status: 'unverified',
         updated_at: new Date().toISOString(),
       },
