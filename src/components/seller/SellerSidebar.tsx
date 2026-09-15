@@ -8,6 +8,8 @@ import {
   Boxes, 
   PackagePlus, 
   MessageSquare, 
+  ClipboardList,
+  Sparkles,
   BarChart3, 
   Settings, 
   HelpCircle, 
@@ -21,13 +23,16 @@ import { Button } from '@/components/ui/button'
 import { createBrowserClient } from '@supabase/ssr'
 import { playNotificationTone } from '@/lib/notificationSound'
 
+// Section 13 Seller Navigation Items
 const NAV_ITEMS = [
   { label: 'Overview', href: '/seller/dashboard', icon: LayoutDashboard },
   { label: 'Inventory & Listings', href: '/seller/listings', icon: Boxes },
   { label: 'Add New Listing', href: '/seller/listings/new', icon: PackagePlus },
+  { label: 'Orders & Requests', href: '/seller/orders', icon: ClipboardList },
   { label: 'Buyer Enquiries', href: '/seller/enquiries', icon: MessageSquare },
+  { label: 'Promotions', href: '/seller/promotions', icon: Sparkles },
   { label: 'Store Verification', href: '/seller/verify', icon: ShieldCheck },
-  { name: 'Subscription & Billing', href: '/seller/subscription', icon: CreditCard },
+  { label: 'Subscription & Billing', href: '/seller/subscription', icon: CreditCard },
   { label: 'Analytics', href: '/seller/analytics', icon: BarChart3 },
   { label: 'Store Settings', href: '/seller/settings', icon: Settings },
   { label: 'Help & Support', href: '/seller/support', icon: HelpCircle },

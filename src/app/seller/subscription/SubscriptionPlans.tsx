@@ -74,7 +74,7 @@ export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps
           Store Subscription & Visibility
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
-          Select a plan to preview its capacity benefits and upgrade your seller tier in Abuja[cite: 1].
+          Select a plan to preview its capacity benefits and upgrade your seller tier in Abuja.
         </p>
       </div>
 
@@ -113,7 +113,7 @@ export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps
                 Selected for Preview
               </span>
               <div className="text-base font-black text-blue-600 capitalize">
-                {selectedPlan.name} Plan (₦{selectedPlan.price.toLocaleString()}/mo)[cite: 1]
+                {selectedPlan.name} Plan (₦{selectedPlan.price.toLocaleString()}/mo)
               </div>
             </div>
           )}
@@ -128,7 +128,7 @@ export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps
               {selectedPlanKey !== activePlanKey && (
                 <>
                   <ArrowRight className="w-3.5 h-3.5 text-blue-600" />
-                  <span className="text-blue-600 font-black">{selectedPlan.maxListings} slots[cite: 1]</span>
+                  <span className="text-blue-600 font-black">{selectedPlan.maxListings} slots</span>
                 </>
               )}
             </div>
@@ -141,7 +141,7 @@ export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps
               {selectedPlanKey !== activePlanKey && (
                 <>
                   <ArrowRight className="w-3.5 h-3.5 text-blue-600" />
-                  <span className="text-blue-600 font-black">{selectedPlan.maxImages} photos[cite: 1]</span>
+                  <span className="text-blue-600 font-black">{selectedPlan.maxImages} photos</span>
                 </>
               )}
             </div>
@@ -155,7 +155,7 @@ export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps
                 <>
                   <ArrowRight className="w-3.5 h-3.5 text-blue-600" />
                   <span className="text-blue-600 font-black">
-                    +₦{selectedPlan.promoCredits.toLocaleString()}[cite: 1]
+                    +₦{selectedPlan.promoCredits.toLocaleString()}
                   </span>
                 </>
               )}
@@ -208,7 +208,7 @@ export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps
                   <span className="text-3xl font-black text-slate-900">
                     ₦{plan.price.toLocaleString()}
                   </span>
-                  <span className="text-xs text-slate-400 font-bold"> / month[cite: 1]</span>
+                  <span className="text-xs text-slate-400 font-bold"> / month</span>
                 </div>
 
                 <ul className="space-y-2.5 pt-4 border-t border-slate-100">

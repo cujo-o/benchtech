@@ -38,15 +38,15 @@ export default async function SellerOrdersPage() {
           Orders & Buying Requests
         </h1>
         <p className="text-xs text-slate-500 mt-1">
-          Coordinate gadget availability, pickup inspection, and delivery fulfillment with buyers in Abuja[cite: 1].
+          Coordinate gadget availability, pickup inspection, and delivery fulfillment with buyers in Abuja.
         </p>
       </div>
 
       {!requests || requests.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-2">
-          <p className="text-sm font-bold text-slate-800">No buying requests yet[cite: 1].</p>
+          <p className="text-sm font-bold text-slate-800">No buying requests yet.</p>
           <p className="text-xs text-slate-400">
-            Incoming purchase expressions for your published items will appear here[cite: 1].
+            Incoming purchase expressions for your published items will appear here.
           </p>
         </div>
       ) : (

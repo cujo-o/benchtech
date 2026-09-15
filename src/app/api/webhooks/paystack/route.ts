@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         auth: { persistSession: false },
       })
 
-      // 3. Duplicate event / Idempotency protection (Section 30)[cite: 1]
+      // 3. Duplicate event / Idempotency protection (Section 30)
       const { data: existingPayment } = await supabaseAdmin
         .from('payment_records')
         .select('status')
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       }
 
       if (meta?.purpose === 'seller_subscription' && meta?.seller_id) {
-        // Calculate 30-day billing expiration[cite: 1]
+        // Calculate 30-day billing expiration
         const expiresAt = new Date()
         expiresAt.setDate(expiresAt.getDate() + 30)
 
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
         const currentCredits = profile?.promotional_credits || 0
         const additionalCredits = Number(meta.promo_credits || 0)
 
-        // 4. Update both subscription_tier and subscription_plan columns[cite: 1]
+        // 4. Update both subscription_tier and subscription_plan columns
         const { data: updatedRows, error: profileError } = await supabaseAdmin
           .from('profiles')
           .update({
@@ -101,14 +101,14 @@ export async function POST(request: Request) {
           console.warn(`No profile row matched id: ${meta.seller_id}. Verify profiles.id matches auth.users.id.`)
         }
 
-        // 5. Upsert payment audit record (Section 30)[cite: 1]
+        // 5. Upsert payment audit record (Section 30)
         await supabaseAdmin.from('payment_records').upsert(
           {
             paystack_reference: data.reference,
             user_id: meta.seller_id,
             payment_purpose: 'seller_subscription',
             plan_tier: meta.plan_key,
-            amount: data.amount / 100, // Convert Kobo to NGN[cite: 1]
+            amount: data.amount / 100, // Convert Kobo to NGN
             currency: data.currency || 'NGN',
             status: 'successful',
             channel: data.channel,

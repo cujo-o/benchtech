@@ -60,7 +60,7 @@ export default async function SellerDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Seller Dashboard</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Manage your technology catalogue, listing visibility, and orders in Abuja[cite: 1].
+            Manage your technology catalogue, listing visibility, and orders in Abuja.
           </p>
         </div>
         <Link href="/seller/listings/new">
@@ -86,7 +86,7 @@ export default async function SellerDashboard() {
               <p className="text-[11px] text-amber-700 mt-0.5">
                 {profile?.tech_trust_status === 'pending'
                   ? 'We are reviewing your uploaded documents. Approval usually takes under 24 hours.'
-                  : 'Complete TechTrust verification to earn the verified badge and boost buyer inquiries[cite: 1].'}
+                  : 'Complete TechTrust verification to earn the verified badge and boost buyer inquiries.'}
               </p>
             </div>
           </div>
@@ -242,7 +242,7 @@ export default async function SellerDashboard() {
           </div>
         ) : (
           <div className="p-8 text-center">
-            <p className="text-sm text-slate-500">You have no listings yet[cite: 1].</p>
+            <p className="text-sm text-slate-500">You have no listings yet.</p>
             <Link href="/seller/listings/new">
               <Button size="sm" className="mt-3 bg-blue-600 hover:bg-blue-700 font-bold">
                 Create First Listing

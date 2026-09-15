@@ -14,7 +14,7 @@ export function OrderStatusTracker({ currentStatus }: { currentStatus: string })
   if (currentStatus === 'cancelled') {
     return (
       <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-200">
-        <XCircle className="w-4 h-4" /> This order request has been cancelled[cite: 1].
+        <XCircle className="w-4 h-4" /> This order request has been cancelled.
       </div>
     )
   }

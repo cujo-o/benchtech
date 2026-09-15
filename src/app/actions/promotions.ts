@@ -27,7 +27,7 @@ export async function boostListingWithCredits(productId: string) {
 
   if (availableCredits < FEATURE_CREDIT_COST) {
     return {
-      error: `Insufficient promotional credits. You need ₦${FEATURE_CREDIT_COST.toLocaleString()} credits (Balance: ₦${availableCredits.toLocaleString()})[cite: 1].`,
+      error: `Insufficient promotional credits. You need ₦${FEATURE_CREDIT_COST.toLocaleString()} credits (Balance: ₦${availableCredits.toLocaleString()}).`,
     }
   }
 
