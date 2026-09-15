@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { SELLER_PLANS } from '@/lib/plans'
 import { initiateSubscriptionUpgrade } from '@/app/actions/subscription'
 import { Button } from '@/components/ui/button'
@@ -12,8 +13,12 @@ interface SubscriptionPlansProps {
 }
 
 export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
   const [loadingTier, setLoadingTier] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
 
   const activePlanKey = profile?.subscription_plan || 'free'
   const expiresAt = profile?.subscription_expires_at
@@ -21,6 +26,24 @@ export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps
         dateStyle: 'medium',
       })
     : null
+
+  // Detect Paystack return and revalidate server data
+  useEffect(() => {
+    const status = searchParams.get('status')
+    const reference = searchParams.get('reference') || searchParams.get('trxref')
+
+    if (status === 'verifying' || reference) {
+      setIsVerifying(true)
+
+      const timer = setTimeout(() => {
+        router.replace('/seller/subscription')
+        router.refresh()
+        setIsVerifying(false)
+      }, 3500)
+
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams, router])
 
   const handleUpgrade = async (planKey: 'standard' | 'professional') => {
     setLoadingTier(planKey)
@@ -54,6 +77,14 @@ export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps
           placement across Abuja.
         </p>
       </div>
+
+      {/* Syncing State Banner */}
+      {isVerifying && (
+        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200/80 text-blue-900 text-xs rounded-2xl font-semibold animate-pulse shadow-sm">
+          <Loader2 className="w-4 h-4 animate-spin text-blue-600 shrink-0" />
+          <span>Confirming payment with Paystack... Syncing your updated seller quotas now.</span>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl font-medium">
@@ -165,7 +196,7 @@ export function SubscriptionPlans({ profile, userEmail }: SubscriptionPlansProps
                 ) : isPaid ? (
                   <Button
                     onClick={() => handleUpgrade(plan.id as 'standard' | 'professional')}
-                    disabled={loadingTier !== null}
+                    disabled={loadingTier !== null || isVerifying}
                     className="w-full text-xs h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2 shadow-sm transition"
                   >
                     {loadingTier === plan.id ? (

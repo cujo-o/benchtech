@@ -6,50 +6,63 @@ import { revalidatePath } from 'next/cache'
 export async function createListing(formData: FormData) {
   const supabase = await createClient()
 
-  // 1. Authenticate user
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { error: 'You must be logged in as a seller to create a listing.' }
+    return { error: 'You must be logged in as an active seller to post gadgets.' }
   }
 
-  // 2. Check active listing quota against seller plan
+  // 1. Fetch vendor plan limits
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('max_listings, max_images_per_listing, subscription_plan')
+    .eq('id', user.id)
+    .single()
+
+  const maxListings = profile?.max_listings || 5
+  const maxImages = profile?.max_images_per_listing || 10
+  const currentPlan = profile?.subscription_plan || 'free'
+
+  // 2. Enforce active listing quota (Section 21)
   const { count: activeCount } = await supabase
     .from('products')
     .select('*', { count: 'exact', head: true })
     .eq('seller_id', user.id)
     .neq('status', 'archived')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('max_listings, subscription_plan')
-    .eq('id', user.id)
-    .single()
-
-  const limit = profile?.max_listings || 5
-
-  if ((activeCount || 0) >= limit) {
+  if ((activeCount || 0) >= maxListings) {
     return {
-      error: `You have reached your limit of ${limit} active listings for the ${
-        profile?.subscription_plan || 'free'
-      } plan. Please upgrade to post more items.`,
+      error: `You have reached your limit of ${maxListings} active listings for the ${currentPlan} plan. Upgrade to Standard or Professional to publish more inventory.`,
+      upgradeRequired: true,
     }
   }
 
-  // 3. Extract form data and insert product
+  // 3. Extract and validate images
+  const images = formData.getAll('images') as string[]
+  if (images.length > maxImages) {
+    return {
+      error: `Your current plan allows up to ${maxImages} images per gadget. Please remove ${images.length - maxImages} image(s).`,
+    }
+  }
+
   const title = formData.get('title') as string
   const price = Number(formData.get('price'))
   const category = formData.get('category') as string
+  const condition = formData.get('condition') as string
   const description = formData.get('description') as string
+  const location = formData.get('location') as string || 'Abuja'
 
   const { data, error } = await supabase.from('products').insert({
     seller_id: user.id,
     title,
     price,
     category,
+    condition,
     description,
+    location,
+    images,
     status: 'published',
   })
 
@@ -57,8 +70,7 @@ export async function createListing(formData: FormData) {
     return { error: error.message }
   }
 
-  revalidatePath('/products')
   revalidatePath('/seller/listings')
-
+  revalidatePath('/products')
   return { success: true }
 }

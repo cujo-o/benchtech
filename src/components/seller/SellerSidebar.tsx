@@ -13,7 +13,8 @@ import {
   HelpCircle, 
   ExternalLink, 
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  CreditCard
 } from 'lucide-react'
 import { signOut } from '@/app/(auth)/actions'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { label: 'Add New Listing', href: '/seller/listings/new', icon: PackagePlus },
   { label: 'Buyer Enquiries', href: '/seller/enquiries', icon: MessageSquare },
   { label: 'Store Verification', href: '/seller/verify', icon: ShieldCheck },
+  { name: 'Subscription & Billing', href: '/seller/subscription', icon: CreditCard },
   { label: 'Analytics', href: '/seller/analytics', icon: BarChart3 },
   { label: 'Store Settings', href: '/seller/settings', icon: Settings },
   { label: 'Help & Support', href: '/seller/support', icon: HelpCircle },
