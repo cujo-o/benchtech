@@ -33,16 +33,16 @@ export async function POST(request: Request) {
       const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
       if (!supabaseUrl || !serviceRoleKey) {
-        console.error('Missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL')
+        console.error('Missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL in environment')
         return NextResponse.json({ message: 'Server configuration error' }, { status: 500 })
       }
 
-      // Initialize admin client to write updates without active user cookies
+      // Initialize admin client with service_role to bypass RLS policies
       const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
         auth: { persistSession: false },
       })
 
-      // 3. Duplicate event / Idempotency protection (Section 30)
+      // 3. Duplicate event / Idempotency protection (Section 30)[cite: 1]
       const { data: existingPayment } = await supabaseAdmin
         .from('payment_records')
         .select('status')
@@ -57,11 +57,11 @@ export async function POST(request: Request) {
       }
 
       if (meta?.purpose === 'seller_subscription' && meta?.seller_id) {
-        // Calculate 30-day billing expiration
+        // Calculate 30-day billing expiration[cite: 1]
         const expiresAt = new Date()
         expiresAt.setDate(expiresAt.getDate() + 30)
 
-        // Fetch profile to accumulate promotional credits
+        // Fetch current promo balance to accumulate new credits
         const { data: profile } = await supabaseAdmin
           .from('profiles')
           .select('promotional_credits')
@@ -71,31 +71,44 @@ export async function POST(request: Request) {
         const currentCredits = profile?.promotional_credits || 0
         const additionalCredits = Number(meta.promo_credits || 0)
 
-        // Upgrade Seller Profile & Quotas
-        const { error: profileError } = await supabaseAdmin
+        // 4. Update both subscription_tier and subscription_plan columns[cite: 1]
+        const { data: updatedRows, error: profileError } = await supabaseAdmin
           .from('profiles')
           .update({
             subscription_plan: meta.plan_key,
+            subscription_tier: meta.plan_key,
             max_listings: Number(meta.max_listings) || 5,
             max_images_per_listing: Number(meta.max_images) || 10,
             promotional_credits: currentCredits + additionalCredits,
             subscription_expires_at: expiresAt.toISOString(),
           })
           .eq('id', meta.seller_id)
+          .select()
+
+        console.log('Paystack Webhook Profile Update:', {
+          sellerId: meta.seller_id,
+          rowsUpdated: updatedRows?.length || 0,
+          updatedData: updatedRows,
+          error: profileError,
+        })
 
         if (profileError) {
-          console.error('Failed to update seller profile:', profileError)
-          return NextResponse.json({ message: 'Profile update failed' }, { status: 500 })
+          console.error('Supabase profile update failed:', profileError)
+          return NextResponse.json({ error: profileError.message }, { status: 500 })
         }
 
-        // Upsert payment audit record
+        if (!updatedRows || updatedRows.length === 0) {
+          console.warn(`No profile row matched id: ${meta.seller_id}. Verify profiles.id matches auth.users.id.`)
+        }
+
+        // 5. Upsert payment audit record (Section 30)[cite: 1]
         await supabaseAdmin.from('payment_records').upsert(
           {
             paystack_reference: data.reference,
             user_id: meta.seller_id,
             payment_purpose: 'seller_subscription',
             plan_tier: meta.plan_key,
-            amount: data.amount / 100, // Convert Kobo back to NGN
+            amount: data.amount / 100, // Convert Kobo to NGN[cite: 1]
             currency: data.currency || 'NGN',
             status: 'successful',
             channel: data.channel,
