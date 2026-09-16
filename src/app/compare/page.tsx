@@ -93,8 +93,12 @@ export default function ComparePage() {
       id: item.id,
       title: item.title,
       price: item.price,
-      image: item.images?.[0] || '',
+      images: item.images || [],
       category: item.category || 'tech',
+      brand: item.brand || '',
+      model: item.model || '',
+      condition: item.condition || '',
+      specs: item.specs || {},
     })
 
     const newIds = [...products.map((p) => p.id), item.id]
