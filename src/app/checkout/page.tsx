@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/store/useCartStore'
@@ -15,6 +15,12 @@ export default function CheckoutPage() {
   const router = useRouter()
   const { items, getSubtotal, clearCart } = useCartStore()
 
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  const [authChecking, setAuthChecking] = useState(true)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -29,10 +35,35 @@ export default function CheckoutPage() {
   const deliveryFee = fulfillmentType === 'delivery' ? 2500 : 0
   const totalAmount = subtotal + deliveryFee
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  // Ensure buyer is authenticated before checking out
+  useEffect(() => {
+    async function verifyUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        router.replace('/login?next=/checkout')
+        return
+      }
+
+      if (user.email) setEmail(user.email)
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, phone, district')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profile?.full_name) setFullName(profile.full_name)
+      if (profile?.phone) setPhone(profile.phone)
+      if (profile?.district) setDistrict(profile.district)
+
+      setAuthChecking(false)
+    }
+
+    verifyUser()
+  }, [supabase, router])
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,6 +75,11 @@ export default function CheckoutPage() {
         data: { user },
       } = await supabase.auth.getUser()
 
+      if (!user) {
+        router.replace('/login?next=/checkout')
+        return
+      }
+
       // 1. Initialize Paystack Transaction via API
       const res = await fetch('/api/checkout/paystack', {
         method: 'POST',
@@ -52,7 +88,7 @@ export default function CheckoutPage() {
           amount: totalAmount,
           email,
           metadata: {
-            buyer_id: user?.id || null,
+            buyer_id: user.id,
             buyer_name: fullName,
             phone,
             delivery_address: `${address}, ${district}, Abuja`,
@@ -81,6 +117,15 @@ export default function CheckoutPage() {
       setErrorMessage(err.message || 'Checkout failed')
       setLoading(false)
     }
+  }
+
+  if (authChecking) {
+    return (
+      <div className="min-h-[500px] flex flex-col items-center justify-center space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <p className="text-xs text-slate-500 font-medium">Securing checkout session...</p>
+      </div>
+    )
   }
 
   if (items.length === 0) {

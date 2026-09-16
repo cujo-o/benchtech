@@ -12,7 +12,16 @@ export async function POST(request: Request) {
     // Amount in Kobo (Amount in NGN * 100)
     const koboAmount = Math.round(Number(amount) * 100)
 
-    const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://shopbenchtech.com'}/orders`
+    // Dynamically detect current domain to prevent cookie domain mismatch
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
+    const proto = request.headers.get('x-forwarded-proto') || 'https'
+    const origin =
+      request.headers.get('origin') ||
+      (host ? `${proto}://${host}` : null) ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      'https://shopbenchtech.com'
+
+    const callbackUrl = `${origin.replace(/\/$/, '')}/orders`
 
     const response = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -34,7 +43,10 @@ export async function POST(request: Request) {
     const data = await response.json()
 
     if (!data.status) {
-      return NextResponse.json({ message: data.message || 'Payment initialization failed' }, { status: 400 })
+      return NextResponse.json(
+        { message: data.message || 'Payment initialization failed' },
+        { status: 400 }
+      )
     }
 
     return NextResponse.json({ authorization_url: data.data.authorization_url }, { status: 200 })
