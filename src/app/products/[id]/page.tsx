@@ -1,48 +1,49 @@
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import { Navbar } from '@/components/Navbar'
-import { ProductImageGallery } from '@/components/storefront/ProductImageGallery'
-import { EnquiryFormModal } from '@/components/EnquiryFormModal'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { 
-  ShieldCheck, 
-  MapPin, 
-  Phone, 
-  ChevronRight, 
-  ShieldAlert, 
-  ArrowLeft 
-} from 'lucide-react'
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { Navbar } from "@/components/Navbar";
+import { ProductImageGallery } from "@/components/storefront/ProductImageGallery";
+import { EnquiryFormModal } from "@/components/EnquiryFormModal";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  ShieldCheck,
+  MapPin,
+  Phone,
+  ChevronRight,
+  ShieldAlert,
+  ArrowLeft,
+} from "lucide-react";
+import { BuyingRequestModal } from "@/components/products/BuyingRequestModal";
 
 export default async function ProductDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = await params
-  const supabase = await createClient()
+  const { id } = await params;
+  const supabase = await createClient();
 
   const { data: product, error } = await supabase
-    .from('products')
-    .select('*, profiles!products_seller_id_fkey(*)')
-    .eq('id', id)
-    .single()
+    .from("products")
+    .select("*, profiles!products_seller_id_fkey(*)")
+    .eq("id", id)
+    .single();
 
   if (error || !product) {
-    notFound()
+    notFound();
   }
 
-  const seller = product.profiles
-  const isVerified = seller?.tech_trust_status === 'verified'
+  const seller = product.profiles;
+  const isVerified = seller?.tech_trust_status === "verified";
 
   const formattedWhatsApp = seller?.phone
-    ? seller.phone.replace(/[^0-9]/g, '').replace(/^0/, '234')
-    : null
+    ? seller.phone.replace(/[^0-9]/g, "").replace(/^0/, "234")
+    : null;
 
   const whatsappMessage = encodeURIComponent(
-    `Hello ${seller?.business_name || 'Vendor'}, I found your listing for "${product.title}" on BenchTech Abuja and I am interested in purchasing.`
-  )
+    `Hello ${seller?.business_name || "Vendor"}, I found your listing for "${product.title}" on BenchTech Abuja and I am interested in purchasing.`,
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -51,57 +52,81 @@ export default async function ProductDetailPage({
       <main className="max-w-6xl mx-auto px-4 py-6 md:py-10 space-y-8">
         {/* Breadcrumb / Back */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-          <Link href="/products" className="hover:text-blue-600 flex items-center gap-1">
+          <Link
+            href="/products"
+            className="hover:text-blue-600 flex items-center gap-1"
+          >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Products
           </Link>
           <span>/</span>
-          <span className="capitalize">{product.category || 'Hardware'}</span>
+          <span className="capitalize">{product.category || "Hardware"}</span>
           <span>/</span>
-          <span className="text-slate-900 truncate max-w-xs">{product.title}</span>
+          <span className="text-slate-900 truncate max-w-xs">
+            {product.title}
+          </span>
         </div>
 
         {/* Balanced 2-Column Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Image Gallery & Description (7 Cols) */}
           <div className="lg:col-span-7 space-y-6">
-            <ProductImageGallery images={product.images || []} title={product.title} />
+            <ProductImageGallery
+              images={product.images || []}
+              title={product.title}
+            />
 
             {/* Specifications Card */}
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-4 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Device Specifications</h3>
-              
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                Device Specifications
+              </h3>
+
               <div className="divide-y divide-slate-100 text-xs">
                 <div className="py-2.5 flex justify-between">
                   <span className="text-slate-400 font-medium">Brand</span>
-                  <span className="font-bold text-slate-800 uppercase">{product.brand || 'N/A'}</span>
+                  <span className="font-bold text-slate-800 uppercase">
+                    {product.brand || "N/A"}
+                  </span>
                 </div>
                 <div className="py-2.5 flex justify-between">
                   <span className="text-slate-400 font-medium">Condition</span>
-                  <span className="font-bold text-slate-800 capitalize">{product.condition?.replace('_', ' ') || 'Refurbished'}</span>
+                  <span className="font-bold text-slate-800 capitalize">
+                    {product.condition?.replace("_", " ") || "Refurbished"}
+                  </span>
                 </div>
                 {product.specs?.processor && (
                   <div className="py-2.5 flex justify-between">
-                    <span className="text-slate-400 font-medium">Processor</span>
-                    <span className="font-bold text-slate-800">{product.specs.processor}</span>
+                    <span className="text-slate-400 font-medium">
+                      Processor
+                    </span>
+                    <span className="font-bold text-slate-800">
+                      {product.specs.processor}
+                    </span>
                   </div>
                 )}
                 {product.specs?.ram && (
                   <div className="py-2.5 flex justify-between">
                     <span className="text-slate-400 font-medium">RAM</span>
-                    <span className="font-bold text-slate-800">{product.specs.ram}</span>
+                    <span className="font-bold text-slate-800">
+                      {product.specs.ram}
+                    </span>
                   </div>
                 )}
                 {product.specs?.storage && (
                   <div className="py-2.5 flex justify-between">
                     <span className="text-slate-400 font-medium">Storage</span>
-                    <span className="font-bold text-slate-800">{product.specs.storage}</span>
+                    <span className="font-bold text-slate-800">
+                      {product.specs.storage}
+                    </span>
                   </div>
                 )}
               </div>
 
               {product.description && (
                 <div className="pt-4 border-t border-slate-100 space-y-1.5">
-                  <p className="text-xs font-bold text-slate-900">Seller Notes</p>
+                  <p className="text-xs font-bold text-slate-900">
+                    Seller Notes
+                  </p>
                   <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
                     {product.description}
                   </p>
@@ -115,7 +140,7 @@ export default async function ProductDetailPage({
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-6 shadow-sm">
               <div>
                 <Badge className="bg-blue-50 text-blue-700 border-none text-[10px] font-bold uppercase mb-2">
-                  {product.category || 'Tech Listing'}
+                  {product.category || "Tech Listing"}
                 </Badge>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-snug">
                   {product.title}
@@ -133,12 +158,16 @@ export default async function ProductDetailPage({
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-bold text-blue-600 shadow-sm text-sm">
-                      {seller.business_name ? seller.business_name[0].toUpperCase() : 'S'}
+                      {seller.business_name
+                        ? seller.business_name[0].toUpperCase()
+                        : "S"}
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-xs text-slate-900 group-hover:text-blue-600 transition">
-                          {seller.business_name || seller.full_name || 'BenchTech Seller'}
+                          {seller.business_name ||
+                            seller.full_name ||
+                            "BenchTech Seller"}
                         </span>
                         {isVerified && (
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -146,7 +175,11 @@ export default async function ProductDetailPage({
                       </div>
                       <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-0.5">
                         <MapPin className="w-3 h-3 text-slate-400" />
-                        <span>{seller.district ? `${seller.district}, Abuja` : 'Abuja, NG'}</span>
+                        <span>
+                          {seller.district
+                            ? `${seller.district}, Abuja`
+                            : "Abuja, NG"}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -169,9 +202,21 @@ export default async function ProductDetailPage({
                   </a>
                 )}
 
+                <div className="space-y-3 pt-4">
+                  <BuyingRequestModal
+                    product={{
+                      id: product.id,
+                      title: product.title,
+                      price: product.price,
+                      seller_id: product.seller_id,
+                      location: product.location,
+                    }}
+                  />
+                </div>
+
                 <EnquiryFormModal
                   productId={product.id}
-                  sellerId={seller?.id ?? ''}
+                  sellerId={seller?.id ?? ""}
                   productTitle={product.title}
                 />
               </div>
@@ -183,7 +228,9 @@ export default async function ProductDetailPage({
                   TechTrust Buyer Shield
                 </div>
                 <p className="text-[11px] leading-relaxed text-slate-500">
-                  Inspect the physical device in a secure location in Abuja before finalizing payments. Never send deposit funds without mutual agreement.
+                  Inspect the physical device in a secure location in Abuja
+                  before finalizing payments. Never send deposit funds without
+                  mutual agreement.
                 </p>
               </div>
             </div>
@@ -191,5 +238,5 @@ export default async function ProductDetailPage({
         </div>
       </main>
     </div>
-  )
+  );
 }

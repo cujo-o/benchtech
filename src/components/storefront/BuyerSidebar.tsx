@@ -1,14 +1,15 @@
-"use client";
+'use client'
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState, useRef, useCallback } from "react";
-import { createBrowserClient } from "@supabase/ssr";
-import { playNotificationTone } from "@/lib/notificationSound";
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
+import { playNotificationTone } from '@/lib/notificationSound'
 import {
   Home,
   Grid,
   Flame,
+  Scale,
   Disc,
   Crown,
   Package,
@@ -23,171 +24,158 @@ import {
   PhoneCall,
   AlertTriangle,
   ArrowRight,
-} from "lucide-react";
+} from 'lucide-react'
 
 export function BuyerSidebar() {
-  const pathname = usePathname();
-  const [unreadMessages, setUnreadMessages] = useState<number>(0);
-  const [savedCount, setSavedCount] = useState<number>(0);
-  const previousUnreadRef = useRef<number>(0);
-  const isInitialLoad = useRef<boolean>(true);
+  const pathname = usePathname()
+  const [unreadMessages, setUnreadMessages] = useState<number>(0)
+  const [savedCount, setSavedCount] = useState<number>(0)
+  const previousUnreadRef = useRef<number>(0)
+  const isInitialLoad = useRef<boolean>(true)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
-  // 1. Sync Saved Items Count across local stores
+  // 1. Sync Saved Items Count from localStorage
   const updateSavedCount = useCallback(() => {
     try {
-      // Check Zustand compare store
-      const compareRaw = localStorage.getItem("techmart-compare-storage");
-      if (compareRaw) {
-        const parsed = JSON.parse(compareRaw);
-        const items = parsed?.state?.items || parsed?.items || [];
-        if (items.length > 0) {
-          setSavedCount(items.length);
-          return;
-        }
-      }
-
-      // Check generic saved store
       const savedRaw =
-        localStorage.getItem("techmart_saved_items") ||
-        localStorage.getItem("techmart_saved");
+        localStorage.getItem('techmart_saved_items') ||
+        localStorage.getItem('techmart_saved') ||
+        localStorage.getItem('benchtech_saved')
+
       if (savedRaw) {
-        const parsed = JSON.parse(savedRaw);
+        const parsed = JSON.parse(savedRaw)
         if (Array.isArray(parsed)) {
-          setSavedCount(parsed.length);
-          return;
+          setSavedCount(parsed.length)
+          return
         }
       }
-
-      setSavedCount(0);
+      setSavedCount(0)
     } catch {
-      setSavedCount(0);
+      setSavedCount(0)
     }
-  }, []);
+  }, [])
 
   // 2. Fetch truly unread messages
   const checkUnreadMessages = useCallback(async () => {
     try {
-      // If user is actively on the messages page, unread is zero
-      if (pathname === "/messages") {
-        setUnreadMessages(0);
-        previousUnreadRef.current = 0;
-        return;
+      if (pathname === '/messages') {
+        setUnreadMessages(0)
+        previousUnreadRef.current = 0
+        return
       }
 
       const {
         data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      } = await supabase.auth.getUser()
+      if (!user) return
 
       const { data: userEnquiries } = await supabase
-        .from("enquiries")
-        .select("id")
-        .eq("buyer_id", user.id);
+        .from('enquiries')
+        .select('id')
+        .eq('buyer_id', user.id)
 
-      const enquiryIds = userEnquiries?.map((e) => e.id) || [];
+      const enquiryIds = userEnquiries?.map((e) => e.id) || []
 
       if (enquiryIds.length > 0) {
-        // Only count replies that haven't been read yet
         const { count, error } = await supabase
-          .from("enquiry_replies")
-          .select("*", { count: "exact", head: true })
-          .in("enquiry_id", enquiryIds)
-          .neq("sender_id", user.id)
-          .eq("is_read", false);
+          .from('enquiry_replies')
+          .select('*', { count: 'exact', head: true })
+          .in('enquiry_id', enquiryIds)
+          .neq('sender_id', user.id)
+          .eq('is_read', false)
 
         if (!error && count !== null) {
           if (!isInitialLoad.current && count > previousUnreadRef.current) {
-            playNotificationTone();
+            playNotificationTone()
           }
-          previousUnreadRef.current = count;
-          setUnreadMessages(count);
+          previousUnreadRef.current = count
+          setUnreadMessages(count)
         }
       } else {
-        setUnreadMessages(0);
+        setUnreadMessages(0)
       }
-      isInitialLoad.current = false;
+      isInitialLoad.current = false
     } catch {
       // Ignore transient fetch errors
     }
-  }, [pathname, supabase]);
+  }, [pathname, supabase])
 
   useEffect(() => {
-    updateSavedCount();
-    checkUnreadMessages();
+    updateSavedCount()
+    checkUnreadMessages()
 
     const handleCustomSync = () => {
-      updateSavedCount();
-    };
+      updateSavedCount()
+    }
 
-    window.addEventListener("storage", handleCustomSync);
-    window.addEventListener("savedItemsUpdated", handleCustomSync);
+    window.addEventListener('storage', handleCustomSync)
+    window.addEventListener('savedItemsUpdated', handleCustomSync)
 
-    const interval = setInterval(checkUnreadMessages, 5000);
+    const interval = setInterval(checkUnreadMessages, 5000)
 
     return () => {
-      window.removeEventListener("storage", handleCustomSync);
-      window.removeEventListener("savedItemsUpdated", handleCustomSync);
-      clearInterval(interval);
-    };
-  }, [checkUnreadMessages, updateSavedCount]);
+      window.removeEventListener('storage', handleCustomSync)
+      window.removeEventListener('savedItemsUpdated', handleCustomSync)
+      clearInterval(interval)
+    }
+  }, [checkUnreadMessages, updateSavedCount])
 
   const NAV_ITEMS = [
-    { label: "Home", href: "/feed", icon: Home },
-    { label: "Shop by Category", href: "/products", icon: Grid },
+    { label: 'Home', href: '/feed', icon: Home },
+    { label: 'Shop by Category', href: '/products', icon: Grid },
     {
-      label: "Deals & Offers",
-      href: "/products?deals=true",
+      label: 'Deals & Offers',
+      href: '/products?deals=true',
       icon: Flame,
-      badge: "Hot",
-      badgeColor: "bg-red-500 text-white",
+      badge: 'Hot',
+      badgeColor: 'bg-red-500 text-white',
     },
-    { label: "TechSpin", href: "#", icon: Disc },
-    { label: "TechPass", href: "#", icon: Crown },
-    { label: "My Orders", href: "#", icon: Package },
+    { label: 'Compare Tech', href: '/compare', icon: Scale },
+    { label: 'TechSpin', href: '/rewards', icon: Disc },
+    { label: 'TechPass', href: '/subscription', icon: Crown },
+    { label: 'My Orders', href: '/orders', icon: Package },
     {
-      label: "Saved Items",
-      href: "/compare",
+      label: 'Saved Items',
+      href: '/saved',
       icon: Heart,
       badge: savedCount > 0 ? String(savedCount) : undefined,
-      // Contrast fix: white badge with blue text when active, solid blue badge when inactive
       badgeColor:
-        pathname === "/compare"
-          ? "bg-white text-blue-600 font-black"
-          : "bg-blue-600 text-white",
+        pathname === '/saved'
+          ? 'bg-white text-blue-600 font-black'
+          : 'bg-blue-600 text-white',
     },
     {
-      label: "Messages",
-      href: "/messages",
+      label: 'Messages',
+      href: '/messages',
       icon: MessageSquare,
       badge:
         unreadMessages > 0
           ? unreadMessages > 9
-            ? "9+"
+            ? '9+'
             : String(unreadMessages)
           : undefined,
       badgeColor:
-        pathname === "/messages"
-          ? "bg-white text-red-600 font-black"
-          : "bg-red-500 text-white",
+        pathname === '/messages'
+          ? 'bg-white text-red-600 font-black'
+          : 'bg-red-500 text-white',
     },
-    { label: "Recently Viewed", href: "#", icon: Clock },
-    { label: "Price Alerts", href: "#", icon: Bell },
-    { label: "My Wallet", href: "#", icon: Wallet },
-    { label: "Referrals", href: "#", icon: Users },
-    { label: "Help & Support", href: "#", icon: HelpCircle },
-  ];
+    { label: 'Recently Viewed', href: '#', icon: Clock },
+    { label: 'Price Alerts', href: '#', icon: Bell },
+    { label: 'My Wallet', href: '#', icon: Wallet },
+    { label: 'Referrals', href: '#', icon: Users },
+    { label: 'Help & Support', href: '#', icon: HelpCircle },
+  ]
 
   return (
     <aside className="w-64 shrink-0 hidden xl:flex flex-col gap-6 p-4 bg-white border-r border-slate-200 min-h-[calc(100vh-4rem)]">
       <nav className="space-y-1">
         {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const Icon = item.icon
+          const isActive = pathname === item.href
 
           return (
             <Link
@@ -195,13 +183,13 @@ export function BuyerSidebar() {
               href={item.href}
               className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
                 isActive
-                  ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
               <div className="flex items-center gap-3">
                 <Icon
-                  className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-400"}`}
+                  className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`}
                 />
                 <span>{item.label}</span>
               </div>
@@ -213,7 +201,7 @@ export function BuyerSidebar() {
                 </span>
               )}
             </Link>
-          );
+          )
         })}
       </nav>
 
@@ -225,44 +213,34 @@ export function BuyerSidebar() {
         <div>
           <h4 className="text-sm font-bold text-white">Upgrade to TechPass</h4>
           <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-            Get exclusive deals, free delivery, unlock direct contacts & more.
+            Get exclusive deals, free delivery, unlock direct contacts &amp; more.
           </p>
         </div>
-        <button className="w-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition">
-          View Plans <ArrowRight className="w-3.5 h-3.5" />
-        </button>
+        <Link href="/subscription">
+          <button className="w-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition">
+            View Plans <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </Link>
       </div>
 
       {/* Need Help Box */}
       <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2.5 mt-auto">
         <p className="text-xs font-bold text-slate-800">Need Help?</p>
         <div className="space-y-1.5 text-xs text-slate-500">
-          <Link
-            href="#"
-            className="flex items-center gap-2 hover:text-blue-600 transition"
-          >
+          <Link href="#" className="flex items-center gap-2 hover:text-blue-600 transition">
             <MessageCircle className="w-3.5 h-3.5" /> Chat with us
           </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-2 hover:text-blue-600 transition"
-          >
+          <Link href="#" className="flex items-center gap-2 hover:text-blue-600 transition">
             <PhoneCall className="w-3.5 h-3.5" /> Call support
           </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-2 hover:text-blue-600 transition"
-          >
+          <Link href="#" className="flex items-center gap-2 hover:text-blue-600 transition">
             <HelpCircle className="w-3.5 h-3.5" /> Help Centre
           </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-2 hover:text-red-500 transition"
-          >
+          <Link href="#" className="flex items-center gap-2 hover:text-red-500 transition">
             <AlertTriangle className="w-3.5 h-3.5" /> Report a problem
           </Link>
         </div>
       </div>
     </aside>
-  );
+  )
 }

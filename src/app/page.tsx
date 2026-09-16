@@ -11,19 +11,21 @@ import {
   Layers, 
   Headphones, 
   Star, 
-  CheckCircle2, 
   Sparkles,
-  UserPlus,
-  Compass,
-  CreditCard,
-  Gift
+  GitCompare,
+  CheckCircle2
 } from 'lucide-react'
+
+export const metadata = {
+  title: 'BenchTech | Nigeria’s Trusted Tech Marketplace',
+  description: 'Buy or sell genuine gadgets, laptops, and consoles with verified specs in Abuja.',
+}
 
 export default async function LandingGatewayPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // If user is already authenticated, bypass the landing page
+  // If user is already authenticated, bypass landing
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -40,7 +42,7 @@ export default async function LandingGatewayPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white selection:bg-blue-600 selection:text-white flex flex-col">
-      {/* Top Simple Landing Header */}
+      {/* Top Header */}
       <header className="border-b border-white/10 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
@@ -72,7 +74,6 @@ export default async function LandingGatewayPage() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-12 pb-20 px-6">
-        {/* Glow Effects */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-blue-600/20 blur-[120px] pointer-events-none rounded-full" />
 
         <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
@@ -88,7 +89,7 @@ export default async function LandingGatewayPage() {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto leading-relaxed">
-            Buy or sell genuine tech products. Great deals. Trusted people. A smarter way to shop gadgets in Abuja & nationwide.
+            Buy or sell genuine tech products. Great deals. Trusted people. A smarter way to shop gadgets in Abuja &amp; nationwide.
           </p>
 
           {/* Interactive Role Selector Cards */}
@@ -144,12 +145,12 @@ export default async function LandingGatewayPage() {
             </Link>
           </div>
 
-          {/* Social Proof Stats */}
+          {/* Social Proof */}
           <div className="pt-10 flex flex-col sm:flex-row items-center justify-center gap-3 text-xs text-slate-400">
             <div className="flex -space-x-2">
-              <div className="w-7 h-7 rounded-full bg-blue-500 border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white">I</div>
-              <div className="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white">A</div>
-              <div className="w-7 h-7 rounded-full bg-purple-500 border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white">O</div>
+              <div className="w-7 h-7 rounded-full bg-blue-500 border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white">B</div>
+              <div className="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white">T</div>
+              <div className="w-7 h-7 rounded-full bg-purple-500 border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white">A</div>
               <div className="w-7 h-7 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center text-[9px] font-bold text-white">+10k</div>
             </div>
             <div className="flex items-center gap-1.5">
@@ -262,7 +263,22 @@ export default async function LandingGatewayPage() {
         </div>
       </section>
 
-      {/* Footer CTA */}
+      {/* Bottom Conversion Banner (Mockup #2) */}
+      <section className="pb-20 px-6 bg-slate-950">
+        <div className="max-w-5xl mx-auto rounded-3xl bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-purple-900/40 border border-white/10 p-8 sm:p-10 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-2xl">
+          <div className="space-y-2 text-center sm:text-left relative z-10">
+            <h3 className="text-xl sm:text-2xl font-black text-white">A smarter way to experience technology</h3>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-md">Great products. Real people. A growing community in Abuja.</p>
+          </div>
+          <Link href="/register" className="relative z-10 shrink-0">
+            <Button className="h-11 px-6 rounded-xl bg-white text-slate-950 hover:bg-slate-100 font-black text-xs gap-2 shadow-lg">
+              Get Started <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
       <footer className="mt-auto border-t border-white/10 py-10 px-6 bg-slate-900/60">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <p>© 2026 BenchTech. Buy Smart. Sell Easy.</p>
