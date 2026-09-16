@@ -1,0 +1,44 @@
+import { NextResponse } from 'next/server'
+
+export async function POST(request: Request) {
+  try {
+    const { amount, email, metadata } = await request.json()
+    const secretKey = process.env.PAYSTACK_SECRET_KEY
+
+    if (!secretKey) {
+      return NextResponse.json({ message: 'Paystack Secret Key is missing' }, { status: 500 })
+    }
+
+    // Amount in Kobo (Amount in NGN * 100)
+    const koboAmount = Math.round(Number(amount) * 100)
+
+    const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://shopbenchtech.com'}/orders`
+
+    const response = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        amount: koboAmount,
+        callback_url: callbackUrl,
+        metadata: {
+          purpose: 'marketplace_checkout',
+          ...metadata,
+        },
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!data.status) {
+      return NextResponse.json({ message: data.message || 'Payment initialization failed' }, { status: 400 })
+    }
+
+    return NextResponse.json({ authorization_url: data.data.authorization_url }, { status: 200 })
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message || 'Server error' }, { status: 500 })
+  }
+}

@@ -15,6 +15,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { BuyingRequestModal } from "@/components/products/BuyingRequestModal";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
+import { CompareButton } from "@/components/CompareButton";
 
 export default async function ProductDetailPage({
   params,
@@ -120,6 +122,16 @@ export default async function ProductDetailPage({
                     </span>
                   </div>
                 )}
+                {product.specs?.battery_health && (
+                  <div className="py-2.5 flex justify-between">
+                    <span className="text-slate-400 font-medium">
+                      Battery Health
+                    </span>
+                    <span className="font-bold text-slate-800">
+                      {product.specs.battery_health}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {product.description && (
@@ -188,7 +200,26 @@ export default async function ProductDetailPage({
               )}
 
               {/* Action Buttons */}
-              <div className="space-y-2.5">
+              <div className="space-y-3">
+                {/* Instant Actions Grid: Cart & Compare */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <AddToCartButton product={product} />
+                  // ✅ Correct: passes the database product directly
+                  <CompareButton product={product as any} />
+                </div>
+
+                {/* Primary Fulfillment Request Modal */}
+                <BuyingRequestModal
+                  product={{
+                    id: product.id,
+                    title: product.title,
+                    price: product.price,
+                    seller_id: product.seller_id,
+                    location: product.location,
+                  }}
+                />
+
+                {/* WhatsApp Direct Link */}
                 {formattedWhatsApp && (
                   <a
                     href={`https://wa.me/${formattedWhatsApp}?text=${whatsappMessage}`}
@@ -196,24 +227,17 @@ export default async function ProductDetailPage({
                     rel="noopener noreferrer"
                     className="w-full block"
                   >
-                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 text-xs rounded-xl shadow-sm gap-2">
-                      <Phone className="w-4 h-4" /> Contact Seller on WhatsApp
+                    <Button
+                      variant="outline"
+                      className="w-full border-slate-200 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200 font-bold h-11 text-xs rounded-xl shadow-sm gap-2"
+                    >
+                      <Phone className="w-4 h-4 text-emerald-600" /> Chat on
+                      WhatsApp
                     </Button>
                   </a>
                 )}
 
-                <div className="space-y-3 pt-4">
-                  <BuyingRequestModal
-                    product={{
-                      id: product.id,
-                      title: product.title,
-                      price: product.price,
-                      seller_id: product.seller_id,
-                      location: product.location,
-                    }}
-                  />
-                </div>
-
+                {/* Technical / Condition Enquiry Modal */}
                 <EnquiryFormModal
                   productId={product.id}
                   sellerId={seller?.id ?? ""}

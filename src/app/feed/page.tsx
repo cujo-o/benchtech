@@ -5,6 +5,7 @@ import { Navbar } from '@/components/Navbar'
 import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
 import { BuyerRightSidebar } from '@/components/storefront/BuyerRightSidebar'
 import { SaveButton } from '@/components/SaveButton'
+import { AddToCartButton } from '@/components/cart/AddToCartButton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,7 +26,6 @@ import {
   Truck, 
   RotateCcw,
   Flame,
-  ShoppingBag,
   ArrowRight
 } from 'lucide-react'
 
@@ -103,7 +103,7 @@ export default async function FeedPage() {
             </div>
           </div>
 
-          {/* Horizontal Category Icons Slider */}
+          {/* Category Chips Bar */}
           <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
             {CATEGORY_CHIPS.map((cat) => {
               const Icon = cat.icon
@@ -124,7 +124,7 @@ export default async function FeedPage() {
             })}
           </div>
 
-          {/* Trust Guarantees Bar */}
+          {/* Trust Guarantees */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80">
             <div className="flex items-center gap-2.5 px-2">
               <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
@@ -152,7 +152,7 @@ export default async function FeedPage() {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-900">Fast Delivery</p>
-                <p className="text-[10px] text-slate-400">Abuja & nationwide</p>
+                <p className="text-[10px] text-slate-400">Abuja &amp; nationwide</p>
               </div>
             </div>
 
@@ -186,7 +186,7 @@ export default async function FeedPage() {
                   <div key={item.id} className="relative group">
                     <SaveButton product={item} />
                     <Link href={`/products/${item.id}`}>
-                      <Card className="h-full border border-slate-200/80 rounded-2xl overflow-hidden hover:shadow-md transition bg-white flex flex-col">
+                      <Card className="h-full border border-slate-200/80 rounded-2xl overflow-hidden hover:shadow-md transition bg-white flex flex-col justify-between">
                         <div className="aspect-[4/3] bg-slate-50 relative overflow-hidden p-3 flex items-center justify-center">
                           {item.images?.[0] ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -199,7 +199,7 @@ export default async function FeedPage() {
                             <div className="text-xs text-slate-400">No Image</div>
                           )}
                           <Badge className="absolute top-2.5 left-2.5 bg-slate-900/80 backdrop-blur-md text-white border-none text-[10px] capitalize">
-                            {item.condition.replace('_', ' ')}
+                            {item.condition?.replace('_', ' ') || 'Good'}
                           </Badge>
                         </div>
 
@@ -217,12 +217,8 @@ export default async function FeedPage() {
                             <p className="text-sm font-black text-slate-900">
                               ₦{Number(item.price).toLocaleString()}
                             </p>
-                            <button
-                              type="button"
-                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white flex items-center justify-center text-slate-600 transition"
-                            >
-                              <ShoppingBag className="w-3.5 h-3.5" />
-                            </button>
+                            {/* Live Interactive Add-to-Cart Trigger */}
+                            <AddToCartButton product={item} variant="icon" />
                           </div>
                         </CardContent>
                       </Card>

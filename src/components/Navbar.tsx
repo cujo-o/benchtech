@@ -4,6 +4,7 @@ import { signOut } from "@/app/(auth)/actions";
 import { MobileSidebarDrawer } from "@/components/storefront/MobileSidebarDrawer";
 import { Button } from "@/components/ui/button";
 import { BenchTechLogo } from "@/components/BenchTechLogo";
+import { CartDrawer } from "@/components/cart/CartDrawer";
 import {
   Search,
   MapPin,
@@ -39,7 +40,6 @@ export async function Navbar() {
       <div className="max-w-[1700px] mx-auto px-4 h-16 flex items-center justify-between gap-3">
         {/* Left Side: Mobile Drawer Toggle + Logo */}
         <div className="flex items-center gap-2">
-          {/* Mobile Sidebar Trigger (Visible on mobile only) */}
           <MobileSidebarDrawer profile={profile} />
 
           <Link
@@ -86,13 +86,17 @@ export async function Navbar() {
 
         {/* Actions & Roles */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+          {/* Saved Items */}
           <Link
-            href="/compare"
-            className="p-1 hover:text-blue-600 transition"
+            href="/saved"
+            className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition"
             title="Saved Items"
           >
-            <Heart className="w-4 h-4" />
+            <Heart className="w-5 h-5" />
           </Link>
+
+          {/* Cart Drawer Trigger */}
+          <CartDrawer />
 
           {user ? (
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
@@ -101,7 +105,7 @@ export async function Navbar() {
                 <Link href="/admin/overview" className="hidden sm:block">
                   <Button
                     size="sm"
-                    className="bg-slate-900 hover:bg-black text-white text-xs h-8 gap-1.5 font-bold shadow-sm"
+                    className="bg-slate-900 hover:bg-black text-white text-xs h-8 gap-1.5 font-bold shadow-sm rounded-xl"
                   >
                     <ShieldAlert className="w-3.5 h-3.5 text-red-400" /> Admin
                   </Button>
@@ -115,7 +119,7 @@ export async function Navbar() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="text-xs h-8 gap-1.5 border-blue-200 text-blue-600 hover:bg-blue-50 font-bold"
+                  className="text-xs h-8 gap-1.5 border-blue-200 text-blue-600 hover:bg-blue-50 font-bold rounded-xl"
                 >
                   <Store className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">
@@ -130,7 +134,7 @@ export async function Navbar() {
                   type="submit"
                   title="Sign Out"
                   aria-label="Sign Out"
-                  className="p-1.5 text-slate-400 hover:text-red-600 transition"
+                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -139,14 +143,14 @@ export async function Navbar() {
           ) : (
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
               <Link href="/login">
-                <Button size="sm" variant="ghost" className="text-xs h-8">
+                <Button size="sm" variant="ghost" className="text-xs h-8 rounded-xl font-bold">
                   Sign In
                 </Button>
               </Link>
               <Link href="/register">
                 <Button
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-xs h-8"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 font-bold rounded-xl shadow-sm"
                 >
                   Register
                 </Button>
