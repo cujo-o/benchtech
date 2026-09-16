@@ -1,11 +1,11 @@
-'use client'
+"use client";
 
-import { useEffect, useState, useTransition } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { createBrowserClient } from '@supabase/ssr'
-import { useCompareStore } from '@/lib/store/useCompareStore'
-import { Button } from '@/components/ui/button'
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { createBrowserClient } from "@supabase/ssr";
+import { useCompareStore } from "@/lib/store/useCompareStore";
+import { Button } from "@/components/ui/button";
 import {
   Scale,
   X,
@@ -14,118 +14,115 @@ import {
   Sparkles,
   Bot,
   Search,
-  Check,
   Minus,
   Loader2,
-  Store,
-} from 'lucide-react'
+} from "lucide-react";
 
-export default function ComparePage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { items: storeItems, removeItem, addItem, clearCompare } = useCompareStore()
+function CompareContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const {
+    items: storeItems,
+    removeItem,
+    addItem,
+    clearCompare,
+  } = useCompareStore();
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
 
-  const [loading, setLoading] = useState(true)
-  const [products, setProducts] = useState<any[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<any[]>([])
-  const [isSearching, setIsSearching] = useState(false)
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // 1. Determine IDs from either URL or Zustand store
-  const urlIds = searchParams.get('ids')?.split(',').filter(Boolean) || []
-  const targetIds = urlIds.length > 0 ? urlIds : storeItems.map((i) => i.id)
+  const urlIds = searchParams.get("ids")?.split(",").filter(Boolean) || [];
+  const targetIds = urlIds.length > 0 ? urlIds : storeItems.map((i) => i.id);
 
   // 2. Fetch full specifications for all compared gadgets
   useEffect(() => {
     async function loadComparedProducts() {
       if (targetIds.length === 0) {
-        setProducts([])
-        setLoading(false)
-        return
+        setProducts([]);
+        setLoading(false);
+        return;
       }
 
-      setLoading(true)
+      setLoading(true);
       const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .in('id', targetIds)
+        .from("products")
+        .select("*")
+        .in("id", targetIds);
 
       if (!error && data) {
-        setProducts(data)
+        setProducts(data);
       }
-      setLoading(false)
+      setLoading(false);
     }
 
-    loadComparedProducts()
-  }, [searchParams.get('ids'), storeItems.length])
+    loadComparedProducts();
+  }, [searchParams.get("ids"), storeItems.length]);
 
   // 3. Search and Add products into the matrix
   const handleSearch = async (query: string) => {
-    setSearchQuery(query)
+    setSearchQuery(query);
     if (!query.trim()) {
-      setSearchResults([])
-      return
+      setSearchResults([]);
+      return;
     }
 
-    setIsSearching(true)
+    setIsSearching(true);
     const { data } = await supabase
-      .from('products')
-      .select('id, title, brand, price, images, condition, specs')
-      .ilike('title', `%${query}%`)
-      .limit(5)
+      .from("products")
+      .select("id, title, brand, price, images, condition, specs, category")
+      .ilike("title", `%${query}%`)
+      .limit(5);
 
-    setSearchResults(data || [])
-    setIsSearching(false)
-  }
+    setSearchResults(data || []);
+    setIsSearching(false);
+  };
 
   const handleAddProduct = (item: any) => {
     if (products.length >= 4) {
-      alert('You can compare a maximum of 4 gadgets at a time.')
-      return
+      alert("You can compare a maximum of 4 gadgets at a time.");
+      return;
     }
 
+    // Fixed: Passing item directly with matching images array to satisfy ProductItem type
     addItem({
-      id: item.id,
-      title: item.title,
-      price: item.price,
+      ...item,
       images: item.images || [],
-      category: item.category || 'tech',
-      brand: item.brand || '',
-      model: item.model || '',
-      condition: item.condition || '',
-      specs: item.specs || {},
-    })
+    } as any);
 
-    const newIds = [...products.map((p) => p.id), item.id]
-    router.replace(`/compare?ids=${newIds.join(',')}`)
-    setSearchQuery('')
-    setSearchResults([])
-  }
+    const newIds = [...products.map((p) => p.id), item.id];
+    router.replace(`/compare?ids=${newIds.join(",")}`);
+    setSearchQuery("");
+    setSearchResults([]);
+  };
 
   const handleRemoveProduct = (id: string) => {
-    removeItem(id)
-    const filtered = products.filter((p) => p.id !== id)
-    setProducts(filtered)
+    removeItem(id);
+    const filtered = products.filter((p) => p.id !== id);
+    setProducts(filtered);
     if (filtered.length > 0) {
-      router.replace(`/compare?ids=${filtered.map((p) => p.id).join(',')}`)
+      router.replace(`/compare?ids=${filtered.map((p) => p.id).join(",")}`);
     } else {
-      router.replace('/compare')
+      router.replace("/compare");
     }
-  }
+  };
 
-  // Extract all unique technical spec keys across the compared items
+  // Extract unique technical spec keys across compared gadgets
   const allSpecKeys = Array.from(
     new Set(
       products.flatMap((p) =>
-        p.specs && typeof p.specs === 'object' ? Object.keys(p.specs) : []
-      )
-    )
-  )
+        p.specs && typeof p.specs === "object" ? Object.keys(p.specs) : [],
+      ),
+    ),
+  );
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
@@ -138,7 +135,9 @@ export default function ComparePage() {
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Feed
           </Link>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Compare Tech</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+            Compare Tech
+          </h1>
           <p className="text-xs text-slate-500">
             See the differences. Choose with confidence.
           </p>
@@ -149,9 +148,9 @@ export default function ComparePage() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              clearCompare()
-              setProducts([])
-              router.replace('/compare')
+              clearCompare();
+              setProducts([]);
+              router.replace("/compare");
             }}
             className="text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50"
           >
@@ -160,7 +159,7 @@ export default function ComparePage() {
         )}
       </div>
 
-      {/* Search & Add Bar (From Mockup) */}
+      {/* Search & Add Bar */}
       <div className="relative max-w-xl">
         <div className="relative flex items-center">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
@@ -172,7 +171,7 @@ export default function ComparePage() {
             className="w-full text-xs h-11 pl-10 pr-20 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:border-blue-600 shadow-sm"
           />
           {isSearching && (
-            <Loader2 className="w-4 h-4 animate-spin text-slate-400 absolute right-16" />
+            <Loader2 className="w-4 h-4 animate-spin text-slate-400 absolute right-4" />
           )}
         </div>
 
@@ -180,7 +179,7 @@ export default function ComparePage() {
         {searchResults.length > 0 && (
           <div className="absolute top-12 left-0 right-0 bg-white rounded-2xl border border-slate-200 shadow-xl z-30 divide-y divide-slate-100 overflow-hidden">
             {searchResults.map((result) => {
-              const alreadyIn = products.some((p) => p.id === result.id)
+              const alreadyIn = products.some((p) => p.id === result.id);
               return (
                 <div
                   key={result.id}
@@ -212,10 +211,10 @@ export default function ComparePage() {
                     onClick={() => handleAddProduct(result)}
                     className="h-8 text-xs font-bold rounded-xl"
                   >
-                    {alreadyIn ? 'Added' : 'Add to Compare'}
+                    {alreadyIn ? "Added" : "Add to Compare"}
                   </Button>
                 </div>
-              )
+              );
             })}
           </div>
         )}
@@ -231,9 +230,12 @@ export default function ComparePage() {
             <Scale className="w-7 h-7" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-lg font-bold text-slate-900">No gadgets in comparison</h3>
+            <h3 className="text-lg font-bold text-slate-900">
+              No gadgets in comparison
+            </h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Search above or browse the feed and tap &quot;Compare Specs&quot; to inspect gadgets side by side.
+              Search above or browse the feed and tap &quot;Compare Specs&quot;
+              to inspect gadgets side by side.
             </p>
           </div>
           <Link href="/feed">
@@ -253,7 +255,10 @@ export default function ComparePage() {
                     Product
                   </th>
                   {products.map((item) => (
-                    <th key={item.id} className="p-5 align-top w-64 min-w-[220px]">
+                    <th
+                      key={item.id}
+                      className="p-5 align-top w-64 min-w-[220px]"
+                    >
                       <div className="space-y-3 relative">
                         <button
                           onClick={() => handleRemoveProduct(item.id)}
@@ -278,7 +283,7 @@ export default function ComparePage() {
 
                         <div>
                           <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
-                            {item.brand || 'Device'}
+                            {item.brand || "Device"}
                           </span>
                           <h3 className="font-bold text-xs sm:text-sm text-slate-900 leading-snug line-clamp-2">
                             {item.title}
@@ -297,15 +302,18 @@ export default function ComparePage() {
                     </th>
                   ))}
 
-                  {/* Empty Slot Placeholder if < 4 */}
                   {products.length < 4 && (
                     <th className="p-5 align-middle w-64 min-w-[200px] border-l border-dashed border-slate-200">
                       <div className="text-center space-y-2 py-8">
                         <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto text-slate-400">
                           <Plus className="w-5 h-5" />
                         </div>
-                        <p className="text-xs font-bold text-slate-600">Add Another</p>
-                        <p className="text-[10px] text-slate-400">Search above to fill slot</p>
+                        <p className="text-xs font-bold text-slate-600">
+                          Add Another
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          Search above to fill slot
+                        </p>
                       </div>
                     </th>
                   )}
@@ -313,40 +321,43 @@ export default function ComparePage() {
               </thead>
 
               <tbody className="divide-y divide-slate-100 text-xs">
-                {/* Condition */}
                 <tr>
                   <td className="p-4 bg-slate-50/50 font-bold text-slate-500 uppercase text-[10px] tracking-wider">
                     Condition
                   </td>
                   {products.map((item) => (
-                    <td key={item.id} className="p-4 font-bold text-slate-800 capitalize">
-                      {item.condition?.replace('_', ' ')}
+                    <td
+                      key={item.id}
+                      className="p-4 font-bold text-slate-800 capitalize"
+                    >
+                      {item.condition?.replace("_", " ")}
                     </td>
                   ))}
                   {products.length < 4 && <td />}
                 </tr>
 
-                {/* Location */}
                 <tr>
                   <td className="p-4 bg-slate-50/50 font-bold text-slate-500 uppercase text-[10px] tracking-wider">
                     Location
                   </td>
                   {products.map((item) => (
                     <td key={item.id} className="p-4 text-slate-600">
-                      {item.location || 'Abuja'}
+                      {item.location || "Abuja"}
                     </td>
                   ))}
                   {products.length < 4 && <td />}
                 </tr>
 
-                {/* Dynamic Spec Rows (Storage, RAM, Battery, Processor, etc.) */}
                 {allSpecKeys.map((key) => (
                   <tr key={key}>
                     <td className="p-4 bg-slate-50/50 font-bold text-slate-500 uppercase text-[10px] tracking-wider">
-                      {key.replace(/_/g, ' ')}
+                      {key.replace(/_/g, " ")}
                     </td>
                     {products.map((item) => (
-                      <td key={item.id} className="p-4 text-slate-800 font-medium">
+                      <td
+                        key={item.id}
+                        className="p-4 text-slate-800 font-medium"
+                      >
                         {item.specs?.[key] ? (
                           String(item.specs[key])
                         ) : (
@@ -363,16 +374,19 @@ export default function ComparePage() {
         </div>
       )}
 
-      {/* AI Recommendation Banner (From Mockup) */}
+      {/* AI Recommendation Banner */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
         <div className="flex items-center gap-4 text-center sm:text-left">
           <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
             <Bot className="w-6 h-6" />
           </div>
           <div>
-            <h4 className="text-base font-black text-slate-900">Not sure which one is better?</h4>
+            <h4 className="text-base font-black text-slate-900">
+              Not sure which one is better?
+            </h4>
             <p className="text-xs text-slate-500 mt-0.5">
-              Ask BenchTech AI to analyze specs, value for money, and battery life for your workflow.
+              Ask BenchTech AI to analyze specs, value for money, and battery
+              life for your workflow.
             </p>
           </div>
         </div>
@@ -384,5 +398,19 @@ export default function ComparePage() {
         </Link>
       </div>
     </div>
-  )
+  );
+}
+
+export default function ComparePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[400px] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      }
+    >
+      <CompareContent />
+    </Suspense>
+  );
 }
