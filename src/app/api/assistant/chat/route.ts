@@ -8,7 +8,7 @@ export async function POST(request: Request) {
 
     if (!apiKey) {
       return NextResponse.json(
-        { message: 'Gemini API key is not configured in environment variables.' },
+        { message: 'GEMINI_API_KEY is not configured in Vercel environment variables.' },
         { status: 500 }
       )
     }
@@ -20,74 +20,139 @@ export async function POST(request: Request) {
       .from('products')
       .select('id, title, brand, price, condition, specs, images, location')
       .eq('status', 'published')
-      .limit(25)
+      .limit(30)
 
-    const systemInstruction = `
-You are BenchTech AI, an expert gadget consultant based in Abuja, Nigeria. 
+    const systemPrompt = `
+You are BenchTech AI, an expert gadget consultant based in Abuja, Nigeria.
 You help buyers find the perfect laptop, phone, gaming console, or tech hardware for their specific budget and workflow.
 
-Current Store Inventory:
+Current Store Inventory (Live listings in Abuja):
 ${JSON.stringify(inventory || [])}
 
 Rules:
-1. Speak in a helpful, conversational, grounded tone (Nigerian tech ecosystem context, e.g. banex plaza, good battery for power backups, value for money in Naira).
-2. Recommend 1 to 3 items from the inventory ONLY when relevant.
-3. If an item matches, cite why its specs (RAM, CPU, GPU, Battery) match what the user is asking.
-4. Output your response in this exact JSON structure:
+1. Speak in a helpful, conversational, grounded tone (referencing Abuja locations like Banex Plaza, Emab, Wuse 2, Maitama, Gwarinpa, battery health for Nigerian power situations, value for money in Naira ₦).
+2. Recommend 1 to 3 items from the inventory ONLY when they match the user's needs.
+3. If an item matches, cite why its specs (RAM, CPU, GPU, Storage, Battery) match what the user is asking.
+4. If no inventory item matches closely, give honest market advice for Abuja tech hubs and suggest realistic alternatives or what specs they should look out for.
+5. You MUST return your response as a JSON object with this exact structure:
 {
   "message": "Your conversational answer in markdown format",
   "recommendedProductIds": ["id1", "id2"]
 }
-If no specific products match, return "recommendedProductIds": [].
+If no inventory items match, return "recommendedProductIds": [].
 `
 
-    // Format conversation history for Gemini
-    const contents = [
-      { role: 'user', parts: [{ text: systemInstruction }] },
-      ...messages.map((m: any) => ({
-        role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.content }],
-      })),
-    ]
+    // 2. Clean and sanitize conversation history for Gemini API requirements
+    // - Exclude initial greeting and previous error notices
+    const filteredMessages = (messages || []).filter((m: any) => {
+      if (!m.content || typeof m.content !== 'string') return false
+      if (m.content.startsWith('⚠️')) return false
+      return true
+    })
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    // Ensure first message is from the user
+    while (filteredMessages.length > 0 && filteredMessages[0].role !== 'user') {
+      filteredMessages.shift()
+    }
+
+    if (filteredMessages.length === 0) {
+      return NextResponse.json({
+        reply: "Hello! What kind of gadget are you looking for today? Tell me your budget or preferred specs!",
+        products: [],
+      })
+    }
+
+    // Ensure turns strictly alternate (user -> model -> user -> model)
+    const contents: any[] = []
+    for (const msg of filteredMessages) {
+      const role = msg.role === 'user' ? 'user' : 'model'
+      const lastItem = contents[contents.length - 1]
+
+      if (lastItem && lastItem.role === role) {
+        lastItem.parts[0].text += `\n${msg.content}`
+      } else {
+        contents.push({
+          role,
+          parts: [{ text: msg.content }],
+        })
+      }
+    }
+
+    const payload = {
+      system_instruction: {
+        parts: [{ text: systemPrompt }],
+      },
+      contents,
+      generationConfig: {
+        temperature: 0.7,
+        responseMimeType: 'application/json',
+      },
+    }
+
+    // 3. Request Gemini API with fallback support
+    let modelName = 'gemini-2.0-flash'
+    let response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          generationConfig: {
-            responseMimeType: 'application/json',
-          },
-        }),
+        body: JSON.stringify(payload),
       }
     )
+
+    // Fallback to gemini-1.5-flash if 2.0-flash is unavailable on this key/region
+    if (!response.ok && (response.status === 404 || response.status === 400)) {
+      const fallbackResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      )
+      if (fallbackResponse.ok) {
+        response = fallbackResponse
+      }
+    }
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => null)
+      const errorMsg =
+        errJson?.error?.message ||
+        `Gemini API returned status ${response.status} (${response.statusText})`
+      return NextResponse.json({ message: errorMsg }, { status: response.status })
+    }
 
     const geminiData = await response.json()
     const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
 
     if (!rawText) {
       return NextResponse.json(
-        { message: 'Unable to generate recommendation at this moment.' },
+        { message: 'AI returned an empty response. Please try again.' },
         { status: 502 }
       )
     }
 
-    const parsed = JSON.parse(rawText)
+    // 4. Safely parse JSON reply with fallback
+    let parsed: any = { message: rawText, recommendedProductIds: [] }
+    try {
+      const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim()
+      parsed = JSON.parse(cleanJson)
+    } catch {
+      parsed = { message: rawText, recommendedProductIds: [] }
+    }
 
-    // Hydrate the recommended products
     const recommendedProducts = (inventory || []).filter((p) =>
       parsed.recommendedProductIds?.includes(p.id)
     )
 
     return NextResponse.json({
-      reply: parsed.message,
+      reply: parsed.message || rawText,
       products: recommendedProducts,
     })
   } catch (error: any) {
     return NextResponse.json(
-      { message: error.message || 'Server error occurred' },
+      { message: error.message || 'An unexpected server error occurred.' },
       { status: 500 }
     )
   }
