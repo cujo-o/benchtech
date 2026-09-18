@@ -42,15 +42,13 @@ Rules:
 If no inventory items match, return "recommendedProductIds": [].
 `
 
-    // 2. Clean and sanitize conversation history for Gemini API requirements
-    // - Exclude initial greeting and previous error notices
+    // 2. Clean and sanitize conversation history
     const filteredMessages = (messages || []).filter((m: any) => {
       if (!m.content || typeof m.content !== 'string') return false
       if (m.content.startsWith('⚠️')) return false
       return true
     })
 
-    // Ensure first message is from the user
     while (filteredMessages.length > 0 && filteredMessages[0].role !== 'user') {
       filteredMessages.shift()
     }
@@ -89,9 +87,9 @@ If no inventory items match, return "recommendedProductIds": [].
       },
     }
 
-    // 3. Request Gemini API with fallback support
-    let modelName = 'gemini-2.0-flash'
-    let response = await fetch(
+    // 3. Call Gemini 3.6 Flash
+    const modelName = 'gemini-3.6-flash'
+    const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
@@ -99,21 +97,6 @@ If no inventory items match, return "recommendedProductIds": [].
         body: JSON.stringify(payload),
       }
     )
-
-    // Fallback to gemini-1.5-flash if 2.0-flash is unavailable on this key/region
-    if (!response.ok && (response.status === 404 || response.status === 400)) {
-      const fallbackResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      )
-      if (fallbackResponse.ok) {
-        response = fallbackResponse
-      }
-    }
 
     if (!response.ok) {
       const errJson = await response.json().catch(() => null)
@@ -133,7 +116,7 @@ If no inventory items match, return "recommendedProductIds": [].
       )
     }
 
-    // 4. Safely parse JSON reply with fallback
+    // 4. Parse response JSON
     let parsed: any = { message: rawText, recommendedProductIds: [] }
     try {
       const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim()
