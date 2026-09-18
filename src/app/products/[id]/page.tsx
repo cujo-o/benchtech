@@ -204,7 +204,6 @@ export default async function ProductDetailPage({
                 {/* Instant Actions Grid: Cart & Compare */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <AddToCartButton product={product} />
-                  // ✅ Correct: passes the database product directly
                   <CompareButton product={product as any} />
                 </div>
 
