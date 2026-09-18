@@ -12,30 +12,29 @@ import {
   RotateCcw,
 } from 'lucide-react'
 
-interface Prize {
-  id: number
-  label: string
-  code: string | null
-  color: string
-}
-
-const PRIZES: Prize[] = [
-  { id: 0, label: 'Free Abuja Dispatch', code: 'SPIN-FREEDELIVERY', color: '#2563eb' },
-  { id: 1, label: '₦2,000 Voucher', code: 'SPIN-SAVE2K', color: '#4f46e5' },
-  { id: 2, label: 'Better Luck Tomorrow', code: null, color: '#64748b' },
-  { id: 3, label: '5% Off Laptops', code: 'SPIN-LAPTOP5', color: '#0ea5e9' },
-  { id: 4, label: '₦1,000 Off Order', code: 'SPIN-1000', color: '#10b981' },
-  { id: 5, label: 'Free Screen Guard', code: 'SPIN-ACCESSPACK', color: '#f59e0b' },
-]
-
 export function TechSpinWheel() {
+  const [prizes, setPrizes] = useState<any[]>([])
   const [spinning, setSpinning] = useState(false)
   const [rotation, setRotation] = useState(0)
-  const [prize, setPrize] = useState<Prize | null>(null)
+  const [prize, setPrize] = useState<any | null>(null)
   const [copied, setCopied] = useState(false)
   const [canSpin, setCanSpin] = useState(true)
 
+  // 1. Fetch live admin-configured prizes
   useEffect(() => {
+    async function loadPrizes() {
+      try {
+        const res = await fetch('/api/techspin/prizes')
+        const data = await res.json()
+        if (data.prizes && data.prizes.length > 0) {
+          setPrizes(data.prizes)
+        }
+      } catch (err) {
+        // Fallback handled by API
+      }
+    }
+    loadPrizes()
+
     const lastSpin = localStorage.getItem('benchtech_last_spin')
     if (lastSpin) {
       const hoursSinceLast = (Date.now() - parseInt(lastSpin, 10)) / (1000 * 60 * 60)
@@ -46,22 +45,22 @@ export function TechSpinWheel() {
   }, [])
 
   const spinWheel = () => {
-    if (!canSpin || spinning) return
+    if (!canSpin || spinning || prizes.length === 0) return
 
     setSpinning(true)
     setPrize(null)
 
-    const winningIndex = Math.floor(Math.random() * PRIZES.length)
-    const segmentAngle = 360 / PRIZES.length
+    const winningIndex = Math.floor(Math.random() * prizes.length)
+    const segmentAngle = 360 / prizes.length
     const extraSpins = 360 * 5
-    const targetAngle = extraSpins + (PRIZES.length - winningIndex - 0.5) * segmentAngle
+    const targetAngle = extraSpins + (prizes.length - winningIndex - 0.5) * segmentAngle
     const finalRotation = rotation + targetAngle
 
     setRotation(finalRotation)
 
     setTimeout(() => {
       setSpinning(false)
-      setPrize(PRIZES[winningIndex])
+      setPrize(prizes[winningIndex])
       setCanSpin(false)
       localStorage.setItem('benchtech_last_spin', Date.now().toString())
     }, 4000)
@@ -74,7 +73,7 @@ export function TechSpinWheel() {
   }
 
   return (
-    <main className="max-w-4xl mx-auto w-full px-4 py-8 md:py-12 flex-1 flex flex-col items-center justify-center">
+    <div className="w-full flex flex-col items-center justify-center py-6">
       <div className="text-center space-y-2 mb-8">
         <div className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">
           <Sparkles className="w-3.5 h-3.5" /> BenchTech Daily Rewards
@@ -94,11 +93,11 @@ export function TechSpinWheel() {
           className="w-72 h-72 sm:w-80 sm:h-80 rounded-full border-8 border-white shadow-2xl relative overflow-hidden bg-slate-900 transition-transform duration-[4000ms] ease-out"
           style={{ transform: `rotate(${rotation}deg)` }}
         >
-          {PRIZES.map((item, idx) => {
-            const rotationDeg = (360 / PRIZES.length) * idx
+          {prizes.map((item, idx) => {
+            const rotationDeg = (360 / prizes.length) * idx
             return (
               <div
-                key={item.id}
+                key={item.id || idx}
                 className="absolute w-full h-full top-0 left-0 flex justify-center text-white origin-center"
                 style={{ transform: `rotate(${rotationDeg}deg)` }}
               >
@@ -107,8 +106,7 @@ export function TechSpinWheel() {
                   style={{ borderTopColor: item.color }}
                 />
                 <span
-                  className="absolute top-5 text-[11px] font-black uppercase tracking-tight text-white drop-shadow-sm"
-                  style={{ transform: 'rotate(0deg)' }}
+                  className="absolute top-5 text-[10px] font-black uppercase tracking-tight text-white drop-shadow-sm px-1 text-center truncate max-w-[90px]"
                 >
                   {item.label}
                 </span>
@@ -119,9 +117,9 @@ export function TechSpinWheel() {
 
         <button
           onClick={spinWheel}
-          disabled={!canSpin || spinning}
+          disabled={!canSpin || spinning || prizes.length === 0}
           className={`absolute z-20 w-16 h-16 rounded-full border-4 border-white shadow-xl flex items-center justify-center font-black text-xs uppercase tracking-wider transition ${
-            canSpin && !spinning
+            canSpin && !spinning && prizes.length > 0
               ? 'bg-amber-400 hover:bg-amber-500 text-slate-950 scale-105 active:scale-95 cursor-pointer'
               : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
@@ -194,6 +192,6 @@ export function TechSpinWheel() {
           <span>Daily spin used. Check back in 24 hours for your next spin!</span>
         </div>
       )}
-    </main>
+    </div>
   )
 }
