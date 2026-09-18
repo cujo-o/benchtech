@@ -24,6 +24,7 @@ import {
   PhoneCall,
   AlertTriangle,
   ArrowRight,
+  Sparkles,
 } from 'lucide-react'
 
 export function BuyerSidebar() {
@@ -42,9 +43,9 @@ export function BuyerSidebar() {
   const updateSavedCount = useCallback(() => {
     try {
       const savedRaw =
+        localStorage.getItem('benchtech_saved') ||
         localStorage.getItem('techmart_saved_items') ||
-        localStorage.getItem('techmart_saved') ||
-        localStorage.getItem('benchtech_saved')
+        localStorage.getItem('techmart_saved')
 
       if (savedRaw) {
         const parsed = JSON.parse(savedRaw)
@@ -59,7 +60,7 @@ export function BuyerSidebar() {
     }
   }, [])
 
-  // 2. Fetch truly unread messages
+  // 2. Fetch unread messages count
   const checkUnreadMessages = useCallback(async () => {
     try {
       if (pathname === '/messages') {
@@ -100,7 +101,7 @@ export function BuyerSidebar() {
       }
       isInitialLoad.current = false
     } catch {
-      // Ignore transient fetch errors
+      // Ignore transient network errors
     }
   }, [pathname, supabase])
 
@@ -129,13 +130,26 @@ export function BuyerSidebar() {
     { label: 'Shop by Category', href: '/products', icon: Grid },
     {
       label: 'Deals & Offers',
-      href: '/products?deals=true',
+      href: '/deals',
       icon: Flame,
       badge: 'Hot',
       badgeColor: 'bg-red-500 text-white',
     },
+    {
+      label: 'TechSpin',
+      href: '/techspin',
+      icon: Disc,
+      badge: 'Daily',
+      badgeColor: 'bg-amber-500 text-slate-950 font-black',
+    },
+    {
+      label: 'Find My Tech',
+      href: '/assistant',
+      icon: Sparkles,
+      badge: 'AI',
+      badgeColor: 'bg-blue-600 text-white',
+    },
     { label: 'Compare Tech', href: '/compare', icon: Scale },
-    { label: 'TechSpin', href: '/rewards', icon: Disc },
     { label: 'TechPass', href: '/subscription', icon: Crown },
     { label: 'My Orders', href: '/orders', icon: Package },
     {
