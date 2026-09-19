@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +19,7 @@ import {
   Package,
   Clock,
   X,
+  ArrowRight,
 } from 'lucide-react'
 
 interface PromotionPackage {
@@ -61,6 +63,7 @@ const PROMO_PACKAGES: PromotionPackage[] = [
 ]
 
 export default function PromotionsPage() {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<any>(null)
   const [products, setProducts] = useState<any[]>([])
@@ -87,7 +90,7 @@ export default function PromotionsPage() {
 
     if (!user) return
 
-    // 1. Fetch Profile for real promotional_balance
+    // 1. Fetch Profile for promotional_balance
     const { data: prof } = await supabase
       .from('profiles')
       .select('*')
@@ -96,7 +99,7 @@ export default function PromotionsPage() {
 
     setProfile(prof)
 
-    // 2. Fetch Seller's active products
+    // 2. Fetch Seller's active published products
     const { data: prods } = await supabase
       .from('products')
       .select('id, title, price, category, images')
@@ -108,7 +111,7 @@ export default function PromotionsPage() {
       setSelectedProductId(prods[0].id)
     }
 
-    // 3. Fetch real promotions
+    // 3. Fetch real promotions ledger
     const { data: promos } = await supabase
       .from('promotions')
       .select('*, products(title, images, price)')
@@ -131,6 +134,15 @@ export default function PromotionsPage() {
     e.preventDefault()
     setActionError(null)
     setActionSuccess(null)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setActionError('Session expired. Please log in again.')
+      return
+    }
 
     if (!selectedProductId) {
       setActionError('Please select a gadget to promote.')
@@ -156,13 +168,13 @@ export default function PromotionsPage() {
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ promotional_balance: newBalance })
-        .eq('id', profile.id)
+        .eq('id', user.id)
 
       if (profileError) throw profileError
 
-      // 2. Insert into promotions ledger
+      // 2. Insert into promotions ledger using explicit user.id (satisfies auth.uid() check)
       const { error: promoError } = await supabase.from('promotions').insert({
-        seller_id: profile.id,
+        seller_id: user.id,
         product_id: selectedProductId,
         package_type: currentPackage.id,
         title: `${selectedProduct?.title || 'Gadget'} (${currentPackage.name})`,
@@ -182,12 +194,14 @@ export default function PromotionsPage() {
           featured_until: endsAt.toISOString(),
         })
         .eq('id', selectedProductId)
+        .eq('seller_id', user.id)
 
-      setActionSuccess(`Promotion launched! ₦${currentPackage.cost.toLocaleString()} deducted.`)
+      setActionSuccess(`Promotion activated! ₦${currentPackage.cost.toLocaleString()} deducted.`)
       setIsModalOpen(false)
       loadData()
+      router.refresh()
     } catch (err: any) {
-      setActionError(err.message || 'Failed to create promotion.')
+      setActionError(err.message || 'Failed to activate promotion.')
     } finally {
       setSubmitting(false)
     }
@@ -246,9 +260,9 @@ export default function PromotionsPage() {
       </div>
 
       {actionSuccess && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-2xl font-bold flex items-center justify-between">
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-2xl font-bold flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{actionSuccess}</span>
           </div>
           <Button size="sm" variant="ghost" onClick={() => setActionSuccess(null)} className="h-7 text-xs">
@@ -305,6 +319,7 @@ export default function PromotionsPage() {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center shrink-0">
                       {c.products?.images?.[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={c.products.images[0]}
                           alt={c.title}
@@ -327,8 +342,8 @@ export default function PromotionsPage() {
                     <Badge
                       className={
                         displayStatus === 'active'
-                          ? 'bg-emerald-50 text-emerald-700 border-none'
-                          : 'bg-slate-100 text-slate-600 border-none'
+                          ? 'bg-emerald-50 text-emerald-700 border-none capitalize'
+                          : 'bg-slate-100 text-slate-600 border-none capitalize'
                       }
                     >
                       {displayStatus}
