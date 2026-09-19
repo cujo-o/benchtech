@@ -118,7 +118,7 @@ export default async function SellerStorePage() {
             </Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Preview and manage your public hardware storefront visible to Abuja buyers[cite: 8].
+            Preview and manage your public hardware storefront visible to Abuja buyers.
           </p>
         </div>
 
@@ -155,7 +155,7 @@ export default async function SellerStorePage() {
         >
           {!isPro && (
             <div className="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-amber-400" /> Custom Banners require Pro[cite: 10]
+              <Lock className="w-3.5 h-3.5 text-amber-400" /> Custom Banners require Pro
             </div>
           )}
         </div>
@@ -185,12 +185,12 @@ export default async function SellerStorePage() {
                   </h2>
                   {profile?.tech_trust_status === 'verified' && (
                     <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> TechTrust Verified[cite: 8]
+                      <ShieldCheck className="w-3.5 h-3.5" /> TechTrust Verified
                     </Badge>
                   )}
                   {isPro && (
                     <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-bold flex items-center gap-1">
-                      <Crown className="w-3.5 h-3.5 text-purple-600" /> Pro Dealer[cite: 10]
+                      <Crown className="w-3.5 h-3.5 text-purple-600" /> Pro Dealer
                     </Badge>
                   )}
                 </div>
@@ -219,7 +219,7 @@ export default async function SellerStorePage() {
 
           <p className="text-xs text-slate-600 max-w-3xl leading-relaxed">
             {profile?.description ||
-              'Welcome to our verified technology store on BenchTech. We supply quality smartphones, computers, and electronics with walk-in pickup and nationwide dispatch in Abuja[cite: 8].'}
+              'Welcome to our verified technology store on BenchTech. We supply quality smartphones, computers, and electronics with walk-in pickup and nationwide dispatch in Abuja.'}
           </p>
 
           {/* Store Highlights / Policies */}
@@ -228,7 +228,7 @@ export default async function SellerStorePage() {
               <Truck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold text-slate-900 block">Delivery &amp; Logistics</span>
-                <span>{profile?.delivery_policy || 'Same-day Abuja courier dispatch (₦2,500 flat) or Banex pickup[cite: 8].'}</span>
+                <span>{profile?.delivery_policy || 'Same-day Abuja courier dispatch (₦2,500 flat) or Banex pickup.'}</span>
               </div>
             </div>
 
@@ -236,7 +236,7 @@ export default async function SellerStorePage() {
               <RotateCcw className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold text-slate-900 block">Inspection &amp; Returns</span>
-                <span>{profile?.pickup_policy || 'Physical testing allowed before payment release. 48-hour warranty on defective hardware[cite: 8].'}</span>
+                <span>{profile?.pickup_policy || 'Physical testing allowed before payment release. 48-hour warranty on defective hardware.'}</span>
               </div>
             </div>
           </div>
@@ -249,10 +249,10 @@ export default async function SellerStorePage() {
       <Card className="rounded-3xl border-slate-200/80 bg-white p-6 sm:p-8 shadow-xs space-y-6">
         <div className="border-b border-slate-100 pb-4">
           <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-            <Edit3 className="w-4 h-4 text-blue-600" /> Customize Storefront Details[cite: 8]
+            <Edit3 className="w-4 h-4 text-blue-600" /> Customize Storefront Details
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Update your public store name, location in Abuja, contact phone, and store policies[cite: 8].
+            Update your public store name, location in Abuja, contact phone, and store policies.
           </p>
         </div>
 
@@ -294,7 +294,7 @@ export default async function SellerStorePage() {
                 <label className="font-bold text-slate-700">Custom Banner Image URL</label>
                 {!isPro && (
                   <span className="text-[10px] font-black uppercase text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">
-                    Pro Only[cite: 10]
+                    Pro Only
                   </span>
                 )}
               </div>
@@ -302,7 +302,7 @@ export default async function SellerStorePage() {
                 name="store_banner_url"
                 defaultValue={profile?.store_banner_url || ''}
                 disabled={!isPro}
-                placeholder={isPro ? 'https://images.unsplash.com/...' : 'Upgrade to Pro to set custom banners[cite: 10]'}
+                placeholder={isPro ? 'https://images.unsplash.com/...' : 'Upgrade to Pro to set custom banners'}
                 className={`w-full h-10 px-3.5 rounded-xl border font-medium ${
                   isPro
                     ? 'border-slate-200 bg-white focus:outline-none focus:border-blue-600'
@@ -329,7 +329,7 @@ export default async function SellerStorePage() {
               <input
                 name="delivery_policy"
                 defaultValue={profile?.delivery_policy || ''}
-                placeholder="e.g. ₦2,500 dispatch within 3 hours in Abuja[cite: 8]."
+                placeholder="e.g. ₦2,500 dispatch within 3 hours in Abuja."
                 className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-blue-600 font-medium"
               />
             </div>
@@ -339,7 +339,7 @@ export default async function SellerStorePage() {
               <input
                 name="pickup_policy"
                 defaultValue={profile?.pickup_policy || ''}
-                placeholder="e.g. Walk into our shop in Banex Plaza for in-person testing[cite: 8]."
+                placeholder="e.g. Walk into our shop in Banex Plaza for in-person testing."
                 className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-blue-600 font-medium"
               />
             </div>
@@ -360,7 +360,7 @@ export default async function SellerStorePage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-black text-slate-900">
-            Storefront Product Catalogue ({publishedProducts.length})[cite: 8]
+            Storefront Product Catalogue ({publishedProducts.length})
           </h3>
           <Link href="/seller/listings/new">
             <Button size="sm" variant="outline" className="text-xs font-bold rounded-xl h-9">
@@ -404,9 +404,9 @@ export default async function SellerStorePage() {
         ) : (
           <Card className="rounded-3xl border border-dashed border-slate-200 p-8 text-center bg-white space-y-2">
             <Package className="w-8 h-8 text-slate-300 mx-auto" />
-            <p className="text-xs font-bold text-slate-700">No published products on your storefront yet[cite: 8].</p>
+            <p className="text-xs font-bold text-slate-700">No published products on your storefront yet.</p>
             <p className="text-[11px] text-slate-400">
-              Devices you publish will be showcased here for buyers visiting your store link[cite: 8].
+              Devices you publish will be showcased here for buyers visiting your store link.
             </p>
           </Card>
         )}

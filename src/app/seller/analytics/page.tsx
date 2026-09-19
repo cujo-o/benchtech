@@ -272,9 +272,9 @@ export default async function SellerAnalyticsPage() {
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <h4 className="text-xs font-bold text-slate-800">No sales transactions recorded yet[cite: 8]</h4>
+            <h4 className="text-xs font-bold text-slate-800">No sales transactions recorded yet</h4>
             <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-              As Abuja buyers place orders and complete Banex/Wuse pickups, your daily sales graph will plot automatically here[cite: 8].
+              As Abuja buyers place orders and complete Banex/Wuse pickups, your daily sales graph will plot automatically here.
             </p>
           </div>
         )}
@@ -316,7 +316,7 @@ export default async function SellerAnalyticsPage() {
           ) : (
             <div className="py-12 text-center text-xs text-slate-400 space-y-2">
               <Package className="w-8 h-8 text-slate-300 mx-auto" />
-              <p>You have not published any technology listings yet[cite: 8].</p>
+              <p>You have not published any technology listings yet.</p>
               <Link href="/seller/listings/new" className="inline-block pt-1">
                 <Button size="sm" className="text-xs font-bold bg-blue-600 hover:bg-blue-700 rounded-xl">
                   Add Your First Gadget
@@ -372,10 +372,10 @@ export default async function SellerAnalyticsPage() {
           </h4>
           <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
             {activeProducts.length === 0
-              ? 'Your store is currently empty. List your available phones, laptops, or electronics to appear in Abuja search queries[cite: 8].'
+              ? 'Your store is currently empty. List your available phones, laptops, or electronics to appear in Abuja search queries.'
               : totalOrdersCount === 0
-              ? `You have ${activeProducts.length} published gadget in Abuja with a total portfolio value of ₦${portfolioValue.toLocaleString()}. Make sure your pricing matches current Banex Plaza market averages to attract your first buyer enquiry[cite: 8].`
-              : `You have completed ${totalOrdersCount} orders generating ₦${totalRevenue.toLocaleString()} in revenue. Maintain quick response times on enquiries to keep conversion high[cite: 8].`}
+              ? `You have ${activeProducts.length} published gadget in Abuja with a total portfolio value of ₦${portfolioValue.toLocaleString()}. Make sure your pricing matches current Banex Plaza market averages to attract your first buyer enquiry.`
+              : `You have completed ${totalOrdersCount} orders generating ₦${totalRevenue.toLocaleString()} in revenue. Maintain quick response times on enquiries to keep conversion high.`}
           </p>
         </div>
       </div>

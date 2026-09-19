@@ -74,7 +74,7 @@ export default async function ReportsPage() {
           <p className="text-2xl font-black text-slate-900 mt-1">
             ₦{grossSales.toLocaleString()}
           </p>
-          <p className="text-[10px] text-slate-400">Total processed revenue[cite: 8]</p>
+          <p className="text-[10px] text-slate-400">Total processed revenue</p>
         </Card>
 
         <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
@@ -82,7 +82,7 @@ export default async function ReportsPage() {
             Completed Orders
           </span>
           <p className="text-2xl font-black text-blue-600 mt-1">{orderCount}</p>
-          <p className="text-[10px] text-slate-400">Verified buyer checkouts[cite: 8]</p>
+          <p className="text-[10px] text-slate-400">Verified buyer checkouts</p>
         </Card>
 
         <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
@@ -92,7 +92,7 @@ export default async function ReportsPage() {
           <p className="text-2xl font-black text-slate-900 mt-1">
             ₦{avgOrderValue.toLocaleString()}
           </p>
-          <p className="text-[10px] text-slate-400">Per paying tech buyer[cite: 8]</p>
+          <p className="text-[10px] text-slate-400">Per paying tech buyer</p>
         </Card>
 
         <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
@@ -103,7 +103,7 @@ export default async function ReportsPage() {
             ₦{commissionPaid.toLocaleString()}
           </p>
           <p className="text-[10px] text-emerald-600 font-semibold">
-            {isPro ? '5% Pro Reduced Rate' : '10% Standard Rate'}[cite: 8]
+            {isPro ? '5% Pro Reduced Rate' : '10% Standard Rate'}
           </p>
         </Card>
       </div>
@@ -147,9 +147,9 @@ export default async function ReportsPage() {
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-400 space-y-2">
                     <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto" />
-                    <p className="font-semibold text-xs">No orders completed yet[cite: 8].</p>
+                    <p className="font-semibold text-xs">No orders completed yet.</p>
                     <p className="text-[11px] text-slate-400">
-                      When buyers purchase your devices, payouts and commission statements will calculate here[cite: 8].
+                      When buyers purchase your devices, payouts and commission statements will calculate here.
                     </p>
                   </td>
                 </tr>

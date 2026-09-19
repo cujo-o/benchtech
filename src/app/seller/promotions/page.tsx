@@ -221,7 +221,7 @@ export default function PromotionsPage() {
             </Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Use your promotional credits to feature products, rank higher in Abuja search, and accelerate sales[cite: 10, 11].
+            Use your promotional credits to feature products, rank higher in Abuja search, and accelerate sales.
           </p>
         </div>
 
@@ -341,9 +341,9 @@ export default function PromotionsPage() {
         ) : (
           <div className="py-14 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-2">
             <Clock className="w-8 h-8 text-slate-300 mx-auto" />
-            <p className="font-semibold text-xs text-slate-700">No promotions run yet[cite: 8]</p>
+            <p className="font-semibold text-xs text-slate-700">No promotions run yet</p>
             <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-              Select one of your published electronics and apply your promo credit balance to give it priority visibility[cite: 10, 11].
+              Select one of your published electronics and apply your promo credit balance to give it priority visibility.
             </p>
           </div>
         )}
