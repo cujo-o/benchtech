@@ -57,7 +57,7 @@ export default async function PromotionsPage() {
             </Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Feature listings on the homepage, rank higher in search, and use included ad credits[cite: 10, 11].
+            Feature listings on the homepage, rank higher in search, and use included ad credits.
           </p>
         </div>
 
@@ -67,7 +67,7 @@ export default async function PromotionsPage() {
             <p className="text-xl font-black text-purple-600">₦{Number(promoBalance).toLocaleString()}</p>
           </div>
           <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-10 rounded-xl gap-1.5 shadow-xs">
-            + Create Promotion[cite: 11]
+            + Create Promotion
           </Button>
         </div>
       </div>
@@ -83,7 +83,7 @@ export default async function PromotionsPage() {
               <div>
                 <h3 className="text-lg font-black text-slate-900">Promotions Require BenchTech Pro</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Pro members receive ₦2,500 monthly promotional credits automatically to feature flagships and clearance stocks[cite: 10, 11].
+                  Pro members receive ₦2,500 monthly promotional credits automatically to feature flagships and clearance stocks.
                 </p>
               </div>
               <Link href="/seller/subscription" className="block pt-2">
@@ -104,7 +104,7 @@ export default async function PromotionsPage() {
               </div>
               <div>
                 <h4 className="font-bold text-xs text-slate-900">Featured Listing Placement</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Pins your device at the top of category and search results across Abuja[cite: 10, 11].</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Pins your device at the top of category and search results across Abuja.</p>
               </div>
               <p className="text-xs font-black text-blue-600 pt-1">₦500 / 3 days</p>
             </Card>
@@ -115,7 +115,7 @@ export default async function PromotionsPage() {
               </div>
               <div>
                 <h4 className="font-bold text-xs text-slate-900">Deals &amp; Clearance Spotlight</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Highlights your discounted units on the dedicated /deals showcase[cite: 10, 11].</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Highlights your discounted units on the dedicated /deals showcase.</p>
               </div>
               <p className="text-xs font-black text-purple-600 pt-1">₦1,000 / 7 days</p>
             </Card>
@@ -126,7 +126,7 @@ export default async function PromotionsPage() {
               </div>
               <div>
                 <h4 className="font-bold text-xs text-slate-900">Homepage Hero Showcase</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Maximum platform visibility on the main buyer feed header banner[cite: 10, 11].</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Maximum platform visibility on the main buyer feed header banner.</p>
               </div>
               <p className="text-xs font-black text-amber-600 pt-1">₦2,500 / 7 days</p>
             </Card>
@@ -137,8 +137,8 @@ export default async function PromotionsPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-slate-900">Active &amp; Scheduled Campaigns</h3>
               <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                <span className="text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">3 Active[cite: 11]</span>
-                <span className="text-slate-400">1 Scheduled[cite: 11]</span>
+                <span className="text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">3 Active</span>
+                <span className="text-slate-400">1 Scheduled</span>
               </div>
             </div>
 
@@ -151,7 +151,7 @@ export default async function PromotionsPage() {
                 <div key={idx} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-0.5">
                     <p className="font-bold text-slate-900">{c.title}</p>
-                    <p className="text-[11px] text-slate-400">{c.type} • {c.views} views • {c.clicks} clicks[cite: 11]</p>
+                    <p className="text-[11px] text-slate-400">{c.type} • {c.views} views • {c.clicks} clicks</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="font-bold text-slate-700">{c.spent}</span>

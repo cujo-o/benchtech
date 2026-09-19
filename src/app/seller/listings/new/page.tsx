@@ -113,7 +113,7 @@ export default function NewListingPage() {
 
     if (files.length + incomingFiles.length > maxImages) {
       setErrorMessage(
-        `Your ${currentPlan.toUpperCase()} plan allows a maximum of ${maxImages} images per gadget[cite: 1]. Please upgrade to add more photos.`
+        `Your ${currentPlan.toUpperCase()} plan allows a maximum of ${maxImages} images per gadget. Please upgrade to add more photos.`
       )
       return
     }
@@ -145,14 +145,14 @@ export default function NewListingPage() {
     const location = (form.get('location') as string) || 'Abuja'
 
     if (files.length === 0) {
-      setErrorMessage('Please upload at least one image of the product[cite: 1].')
+      setErrorMessage('Please upload at least one image of the product.')
       setLoading(false)
       return
     }
 
     if (files.length > maxImages) {
       setErrorMessage(
-        `You cannot upload more than ${maxImages} images on the ${currentPlan} plan[cite: 1].`
+        `You cannot upload more than ${maxImages} images on the ${currentPlan}.`
       )
       setLoading(false)
       return
@@ -174,7 +174,7 @@ export default function NewListingPage() {
       if ((freshCount || 0) >= maxListings) {
         setIsCapped(true)
         throw new Error(
-          `You have reached your limit of ${maxListings} active listings for the ${currentPlan} plan[cite: 1]. Please upgrade your store.`
+          `You have reached your limit of ${maxListings} active listings for the ${currentPlan} plan. Please upgrade your store.`
         )
       }
 
@@ -259,14 +259,14 @@ export default function NewListingPage() {
                 {activeCount} of {maxListings}
               </span>{' '}
               allowed listings on the{' '}
-              <span className="font-bold uppercase text-blue-600">{currentPlan}</span> plan[cite: 1]. Upgrade
-              your store plan to post more gadgets to Abuja buyers[cite: 1].
+              <span className="font-bold uppercase text-blue-600">{currentPlan}</span> plan. Upgrade
+              your store plan to post more gadgets to Abuja buyers.
             </p>
           </div>
 
           <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl max-w-md mx-auto flex items-center justify-between text-xs">
             <span className="text-slate-500 font-medium">Need more inventory slots?</span>
-            <span className="font-bold text-blue-600">Standard Plan gives 25 slots[cite: 1]</span>
+            <span className="font-bold text-blue-600">Standard Plan gives 25 slots</span>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -304,7 +304,7 @@ export default function NewListingPage() {
           <p className="text-xs text-slate-500 mt-1">
             Slot <span className="font-bold text-slate-700">{activeCount + 1}</span> of{' '}
             <span className="font-bold text-slate-700">{maxListings}</span> • Max {maxImages} images
-            allowed[cite: 1].
+            allowed.
           </p>
         </div>
 
@@ -327,7 +327,7 @@ export default function NewListingPage() {
           <CardHeader>
             <CardTitle className="text-base font-bold text-slate-900">Product Details</CardTitle>
             <CardDescription className="text-xs">
-              Select the exact category to load device-specific fields[cite: 1].
+              Select the exact category to load device-specific fields.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -443,7 +443,7 @@ export default function NewListingPage() {
               Technical Specifications ({selectedCategory})
             </CardTitle>
             <CardDescription className="text-xs">
-              These details power the side-by-side comparison matrix[cite: 1].
+              These details power the side-by-side comparison matrix.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -567,7 +567,7 @@ export default function NewListingPage() {
               </span>
             </div>
             <CardDescription className="text-xs">
-              Photos are automatically compressed before upload[cite: 1]. Used items must show actual condition[cite: 1].
+              Photos are automatically compressed before upload. Used items must show actual condition.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

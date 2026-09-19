@@ -65,13 +65,13 @@ export default async function ReportsPage() {
             </Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Exportable order accounting, average order values, and commission reconciliation[cite: 10, 11].
+            Exportable order accounting, average order values, and commission reconciliation.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Button variant="outline" className="border-slate-200 text-slate-700 font-bold text-xs h-10 rounded-xl gap-2">
-            <Download className="w-4 h-4 text-blue-600" /> Export CSV Report[cite: 11]
+            <Download className="w-4 h-4 text-blue-600" /> Export CSV Report
           </Button>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default async function ReportsPage() {
               <div>
                 <h3 className="text-lg font-black text-slate-900">Sales Reports are Pro-Only</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Download tax statements, export customer transaction summaries, and audit your 5% reduced commission savings[cite: 10, 11].
+                  Download tax statements, export customer transaction summaries, and audit your 5% reduced commission savings.
                 </p>
               </div>
               <Link href="/seller/subscription" className="block pt-2">
@@ -105,25 +105,25 @@ export default async function ReportsPage() {
             <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gross Transaction Value</span>
               <p className="text-2xl font-black text-slate-900 mt-1">₦{grossSales.toLocaleString()}</p>
-              <p className="text-[10px] text-slate-400">Total volume processed[cite: 10, 11]</p>
+              <p className="text-[10px] text-slate-400">Total volume processed</p>
             </Card>
 
             <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Orders</span>
               <p className="text-2xl font-black text-blue-600 mt-1">{orderCount}</p>
-              <p className="text-[10px] text-slate-400">Completed &amp; verified[cite: 10, 11]</p>
+              <p className="text-[10px] text-slate-400">Completed &amp; verified</p>
             </Card>
 
             <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Average Order Value</span>
               <p className="text-2xl font-black text-slate-900 mt-1">₦{avgOrderValue.toLocaleString()}</p>
-              <p className="text-[10px] text-slate-400">Per paying tech buyer[cite: 10, 11]</p>
+              <p className="text-[10px] text-slate-400">Per paying tech buyer</p>
             </Card>
 
             <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Marketplace Commission</span>
               <p className="text-2xl font-black text-purple-600 mt-1">₦{commissionPaid.toLocaleString()}</p>
-              <p className="text-[10px] text-emerald-600 font-semibold">{isPro ? '5% Pro Rate (Saved 50%)' : '10% Standard Rate'}[cite: 10, 11]</p>
+              <p className="text-[10px] text-emerald-600 font-semibold">{isPro ? '5% Pro Rate (Saved 50%)' : '10% Standard Rate'}</p>
             </Card>
           </div>
 

@@ -107,12 +107,12 @@ export default async function BulkUploadPage() {
             <div className="space-y-1">
               <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[11px] mb-2">2</span>
               <p className="font-bold text-slate-900">Fill In Specs &amp; Prices</p>
-              <p className="text-slate-500 text-[11px]">Enter device brand, title, RAM, storage, battery health, and prices in Naira[cite: 10, 11].</p>
+              <p className="text-slate-500 text-[11px]">Enter device brand, title, RAM, storage, battery health, and prices in Naira.</p>
             </div>
             <div className="space-y-1">
               <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[11px] mb-2">3</span>
               <p className="font-bold text-slate-900">Upload &amp; Auto-Publish</p>
-              <p className="text-slate-500 text-[11px]">Drop your file below. Our parser validates rows and consumes included credits[cite: 10, 11].</p>
+              <p className="text-slate-500 text-[11px]">Drop your file below. Our parser validates rows and consumes included credits.</p>
             </div>
           </div>
 
@@ -124,7 +124,7 @@ export default async function BulkUploadPage() {
               </div>
               <div>
                 <h3 className="text-base font-black text-slate-900">Drag &amp; drop your product file here</h3>
-                <p className="text-xs text-slate-400 mt-1">Supports CSV, XLS, or XLSX up to 10MB[cite: 11]</p>
+                <p className="text-xs text-slate-400 mt-1">Supports CSV, XLS, or XLSX up to 10MB</p>
               </div>
               <div className="flex justify-center gap-3 pt-2">
                 <input type="file" accept=".csv,.xlsx,.xls" className="hidden" id="bulk-file" />
@@ -146,7 +146,7 @@ export default async function BulkUploadPage() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900">abuja_stock_update_oct.xlsx</p>
-                  <p className="text-[11px] text-slate-400">4.2 MB • Processing completed[cite: 11]</p>
+                  <p className="text-[11px] text-slate-400">4.2 MB • Processing completed</p>
                 </div>
               </div>
               <Badge className="bg-emerald-50 text-emerald-700 border-none text-xs font-bold">100% Validated</Badge>
@@ -157,28 +157,28 @@ export default async function BulkUploadPage() {
                 <div className="flex items-center gap-1.5 text-xs font-black text-emerald-800">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" /> 45 Valid Products
                 </div>
-                <p className="text-[10px] text-emerald-700 mt-0.5">Ready to publish immediately[cite: 11]</p>
+                <p className="text-[10px] text-emerald-700 mt-0.5">Ready to publish immediately</p>
               </div>
 
               <div className="p-3 bg-red-50/60 border border-red-200/70 rounded-2xl">
                 <div className="flex items-center gap-1.5 text-xs font-black text-red-800">
                   <AlertCircle className="w-4 h-4 text-red-600" /> 3 Missing Prices
                 </div>
-                <p className="text-[10px] text-red-700 mt-0.5">Row 14, 22, 38 need Naira prices[cite: 10, 11]</p>
+                <p className="text-[10px] text-red-700 mt-0.5">Row 14, 22, 38 need Naira prices</p>
               </div>
 
               <div className="p-3 bg-amber-50/60 border border-amber-200/70 rounded-2xl">
                 <div className="flex items-center gap-1.5 text-xs font-black text-amber-800">
                   <AlertTriangle className="w-4 h-4 text-amber-600" /> 2 Category Warnings
                 </div>
-                <p className="text-[10px] text-amber-700 mt-0.5">Will map to "Other Technology"[cite: 9, 11]</p>
+                <p className="text-[10px] text-amber-700 mt-0.5">Will map to "Other Technology"</p>
               </div>
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
                 <input type="checkbox" defaultChecked className="rounded text-blue-600 focus:ring-blue-500" />
-                <span>Skip invalid rows and publish valid devices automatically[cite: 11]</span>
+                <span>Skip invalid rows and publish valid devices automatically</span>
               </label>
 
               <div className="flex items-center gap-2">
@@ -186,7 +186,7 @@ export default async function BulkUploadPage() {
                   Cancel
                 </Button>
                 <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-9">
-                  Publish 45 Products[cite: 11]
+                  Publish 45 Products
                 </Button>
               </div>
             </div>

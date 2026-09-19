@@ -67,7 +67,7 @@ export default async function InventoryPage() {
             </Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Keep track of stock levels, manage low-stock alerts, and perform bulk price updates[cite: 10, 11].
+            Keep track of stock levels, manage low-stock alerts, and perform bulk price updates.
           </p>
         </div>
 
@@ -94,7 +94,7 @@ export default async function InventoryPage() {
               <div>
                 <h3 className="text-lg font-black text-slate-900">Advanced Inventory is Pro-Only</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Avoid overselling on Banex walk-ins. Get automatic low-stock alerts, bulk price modifiers, and stock movements[cite: 10, 11].
+                  Avoid overselling on Banex walk-ins. Get automatic low-stock alerts, bulk price modifiers, and stock movements.
                 </p>
               </div>
               <Link href="/seller/subscription" className="block pt-2">
@@ -112,25 +112,25 @@ export default async function InventoryPage() {
             <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Products</span>
               <p className="text-2xl font-black text-slate-900 mt-1">{totalCount}</p>
-              <p className="text-[10px] text-slate-400">All registered SKUs[cite: 11]</p>
+              <p className="text-[10px] text-slate-400">All registered SKUs</p>
             </Card>
 
             <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">In Stock</span>
               <p className="text-2xl font-black text-emerald-600 mt-1">{inStockCount}</p>
-              <p className="text-[10px] text-emerald-600 font-semibold">Available for Abuja buyers[cite: 11]</p>
+              <p className="text-[10px] text-emerald-600 font-semibold">Available for Abuja buyers</p>
             </Card>
 
             <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Low Stock Warning</span>
               <p className="text-2xl font-black text-amber-500 mt-1">{lowStockCount}</p>
-              <p className="text-[10px] text-amber-600 font-semibold">2 units or fewer remaining[cite: 10, 11]</p>
+              <p className="text-[10px] text-amber-600 font-semibold">2 units or fewer remaining</p>
             </Card>
 
             <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Out of Stock</span>
               <p className="text-2xl font-black text-slate-400 mt-1">{outOfStockCount}</p>
-              <p className="text-[10px] text-slate-400">Marked sold or archived[cite: 10, 11]</p>
+              <p className="text-[10px] text-slate-400">Marked sold or archived</p>
             </Card>
           </div>
 

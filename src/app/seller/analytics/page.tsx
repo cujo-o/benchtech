@@ -17,6 +17,9 @@ import {
   Layers,
   ArrowRight,
   Lightbulb,
+  Boxes,
+  CheckCircle2,
+  Tag,
 } from 'lucide-react'
 
 export const metadata = {
@@ -45,7 +48,7 @@ export default async function SellerAnalyticsPage() {
     profile?.subscription_tier === 'pro' ||
     profile?.subscription_plan === 'professional'
 
-  // Fetch live inventory
+  // Fetch live listings
   const { data: products } = await supabase
     .from('products')
     .select('*')
@@ -57,35 +60,53 @@ export default async function SellerAnalyticsPage() {
     .select('*')
     .eq('seller_id', user.id)
 
-  const activeProducts = products?.filter((p) => p.status === 'published') || []
-  const soldProducts = products?.filter((p) => p.status === 'sold') || []
-  const pausedProducts = products?.filter((p) => p.status === 'paused' || p.status === 'unavailable') || []
+  const allProducts = products || []
+  const activeProducts = allProducts.filter((p) => p.status === 'published')
+  const soldProducts = allProducts.filter((p) => p.status === 'sold')
+  const pausedProducts = allProducts.filter(
+    (p) => p.status === 'paused' || p.status === 'unavailable'
+  )
 
-  const portfolioValue = activeProducts.reduce((acc, curr) => acc + (Number(curr.price) || 0), 0)
-  const totalRevenue = (orders || []).reduce((acc, curr) => acc + (Number(curr.total_amount) || 0), 0)
+  const portfolioValue = activeProducts.reduce(
+    (acc, curr) => acc + (Number(curr.price) || 0),
+    0
+  )
+  const totalRevenue = (orders || []).reduce(
+    (acc, curr) => acc + (Number(curr.total_amount) || 0),
+    0
+  )
 
-  // Category Breakdown
-  const categoriesMap: Record<string, number> = {}
+  // Category Distribution calculation
+  const categoryCounts: Record<string, number> = {}
   activeProducts.forEach((p) => {
-    const cat = p.category || 'Other'
-    categoriesMap[cat] = (categoriesMap[cat] || 0) + 1
+    const cat = p.category || 'Hardware'
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
+  })
+
+  // Condition Distribution calculation
+  const conditionCounts: Record<string, number> = {}
+  activeProducts.forEach((p) => {
+    const cond = p.condition || 'good'
+    conditionCounts[cond] = (conditionCounts[cond] || 0) + 1
   })
 
   return (
-    <div className="space-y-8 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Top Header */}
+    <div className="space-y-6 sm:space-y-8 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              {isPro ? 'Advanced Store Analytics' : 'Basic Catalogue Analytics'}
+              {isPro ? 'Advanced Store Analytics' : 'Catalogue Analytics'}
             </h1>
             <Badge
               className={`text-[10px] font-black uppercase ${
-                isPro ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-700'
+                isPro
+                  ? 'bg-purple-100 text-purple-800'
+                  : 'bg-slate-100 text-slate-700'
               }`}
             >
-              {isPro ? 'Pro Intelligence' : 'Free Tier'}
+              {isPro ? 'Pro Intelligence' : 'Free Plan'}
             </Badge>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -94,12 +115,19 @@ export default async function SellerAnalyticsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs font-bold gap-1.5 py-1.5 px-3 border-slate-200 bg-white">
+          <Badge
+            variant="outline"
+            className="text-xs font-bold gap-1.5 py-1.5 px-3 border-slate-200 bg-white"
+          >
             <Calendar className="w-3.5 h-3.5 text-slate-400" /> Last 30 Days
           </Badge>
+
           {!isPro && (
             <Link href="/seller/subscription">
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-9 gap-1.5 shadow-xs">
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-9 gap-1.5 shadow-xs"
+              >
                 <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Unlock Pro Analytics
               </Button>
             </Link>
@@ -107,76 +135,170 @@ export default async function SellerAnalyticsPage() {
         </div>
       </div>
 
-      {/* =========================================================================
-          1. BASIC METRICS (Visible to both Free & Pro)
-      ========================================================================= */}
+      {/* Core Inventory Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs space-y-1">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Active Inventory</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Active Inventory
+          </span>
           <p className="text-2xl font-black text-slate-900">{activeProducts.length}</p>
-          <p className="text-[10px] text-slate-400">{products?.length || 0} total registered listings</p>
+          <p className="text-[10px] text-slate-400">{allProducts.length} total registered listings</p>
         </Card>
 
         <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs space-y-1">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Portfolio Stock Value</span>
-          <p className="text-2xl font-black text-slate-900">₦{portfolioValue.toLocaleString()}</p>
-          <p className="text-[10px] text-emerald-600 font-semibold">Live listed retail value</p>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Portfolio Stock Value
+          </span>
+          <p className="text-2xl font-black text-slate-900">
+            ₦{portfolioValue.toLocaleString()}
+          </p>
+          <p className="text-[10px] text-emerald-600 font-semibold">Total value of published stock</p>
         </Card>
 
         <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs space-y-1">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gross Sold Value</span>
-          <p className="text-2xl font-black text-slate-900">₦{totalRevenue.toLocaleString()}</p>
-          <p className="text-[10px] text-slate-400">{orders?.length || 0} completed orders</p>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Gross Sold Value
+          </span>
+          <p className="text-2xl font-black text-slate-900">
+            ₦{totalRevenue.toLocaleString()}
+          </p>
+          <p className="text-[10px] text-slate-400">{orders?.length || 0} items marked sold</p>
         </Card>
 
         <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs space-y-1">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Paused / Inactive</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Paused / Inactive
+          </span>
           <p className="text-2xl font-black text-slate-900">{pausedProducts.length}</p>
           <p className="text-[10px] text-slate-400">Temporarily unlisted devices</p>
         </Card>
       </div>
 
       {/* =========================================================================
-          2. PRO ANALYTICS SECTION (Interactive for Pro, Pro-Paywall for Free)
+          FREE PLAN ANALYTICS (Fully Functional Visualizations)
       ========================================================================= */}
-      <div className="relative">
-        {/* Pro Lock Overlay for Free Plan */}
-        {!isPro && (
-          <div className="absolute inset-0 z-20 backdrop-blur-md bg-white/75 rounded-3xl flex flex-col items-center justify-center p-6 text-center">
-            <div className="max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto shadow-inner">
-                <Lock className="w-6 h-6" />
-              </div>
+      {!isPro && (
+        <div className="space-y-6">
+          {/* Category & Condition Breakdown Progress Bars */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Category Distribution */}
+            <Card className="rounded-3xl border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
               <div>
-                <h3 className="text-lg font-black text-slate-900">Unlock Advanced Analytics</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Track 30-day revenue curves, conversion rates, traffic channels, and device-level demand insights with ShopBenchTech Pro[cite: 10, 11].
-                </p>
+                <h3 className="text-sm font-black text-slate-900">Category Distribution</h3>
+                <p className="text-xs text-slate-400">Breakdown of active listings by hardware type</p>
               </div>
 
-              <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-xl text-left space-y-1.5 text-[11px] text-purple-900 font-semibold">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Real-time sales trends &amp; buyer conversion rate[cite: 10, 11]
+              {Object.keys(categoryCounts).length > 0 ? (
+                <div className="space-y-3 pt-2">
+                  {Object.entries(categoryCounts).map(([cat, count]) => {
+                    const pct = Math.round((count / (activeProducts.length || 1)) * 100)
+                    return (
+                      <div key={cat} className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-bold text-slate-700">
+                          <span className="capitalize">{cat}</span>
+                          <span>{count} items ({pct}%)</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Traffic source distribution (Search vs AI Assistant)[cite: 10, 11]
+              ) : (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  No published products to categorize yet.
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Automated sales tips based on Abuja search volumes[cite: 10, 11]
-                </div>
+              )}
+            </Card>
+
+            {/* Condition Distribution */}
+            <Card className="rounded-3xl border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Condition Distribution</h3>
+                <p className="text-xs text-slate-400">Breakdown of product physical grading</p>
               </div>
 
-              <Link href="/seller/subscription" className="block pt-1">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs h-11 rounded-xl shadow-md gap-2">
-                  Upgrade to Pro — ₦5,000/month <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </Link>
-            </div>
+              {Object.keys(conditionCounts).length > 0 ? (
+                <div className="space-y-3 pt-2">
+                  {Object.entries(conditionCounts).map(([cond, count]) => {
+                    const pct = Math.round((count / (activeProducts.length || 1)) * 100)
+                    return (
+                      <div key={cond} className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-bold text-slate-700">
+                          <span className="capitalize">{cond.replace('_', ' ')}</span>
+                          <span>{count} items ({pct}%)</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  No published devices to grade yet.
+                </div>
+              )}
+            </Card>
           </div>
-        )}
 
-        <div className={`space-y-6 ${!isPro ? 'select-none pointer-events-none opacity-50' : ''}`}>
-          {/* Pro Key Ratios Bar */}
+          {/* Clean Pro Upgrade Preview Banner */}
+          <Card className="rounded-3xl border-2 border-purple-200 bg-gradient-to-r from-purple-50 via-white to-blue-50 p-6 sm:p-8 shadow-sm">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="space-y-3 max-w-xl">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                    <Crown className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">
+                      Want to see Revenue Curves &amp; Buyer Traffic?
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Unlock advanced 30-day sales trends, conversion rates, and traffic sources with Pro.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px] font-bold text-slate-700">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" /> 30-Day Revenue Spline Chart
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" /> Buyer Traffic Channels
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" /> Demand Insights &amp; Tips
+                  </div>
+                </div>
+              </div>
+
+              <div className="shrink-0 w-full sm:w-auto">
+                <Link href="/seller/subscription" className="block">
+                  <Button className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-black text-xs h-11 px-6 rounded-xl shadow-md gap-2">
+                    Upgrade to Pro — ₦5,000/mo <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* =========================================================================
+          PRO PLAN ANALYTICS (Full Advanced Dashboard)
+      ========================================================================= */}
+      {isPro && (
+        <div className="space-y-6">
+          {/* Key Pro Ratios */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="rounded-2xl border-slate-200/80 bg-white p-4 shadow-xs">
               <span className="text-xs text-slate-400 font-bold">Total Revenue</span>
@@ -203,7 +325,7 @@ export default async function SellerAnalyticsPage() {
             </Card>
           </div>
 
-          {/* Sales & Traffic Graph (Mockup Screen 2 Top Right) */}
+          {/* Revenue & Traffic Curve (SVG Chart) */}
           <Card className="rounded-3xl border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
@@ -220,16 +342,13 @@ export default async function SellerAnalyticsPage() {
               </div>
             </div>
 
-            {/* Pure SVG Spline Curve & Bar Visualization */}
             <div className="h-64 w-full relative pt-6">
               <svg viewBox="0 0 800 200" className="w-full h-full overflow-visible">
-                {/* Horizontal Guide Lines */}
                 <line x1="0" y1="0" x2="800" y2="0" stroke="#f1f5f9" strokeWidth="1" />
                 <line x1="0" y1="50" x2="800" y2="50" stroke="#f1f5f9" strokeWidth="1" />
                 <line x1="0" y1="100" x2="800" y2="100" stroke="#f1f5f9" strokeWidth="1" />
                 <line x1="0" y1="150" x2="800" y2="150" stroke="#f1f5f9" strokeWidth="1" />
 
-                {/* Soft Area Gradient */}
                 <defs>
                   <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
@@ -237,13 +356,10 @@ export default async function SellerAnalyticsPage() {
                   </linearGradient>
                 </defs>
 
-                {/* Area Fill */}
                 <path
                   d="M 0 160 Q 100 130 200 90 T 400 120 T 600 40 T 800 60 L 800 200 L 0 200 Z"
                   fill="url(#curveGradient)"
                 />
-
-                {/* Blue Revenue Spline */}
                 <path
                   d="M 0 160 Q 100 130 200 90 T 400 120 T 600 40 T 800 60"
                   fill="none"
@@ -251,8 +367,6 @@ export default async function SellerAnalyticsPage() {
                   strokeWidth="3.5"
                   strokeLinecap="round"
                 />
-
-                {/* Purple Traffic Spline */}
                 <path
                   d="M 0 180 Q 100 150 200 130 T 400 140 T 600 80 T 800 90"
                   fill="none"
@@ -261,12 +375,9 @@ export default async function SellerAnalyticsPage() {
                   strokeDasharray="4 4"
                   strokeLinecap="round"
                 />
-
-                {/* Highlight Point on High Point (Oct 21) */}
                 <circle cx="600" cy="40" r="5" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
               </svg>
 
-              {/* X Axis Time Labels */}
               <div className="flex justify-between text-[11px] font-bold text-slate-400 pt-3 border-t border-slate-100">
                 <span>Oct 1</span>
                 <span>Oct 7</span>
@@ -279,15 +390,15 @@ export default async function SellerAnalyticsPage() {
 
           {/* Top Products & Traffic Sources Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Top Performing Products */}
+            {/* Top Products */}
             <Card className="lg:col-span-2 rounded-3xl border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-black text-slate-900">Top Performing Products</h3>
-                  <p className="text-xs text-slate-400">Ranked by buyer inquiries and completed conversions</p>
+                  <p className="text-xs text-slate-400">Ranked by inquiries and conversions</p>
                 </div>
                 <Link href="/seller/listings" className="text-xs font-bold text-blue-600 hover:underline">
-                  View All Listings
+                  View All
                 </Link>
               </div>
 
@@ -314,14 +425,13 @@ export default async function SellerAnalyticsPage() {
               </div>
             </Card>
 
-            {/* Traffic Sources Breakdown (Donut Representation) */}
+            {/* Traffic Sources Donut Chart */}
             <Card className="rounded-3xl border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-between space-y-4">
               <div>
                 <h3 className="text-sm font-black text-slate-900">Traffic Sources</h3>
-                <p className="text-xs text-slate-400">Where Abuja buyers discover your stock</p>
+                <p className="text-xs text-slate-400">Where buyers discover your listings</p>
               </div>
 
-              {/* Donut Chart Representation */}
               <div className="flex items-center justify-center relative py-4">
                 <svg viewBox="0 0 100 100" className="w-36 h-36 -rotate-90">
                   <circle cx="50" cy="50" r="40" stroke="#f1f5f9" strokeWidth="12" fill="none" />
@@ -372,7 +482,6 @@ export default async function SellerAnalyticsPage() {
                 </div>
               </div>
 
-              {/* Legend */}
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-1.5 text-slate-600">
@@ -402,7 +511,7 @@ export default async function SellerAnalyticsPage() {
             </Card>
           </div>
 
-          {/* Smart Business Insight Card (Mockup Bottom Right) */}
+          {/* Actionable Tip */}
           <div className="bg-gradient-to-r from-purple-900 via-indigo-950 to-slate-950 text-white rounded-3xl p-5 shadow-sm flex items-start gap-4">
             <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-amber-400 shrink-0">
               <Lightbulb className="w-5 h-5 fill-amber-400" />
@@ -412,12 +521,12 @@ export default async function SellerAnalyticsPage() {
                 Actionable Recommendation for You
               </h4>
               <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-                Your smartphone listings receive <strong>32% more views on Friday and Saturday evenings</strong>. Consider promoting your iPhone listings right before the weekend to capture active Abuja buyers[cite: 10, 11].
+                Your smartphone listings receive <strong>32% more views on Friday and Saturday evenings</strong>. Consider promoting your iPhone listings right before the weekend to capture active Abuja buyers.
               </p>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
