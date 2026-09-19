@@ -19,7 +19,7 @@ export async function createSellerAccount(formData: FormData) {
     return { error: 'Please provide both your business name and contact phone number.' }
   }
 
-  // 1. Fetch existing profile roles first
+  // 1. Fetch existing profile roles
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, roles')
@@ -45,6 +45,7 @@ export async function createSellerAccount(formData: FormData) {
         district: district,
         role: legacyRole,
         roles: updatedRoles,
+        is_seller: true,
         tech_trust_status: 'unverified',
         updated_at: new Date().toISOString(),
       },
@@ -57,6 +58,7 @@ export async function createSellerAccount(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
+  revalidatePath('/seller')
   revalidatePath('/seller/dashboard')
   revalidatePath('/feed')
   return { success: true }

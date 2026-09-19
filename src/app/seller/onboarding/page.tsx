@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createBrowserClient } from '@supabase/ssr'
 import { createSellerAccount } from './actions'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,8 +12,57 @@ import { Store, ShieldCheck, MapPin, Phone, ArrowRight, Loader2, AlertCircle } f
 
 export default function SellerOnboardingPage() {
   const router = useRouter()
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  // 1. Redirect existing sellers away from onboarding immediately
+  useEffect(() => {
+    async function checkExistingSeller() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user) {
+          router.replace('/login?next=/seller/onboarding')
+          return
+        }
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('business_name, role, roles, is_seller, is_admin')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        const userRoles: string[] =
+          profile?.roles || (profile?.role ? [profile.role] : [])
+
+        const isAlreadySeller =
+          Boolean(profile?.business_name) ||
+          profile?.is_seller === true ||
+          userRoles.includes('seller') ||
+          userRoles.includes('admin') ||
+          profile?.is_admin === true
+
+        if (isAlreadySeller) {
+          router.replace('/seller/dashboard')
+          return
+        }
+      } catch (err) {
+        console.error('Error checking seller profile:', err)
+      } finally {
+        setCheckingAuth(false)
+      }
+    }
+
+    checkExistingSeller()
+  }, [router, supabase])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -29,6 +79,18 @@ export default function SellerOnboardingPage() {
       router.push('/seller/dashboard')
       router.refresh()
     }
+  }
+
+  // 2. Display loader while checking credentials (prevents UI flicker)
+  if (checkingAuth) {
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <p className="text-xs font-semibold text-slate-500">
+          Checking your seller store profile...
+        </p>
+      </div>
+    )
   }
 
   return (

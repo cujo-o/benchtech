@@ -11,7 +11,7 @@ import {
   Flame, 
   Sparkles, 
   Crown, 
-  ShoppingBag, 
+  Package, 
   Heart, 
   MessageSquare, 
   Clock, 
@@ -21,23 +21,27 @@ import {
   HelpCircle,
   Store,
   ShieldAlert,
-  ChevronRight
+  ChevronRight,
+  Disc,
+  Scale
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { label: 'Home', href: '/feed', icon: Home },
   { label: 'Shop by Category', href: '/products', icon: Grid },
-  { label: 'Deals & Offers', href: '/products?filter=deals', icon: Flame, badge: 'Hot' },
-  { label: 'TechSpin', href: '#', icon: Sparkles },
-  { label: 'TechPass', href: '#', icon: Crown },
-  { label: 'My Orders', href: '#', icon: ShoppingBag },
-  { label: 'Saved Items', href: '/compare', icon: Heart },
+  { label: 'Deals & Offers', href: '/deals', icon: Flame, badge: 'Hot', badgeColor: 'bg-red-500 text-white' },
+  { label: 'TechSpin', href: '/techspin', icon: Disc, badge: 'Daily', badgeColor: 'bg-amber-500 text-slate-950' },
+  { label: 'Find My Tech', href: '/assistant', icon: Sparkles, badge: 'AI', badgeColor: 'bg-blue-600 text-white' },
+  { label: 'Compare Tech', href: '/compare', icon: Scale },
+  { label: 'TechPass', href: '/subscription', icon: Crown },
+  { label: 'My Orders', href: '/orders', icon: Package },
+  { label: 'Saved Items', href: '/saved', icon: Heart },
   { label: 'Messages', href: '/messages', icon: MessageSquare },
-  { label: 'Recently Viewed', href: '#', icon: Clock },
-  { label: 'Price Alerts', href: '#', icon: Bell },
-  { label: 'My Wallet', href: '#', icon: Wallet },
-  { label: 'Referrals', href: '#', icon: Users2 },
-  { label: 'Help & Support', href: '#', icon: HelpCircle },
+  { label: 'Recently Viewed', href: '/recently-viewed', icon: Clock },
+  { label: 'Price Alerts', href: '/price-alerts', icon: Bell },
+  { label: 'My Wallet', href: '/wallet', icon: Wallet },
+  { label: 'Referrals', href: '/referrals', icon: Users2 },
+  { label: 'Help & Support', href: '/help', icon: HelpCircle },
 ]
 
 export function MobileSidebarDrawer({ profile }: { profile: any }) {
@@ -61,8 +65,13 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
     }
   }, [isOpen])
 
-  const isAdmin = profile?.role === 'admin'
-  const isSeller = profile?.role === 'seller' || isAdmin
+  // Seller and Admin Detection
+  const userRoles: string[] = profile?.roles || (profile?.role ? [profile.role] : [])
+  const isAdmin = profile?.role === 'admin' || profile?.is_admin === true || userRoles.includes('admin')
+  
+  // A user is a seller if they have an active business name, is_seller flag, or seller role
+  const isSeller = Boolean(profile?.business_name) || profile?.is_seller === true || userRoles.includes('seller') || isAdmin
+  const sellerHref = isSeller ? '/seller' : '/seller/onboarding'
 
   return (
     <div className="lg:hidden">
@@ -93,8 +102,8 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
         {/* Drawer Header */}
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-blue-600 text-white w-7 h-7 rounded-lg flex items-center justify-center font-black text-sm">
-              T
+            <div className="bg-blue-600 text-white w-7 h-7 rounded-lg flex items-center justify-center font-black text-sm shadow-sm">
+              B
             </div>
             <div>
               <span className="font-black text-base text-slate-900 tracking-tight leading-none block">BenchTech</span>
@@ -116,24 +125,24 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
           {/* Quick Workspace Switcher for Mobile */}
           <div className="p-2 mb-2 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
             <Link 
-              href="/seller/dashboard"
-              className="flex items-center justify-between p-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold"
+              href={sellerHref}
+              className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition"
             >
               <div className="flex items-center gap-2">
-                <Store className="w-4 h-4" />
-                <span>{isSeller ? 'Seller Dashboard' : 'Become a Seller'}</span>
+                <Store className="w-4 h-4 text-blue-600" />
+                <span>{isSeller ? (profile?.business_name || 'Seller Dashboard') : 'Become a Seller'}</span>
               </div>
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3.5 h-3.5 text-blue-600" />
             </Link>
 
             {isAdmin && (
               <Link 
-                href="/admin/overview"
-                className="flex items-center justify-between p-2 rounded-xl bg-slate-900 text-white text-xs font-bold"
+                href="/admin"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-black transition"
               >
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="w-4 h-4 text-red-400" />
-                  <span>Admin Control Centre</span>
+                  <span>Admin Console</span>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
               </Link>
@@ -150,7 +159,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
                 href={item.href}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
                   isActive 
-                    ? 'bg-blue-600 text-white font-bold' 
+                    ? 'bg-blue-600 text-white font-bold shadow-xs' 
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
@@ -159,7 +168,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className="text-[9px] bg-red-500 text-white font-bold px-1.5 py-0.5 rounded-full">
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-xs ${item.badgeColor || 'bg-red-500 text-white'}`}>
                     {item.badge}
                   </span>
                 )}
@@ -168,7 +177,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
           })}
         </div>
 
-        {/* Footer info */}
+        {/* Footer */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-400 text-center">
           BenchTech Abuja • Buy Smart. Sell Easy.
         </div>
