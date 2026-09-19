@@ -22,9 +22,10 @@ export async function Navbar() {
 
   let profile: any = null;
   if (user) {
+    // Use select('*') to prevent schema cache failures on unmigrated columns
     const { data } = await supabase
       .from("profiles")
-      .select("id, role, roles, business_name, email, is_admin, is_seller, tech_trust_status, seller_plan")
+      .select("*")
       .eq("id", user.id)
       .maybeSingle();
     profile = data;
@@ -33,11 +34,10 @@ export async function Navbar() {
   const userRoles: string[] =
     profile?.roles || (profile?.role ? [profile.role] : ["buyer"]);
   
-  const isAdmin = userRoles.includes("admin") || profile?.is_admin === true;
+  const isAdmin = userRoles.includes("admin") || profile?.role === "admin";
   
-  // Fix: User is a seller if they have a registered business name OR seller flag/role
-  const isSeller = Boolean(profile?.business_name) || profile?.is_seller === true || userRoles.includes("seller") || isAdmin;
-
+  // A user is a seller if they have a registered store name or seller/admin role
+  const isSeller = Boolean(profile?.business_name) || userRoles.includes("seller") || isAdmin;
   const sellerDestination = isSeller ? "/seller" : "/seller/onboarding";
 
   return (
@@ -78,7 +78,7 @@ export async function Navbar() {
             type="text"
             name="q"
             placeholder="Search gadgets in Abuja..."
-            className="w-full bg-slate-50 border border-slate-200 pl-3 pr-8 sm:pr-9 py-1.5 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+            className="w-full bg-slate-50 border border-slate-200 pl-3 pr-8 sm:pr-9 py-1.5 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition font-medium"
           />
           <button
             type="submit"
@@ -91,7 +91,6 @@ export async function Navbar() {
 
         {/* Actions & Roles */}
         <div className="flex items-center gap-1 sm:gap-2 text-xs font-semibold text-slate-600 shrink-0">
-          {/* Saved Items (Hidden on tiny screens to preserve space) */}
           <Link
             href="/saved"
             className="hidden sm:flex p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition"
@@ -100,12 +99,10 @@ export async function Navbar() {
             <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
           </Link>
 
-          {/* Cart Drawer Trigger */}
           <CartDrawer />
 
           {user ? (
             <div className="flex items-center gap-1 sm:gap-1.5 pl-1.5 sm:pl-2 border-l border-slate-200">
-              {/* Admin Button */}
               {isAdmin && (
                 <Link href="/admin" className="hidden sm:block">
                   <Button
@@ -118,7 +115,7 @@ export async function Navbar() {
                 </Link>
               )}
 
-              {/* Seller / Onboarding Switch */}
+              {/* Seller Hub Switch */}
               <Link href={sellerDestination}>
                 <Button
                   size="sm"
