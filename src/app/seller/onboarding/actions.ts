@@ -33,6 +33,7 @@ export async function createSellerAccount(formData: FormData) {
   // Keep legacy role as 'admin' if the user was an admin, otherwise set to 'seller'
   const legacyRole = currentRoles.includes('admin') || profile?.role === 'admin' ? 'admin' : 'seller'
 
+  // Upsert using confirmed schema columns only
   const { error } = await supabase
     .from('profiles')
     .upsert(
@@ -45,7 +46,6 @@ export async function createSellerAccount(formData: FormData) {
         district: district,
         role: legacyRole,
         roles: updatedRoles,
-        is_seller: true,
         tech_trust_status: 'unverified',
         updated_at: new Date().toISOString(),
       },
