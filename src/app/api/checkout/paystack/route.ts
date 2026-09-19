@@ -9,10 +9,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Paystack Secret Key is missing' }, { status: 500 })
     }
 
-    // Amount in Kobo (Amount in NGN * 100)
     const koboAmount = Math.round(Number(amount) * 100)
 
-    // Dynamically detect current domain to prevent cookie domain mismatch
+    // Detect domain
     const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
     const proto = request.headers.get('x-forwarded-proto') || 'https'
     const origin =
@@ -21,7 +20,10 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_APP_URL ||
       'https://shopbenchtech.com'
 
-    const callbackUrl = `${origin.replace(/\/$/, '')}/orders`
+    // Route subscriptions to seller portal and item purchases to orders
+    const isSubscription = metadata?.purpose === 'seller_subscription'
+    const callbackPath = isSubscription ? '/seller/subscription' : '/orders'
+    const callbackUrl = `${origin.replace(/\/$/, '')}${callbackPath}`
 
     const response = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
         amount: koboAmount,
         callback_url: callbackUrl,
         metadata: {
-          purpose: 'marketplace_checkout',
+          purpose: isSubscription ? 'seller_subscription' : 'marketplace_checkout',
           ...metadata,
         },
       }),

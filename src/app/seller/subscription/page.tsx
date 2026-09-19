@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -12,13 +13,17 @@ import {
   ArrowRight,
   Loader2,
   AlertCircle,
-  HelpCircle,
+  CheckCircle2,
 } from 'lucide-react'
 
 export default function SellerSubscriptionPage() {
+  const router = useRouter()
   const [currentPlan, setCurrentPlan] = useState<'free' | 'pro'>('free')
   const [selectedPlan, setSelectedPlan] = useState<'free' | 'pro' | 'enterprise'>('pro')
   const [loading, setLoading] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [verifySuccess, setVerifySuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState('')
   const [userId, setUserId] = useState('')
 
@@ -27,33 +32,68 @@ export default function SellerSubscriptionPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  useEffect(() => {
-    async function loadSeller() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        setUserId(user.id)
-        setUserEmail(user.email || '')
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('seller_plan, subscription_tier')
-          .eq('id', user.id)
-          .single()
+  // 1. Load active profile & plan
+  const loadSeller = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user) {
+      setUserId(user.id)
+      setUserEmail(user.email || '')
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('seller_plan, subscription_tier')
+        .eq('id', user.id)
+        .single()
 
-        const activeTier =
-          profile?.seller_plan === 'pro' || profile?.subscription_tier === 'pro'
-            ? 'pro'
-            : 'free'
+      const activeTier =
+        profile?.seller_plan === 'pro' || profile?.subscription_tier === 'pro'
+          ? 'pro'
+          : 'free'
 
-        setCurrentPlan(activeTier)
-      }
+      setCurrentPlan(activeTier)
+      setSelectedPlan(activeTier === 'pro' ? 'pro' : 'free')
     }
-    loadSeller()
   }, [supabase])
+
+  // 2. Detect Paystack reference on return & auto-verify
+  useEffect(() => {
+    loadSeller()
+
+    const urlParams = new URLSearchParams(window.location.search)
+    const reference = urlParams.get('reference') || urlParams.get('trxref')
+
+    if (reference) {
+      setVerifying(true)
+      setError(null)
+
+      fetch(`/api/checkout/paystack/verify?reference=${reference}`)
+        .then(async (res) => {
+          const data = await res.json()
+          if (res.ok && data.verified) {
+            setVerifySuccess(true)
+            setCurrentPlan('pro')
+            setSelectedPlan('pro')
+            // Clean URL query parameters without reloading
+            window.history.replaceState({}, '', '/seller/subscription')
+            router.refresh()
+          } else {
+            setError(data.message || 'Payment verification failed.')
+          }
+        })
+        .catch(() => {
+          setError('Network error while verifying payment with Paystack.')
+        })
+        .finally(() => {
+          setVerifying(false)
+        })
+    }
+  }, [loadSeller, router])
 
   const handleUpgradeToPro = async () => {
     setLoading(true)
+    setError(null)
+
     try {
       const res = await fetch('/api/checkout/paystack', {
         method: 'POST',
@@ -73,10 +113,10 @@ export default function SellerSubscriptionPage() {
       if (data.authorization_url) {
         window.location.href = data.authorization_url
       } else {
-        alert(data.message || 'Payment initiation failed')
+        setError(data.message || 'Payment initiation failed')
       }
     } catch {
-      alert('Unable to connect to payment gateway')
+      setError('Unable to connect to Paystack payment gateway.')
     } finally {
       setLoading(false)
     }
@@ -84,6 +124,38 @@ export default function SellerSubscriptionPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 space-y-8">
+      {/* Verification Feedback Banners */}
+      {verifying && (
+        <div className="p-4 bg-blue-50 border border-blue-200 text-blue-900 text-xs rounded-2xl font-bold flex items-center gap-3 animate-pulse shadow-xs">
+          <Loader2 className="w-4 h-4 animate-spin text-blue-600 shrink-0" />
+          <span>Confirming Paystack transaction with bank gateway... Activating Pro entitlements.</span>
+        </div>
+      )}
+
+      {verifySuccess && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-2xl font-bold flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>Pro Plan activated successfully! 25 listing credits, ₦2,500 promo credit, and 5% reduced commission are live.</span>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setVerifySuccess(false)}
+            variant="ghost"
+            className="text-xs text-emerald-700 h-7"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl font-semibold flex items-center gap-2.5 shadow-xs">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center space-y-3 max-w-2xl mx-auto">
         <Badge className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1 text-xs font-bold">
@@ -99,9 +171,7 @@ export default function SellerSubscriptionPage() {
 
       {/* Plan Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-        {/* =========================================================
-            FREE PLAN CARD
-        ========================================================= */}
+        {/* FREE PLAN */}
         <Card
           onClick={() => setSelectedPlan('free')}
           className={`rounded-3xl flex flex-col justify-between p-6 sm:p-7 transition-all duration-200 cursor-pointer ${
@@ -175,9 +245,7 @@ export default function SellerSubscriptionPage() {
           </div>
         </Card>
 
-        {/* =========================================================
-            PRO PLAN CARD
-        ========================================================= */}
+        {/* PRO PLAN */}
         <Card
           onClick={() => setSelectedPlan('pro')}
           className={`rounded-3xl flex flex-col justify-between p-6 sm:p-7 transition-all duration-200 cursor-pointer relative ${
@@ -186,7 +254,6 @@ export default function SellerSubscriptionPage() {
               : 'border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
           }`}
         >
-          {/* Top Recommendation Badge */}
           <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider px-3.5 py-0.5 rounded-full shadow-xs">
             RECOMMENDED
           </div>
@@ -258,10 +325,10 @@ export default function SellerSubscriptionPage() {
                 e.stopPropagation()
                 handleUpgradeToPro()
               }}
-              disabled={loading || currentPlan === 'pro'}
+              disabled={loading || currentPlan === 'pro' || verifying}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl h-11 shadow-md shadow-blue-500/20 gap-2"
             >
-              {loading ? (
+              {loading || verifying ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" /> Processing...
                 </>
@@ -276,9 +343,7 @@ export default function SellerSubscriptionPage() {
           </div>
         </Card>
 
-        {/* =========================================================
-            ENTERPRISE CARD (COMING SOON WITH NO DESCRIPTION)
-        ========================================================= */}
+        {/* ENTERPRISE CARD (COMING SOON WITH NO DESCRIPTION) */}
         <Card
           onClick={() => setSelectedPlan('enterprise')}
           className={`rounded-3xl flex flex-col justify-between p-6 sm:p-7 transition-all duration-200 cursor-pointer ${
