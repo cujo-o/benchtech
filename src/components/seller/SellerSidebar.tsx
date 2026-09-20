@@ -22,7 +22,9 @@ import {
   Store,
   Crown,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  Menu,
+  X
 } from 'lucide-react'
 import { signOut } from '@/app/(auth)/actions'
 import { Button } from '@/components/ui/button'
@@ -35,18 +37,42 @@ interface SellerSidebarProps {
 
 export function SellerSidebar({ profile }: SellerSidebarProps) {
   const pathname = usePathname()
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const previousCountRef = useRef<number>(0)
   const isInitialLoad = useRef<boolean>(true)
 
-  const isPro = profile?.seller_plan === 'pro' || profile?.subscription_tier === 'pro' || profile?.subscription_plan === 'professional'
-  const isAdmin = profile?.is_admin === true || profile?.role === 'admin'
+  const isPro =
+    profile?.seller_plan === 'pro' ||
+    profile?.subscription_tier === 'pro' ||
+    profile?.subscription_plan === 'professional'
+
+  const userRoles: string[] = profile?.roles || (profile?.role ? [profile.role] : [])
+  const isAdmin = profile?.is_admin === true || profile?.role === 'admin' || userRoles.includes('admin')
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
+  // Close drawer whenever route changes
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [mobileOpen])
+
+  // Poll for unread buyer enquiries
   useEffect(() => {
     if (!profile?.id) return
 
@@ -94,142 +120,147 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     { label: 'Help & Support', href: '/seller/support', icon: HelpCircle },
   ]
 
-  return (
-    <aside className="w-full lg:w-64 bg-white border-r border-slate-200/80 flex flex-col shrink-0 min-h-[calc(100vh-4rem)]">
-      {/* Brand & Plan Header */}
-      <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
-        <Link href="/seller" className="flex items-center gap-2 font-black text-lg text-slate-900">
-          <span className="bg-blue-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-xs shadow-sm">
-            T
-          </span>
-          BenchTech
-        </Link>
-        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider ${
-          isPro ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600'
-        }`}>
-          {isPro ? 'PRO PLAN' : 'FREE PLAN'}
-        </span>
-      </div>
-
-      {/* Store Identity Summary */}
-      <div className="p-3.5 mx-4 my-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-        <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Store</p>
-          <p className="text-xs font-black text-slate-800 truncate mt-0.5">
-            {profile?.business_name || profile?.full_name || 'My Tech Hub'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-1.5 pt-1 border-t border-slate-200/60">
-          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-            profile?.tech_trust_status === 'verified'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-              : profile?.tech_trust_status === 'pending'
-              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-              : 'bg-amber-50 text-amber-700 border border-amber-200'
-          }`}>
-            <ShieldCheck className="w-3 h-3" />
-            {profile?.tech_trust_status === 'verified' 
-              ? 'Verified' 
-              : profile?.tech_trust_status === 'pending' 
-              ? 'In Review' 
-              : 'Unverified'}
-          </span>
-
-          {isPro && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-black bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
-              <Crown className="w-3 h-3 text-purple-600" /> Pro Badge
+  // Reusable Navigation Body
+  const SidebarBody = ({ onLinkClick }: { onLinkClick?: () => void }) => (
+    <div className="flex flex-col h-full justify-between bg-white text-slate-800">
+      <div className="flex flex-col overflow-y-auto flex-1">
+        {/* Brand & Store Header */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <Link href="/seller" onClick={onLinkClick} className="flex items-center gap-2">
+            <span className="bg-blue-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shadow-xs">
+              B
             </span>
-          )}
+            <div className="leading-tight">
+              <span className="font-black text-base text-slate-900 tracking-tight block">BenchTech</span>
+              <span className="text-[9px] text-slate-400 font-semibold tracking-wider block">Seller Hub</span>
+            </div>
+          </Link>
+
+          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider ${
+            isPro ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600'
+          }`}>
+            {isPro ? 'PRO' : 'FREE'}
+          </span>
         </div>
+
+        {/* Store Profile Card */}
+        <div className="p-3 mx-3 my-2.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-1.5">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Store</p>
+          <p className="text-xs font-black text-slate-900 truncate">
+            {profile?.business_name || profile?.full_name || 'My Tech Store'}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-slate-200/60">
+            <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${
+              profile?.tech_trust_status === 'verified'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : profile?.tech_trust_status === 'pending'
+                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                : 'bg-amber-50 text-amber-700 border border-amber-200'
+            }`}>
+              <ShieldCheck className="w-3 h-3" />
+              {profile?.tech_trust_status === 'verified'
+                ? 'Verified'
+                : profile?.tech_trust_status === 'pending'
+                ? 'In Review'
+                : 'Unverified'}
+            </span>
+
+            {isPro && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                <Crown className="w-3 h-3 text-purple-600" /> Pro Badge
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Navigation Items */}
+        <nav className="flex-1 px-3 space-y-0.5 py-1">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
+            const isEnquiries = item.href === '/seller/enquiries'
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onLinkClick}
+                className={`flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition ${
+                  isActive
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <span>{item.label}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {item.pro && !isPro && (
+                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700">
+                      Pro
+                    </span>
+                  )}
+
+                  {isEnquiries && unreadCount > 0 && (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            )
+          })}
+        </nav>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto max-h-[calc(100vh-22rem)]">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href
-          const isEnquiries = item.href === '/seller/enquiries'
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition ${
-                isActive
-                  ? 'bg-blue-600 text-white font-bold shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                {item.pro && !isPro && (
-                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700">
-                    Pro
-                  </span>
-                )}
-
-                {isEnquiries && unreadCount > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </div>
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/* Pro Upgrade or Status Card */}
-      <div className="p-3 mx-3 my-2">
+      {/* Footer / Status / Actions */}
+      <div className="p-3 border-t border-slate-100 space-y-2 shrink-0">
         {!isPro ? (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-3 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-black text-blue-900">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-2.5 space-y-1.5">
+            <div className="flex items-center gap-1 text-xs font-black text-blue-900">
               <Crown className="w-3.5 h-3.5 text-blue-600" /> Upgrade to Pro
             </div>
-            <p className="text-[11px] text-blue-800 leading-snug">
-              Get 25 listings, 5% lower commission, bulk tools &amp; ₦2,500 ads.
+            <p className="text-[10px] text-blue-800 leading-snug">
+              25 listings, 5% commission, bulk tools &amp; ₦2,500 ads.
             </p>
-            <Link href="/seller/subscription" className="block pt-1">
-              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] h-7 rounded-lg">
+            <Link href="/seller/subscription" onClick={onLinkClick} className="block pt-0.5">
+              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] h-7 rounded-lg">
                 Upgrade ₦5k/mo
               </Button>
             </Link>
           </div>
         ) : (
-          <div className="bg-slate-900 text-white rounded-2xl p-3 space-y-1.5">
+          <div className="bg-slate-900 text-white rounded-2xl p-2.5 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
-                <Crown className="w-3.5 h-3.5 fill-amber-400" /> Pro Member
+              <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                <Crown className="w-3 h-3 fill-amber-400" /> Pro Member
               </span>
-              <span className="text-[10px] text-slate-400">5% comm.</span>
+              <span className="text-[9px] text-slate-400">5% comm.</span>
             </div>
             <p className="text-[10px] text-slate-400">25 credits &amp; pro business tools active.</p>
           </div>
         )}
-      </div>
 
-      {/* Bottom Actions & Admin Console Link */}
-      <div className="p-3 px-4 border-t border-slate-100 space-y-1.5 mt-auto">
-        {/* Admin Dashboard Access */}
+        {/* Admin Console Link */}
         {isAdmin && (
           <Link
             href="/admin"
-            className="flex items-center justify-between px-3 py-2 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 transition rounded-xl border border-purple-200"
+            onClick={onLinkClick}
+            className="flex items-center justify-between px-3 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 transition rounded-xl border border-purple-200"
           >
             <span className="flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-purple-600" /> Admin Console
+              <ShieldAlert className="w-3.5 h-3.5 text-purple-600" /> Admin Console
             </span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-3 h-3" />
           </Link>
         )}
 
         <Link
           href="/feed"
+          onClick={onLinkClick}
           className="flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition rounded-xl hover:bg-slate-50"
         >
           <span className="flex items-center gap-2">
@@ -248,6 +279,77 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           </Button>
         </form>
       </div>
-    </aside>
+    </div>
+  )
+
+  return (
+    <>
+      {/* =========================================================
+          1. MOBILE TOP HEADER (Screens < 1024px)
+      ========================================================= */}
+      <div className="lg:hidden sticky top-0 z-40 bg-white border-b border-slate-200 px-3.5 h-14 flex items-center justify-between w-full shadow-2xs">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="p-1.5 text-slate-700 hover:bg-slate-100 rounded-xl focus:outline-none"
+            aria-label="Open seller menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <Link href="/seller" className="flex items-center gap-2">
+            <span className="bg-blue-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shadow-2xs">
+              B
+            </span>
+            <span className="font-black text-sm text-slate-900 tracking-tight">
+              Seller Hub
+            </span>
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+            isPro ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'
+          }`}>
+            {isPro ? 'PRO' : 'FREE'}
+          </span>
+
+          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center border border-blue-200">
+            {(profile?.business_name || profile?.full_name || 'S')?.[0]?.toUpperCase()}
+          </div>
+        </div>
+      </div>
+
+      {/* =========================================================
+          2. MOBILE SLIDE-OUT DRAWER (Off-canvas)
+      ========================================================= */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="relative w-72 max-w-[82vw] h-full bg-white z-10 shadow-2xl flex flex-col">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              className="absolute top-3.5 right-3 p-1 text-slate-400 hover:text-slate-900 rounded-lg"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <SidebarBody onLinkClick={() => setMobileOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          3. DESKTOP PERSISTENT SIDEBAR (Screens >= 1024px)
+      ========================================================= */}
+      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0 sticky top-0 h-screen overflow-hidden">
+        <SidebarBody />
+      </aside>
+    </>
   )
 }
