@@ -83,9 +83,7 @@ export default async function SellerDashboard() {
   )
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
-      {/* Responsive Sidebar (Mobile Header + Desktop Sidebar) */}
-      <SellerSidebar profile={profile} />
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row"> 
 
       {/* Main Dashboard Area */}
       <main className="flex-1 min-w-0 p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-7xl mx-auto w-full">
