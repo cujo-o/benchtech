@@ -1,29 +1,29 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import { Navbar } from '@/components/Navbar'
-import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
-import { BuyerRightSidebar } from '@/components/storefront/BuyerRightSidebar'
-import { SaveButton } from '@/components/SaveButton'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
-import { 
-  Smartphone, 
-  Laptop, 
-  Gamepad2, 
-  Headphones, 
-  Camera, 
-  Network, 
-  Home as HomeIcon, 
-  Watch, 
-  Tablet, 
-  Monitor, 
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { Navbar } from "@/components/Navbar";
+import { BuyerSidebar } from "@/components/storefront/BuyerSidebar";
+import { BuyerRightSidebar } from "@/components/storefront/BuyerRightSidebar";
+import { SaveButton } from "@/components/SaveButton";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Smartphone,
+  Laptop,
+  Gamepad2,
+  Headphones,
+  Camera,
+  Network,
+  Home as HomeIcon,
+  Watch,
+  Tablet,
+  Monitor,
   Grid,
-  ShieldCheck, 
-  Lock, 
-  Truck, 
+  ShieldCheck,
+  Lock,
+  Truck,
   RotateCcw,
   Flame,
   ArrowRight,
@@ -42,133 +42,138 @@ import {
   Star,
   CheckCircle2,
   Clock,
-  ExternalLink
-} from 'lucide-react'
+  ExternalLink,
+} from "lucide-react";
 
 // Edge cache for 30s to keep TTFB fast under high concurrent traffic
-export const revalidate = 30
+export const revalidate = 30;
 
 export const metadata: Metadata = {
-  title: 'BenchTech | Abuja’s Premier Tech & Gadget Marketplace',
+  title: "BenchTech | Abuja’s Premier Tech & Gadget Marketplace",
   description:
-    'Buy, sell, and compare authentic smartphones, laptops, gaming gear, and accessories across Abuja. Browse verified merchants in Banex Plaza, Emab, and Wuse 2 with physical inspection guarantees.',
+    "Buy, sell, and compare authentic smartphones, laptops, gaming gear, and accessories across Abuja. Browse verified merchants in Banex Plaza, Emab, and Wuse 2 with physical inspection guarantees.",
   keywords: [
-    'BenchTech Abuja',
-    'Abuja tech marketplace',
-    'buy iPhone Abuja',
-    'laptops Banex plaza',
-    'Emab plaza gadgets',
-    'used laptops Abuja',
-    'computer village Abuja',
-    'verified phone dealers Wuse 2',
-    'Samsung Abuja deals',
-    'TechPass Abuja',
+    "BenchTech Abuja",
+    "Abuja tech marketplace",
+    "buy iPhone Abuja",
+    "laptops Banex plaza",
+    "Emab plaza gadgets",
+    "used laptops Abuja",
+    "computer village Abuja",
+    "verified phone dealers Wuse 2",
+    "Samsung Abuja deals",
+    "TechPass Abuja",
   ],
   openGraph: {
-    title: 'BenchTech | Abuja’s Verified Tech Marketplace',
+    title: "BenchTech | Abuja’s Verified Tech Marketplace",
     description:
-      'Buy, sell, and compare authentic gadgets across Abuja. Safe physical inspection and verified dealers in Banex & Emab.',
-    url: 'https://shopbenchtech.com/feed',
-    siteName: 'BenchTech',
-    locale: 'en_NG',
-    type: 'website',
+      "Buy, sell, and compare authentic gadgets across Abuja. Safe physical inspection and verified dealers in Banex & Emab.",
+    url: "https://shopbenchtech.com/feed",
+    siteName: "BenchTech",
+    locale: "en_NG",
+    type: "website",
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'BenchTech | Abuja’s Verified Tech Marketplace',
+    card: "summary_large_image",
+    title: "BenchTech | Abuja’s Verified Tech Marketplace",
     description:
-      'Buy, sell, and compare authentic gadgets across Abuja with trusted merchant verification.',
+      "Buy, sell, and compare authentic gadgets across Abuja with trusted merchant verification.",
   },
-}
+};
 
 const CATEGORY_CHIPS = [
-  { id: 'phones', label: 'Phones', icon: Smartphone },
-  { id: 'laptops', label: 'Laptops', icon: Laptop },
-  { id: 'gaming', label: 'Gaming', icon: Gamepad2 },
-  { id: 'accessories', label: 'Accessories', icon: Headphones },
-  { id: 'cameras', label: 'Cameras', icon: Camera },
-  { id: 'networking', label: 'Networking', icon: Network },
-  { id: 'smarthome', label: 'Smart Home', icon: HomeIcon },
-  { id: 'wearables', label: 'Wearables', icon: Watch },
-  { id: 'tablets', label: 'Tablets', icon: Tablet },
-  { id: 'monitors', label: 'Monitors', icon: Monitor },
-  { id: 'all', label: 'View All', icon: Grid },
-]
+  { id: "phones", label: "Phones", icon: Smartphone },
+  { id: "laptops", label: "Laptops", icon: Laptop },
+  { id: "gaming", label: "Gaming", icon: Gamepad2 },
+  { id: "accessories", label: "Accessories", icon: Headphones },
+  { id: "cameras", label: "Cameras", icon: Camera },
+  { id: "networking", label: "Networking", icon: Network },
+  { id: "smarthome", label: "Smart Home", icon: HomeIcon },
+  { id: "wearables", label: "Wearables", icon: Watch },
+  { id: "tablets", label: "Tablets", icon: Tablet },
+  { id: "monitors", label: "Monitors", icon: Monitor },
+  { id: "all", label: "View All", icon: Grid },
+];
 
 const FEATURE_TILES = [
   {
-    title: 'Find My Tech',
-    desc: 'Answer a few questions to get personalized recommendations.',
-    cta: 'Start Now',
-    href: '/assistant',
+    title: "Find My Tech",
+    desc: "Answer a few questions to get personalized recommendations.",
+    cta: "Start Now",
+    href: "/assistant",
     icon: Bot,
-    color: 'from-blue-600 to-indigo-700',
-    iconBg: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-    btnBg: 'bg-blue-600 hover:bg-blue-700 text-white',
+    color: "from-blue-600 to-indigo-700",
+    iconBg: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+    btnBg: "bg-blue-600 hover:bg-blue-700 text-white",
   },
   {
-    title: 'Compare Tech',
-    desc: 'Compare specs, prices, and features side by side.',
-    cta: 'Compare Now',
-    href: '/compare',
+    title: "Compare Tech",
+    desc: "Compare specs, prices, and features side by side.",
+    cta: "Compare Now",
+    href: "/compare",
     icon: Scale,
-    color: 'from-purple-600 to-violet-700',
-    iconBg: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
-    btnBg: 'bg-purple-600 hover:bg-purple-700 text-white',
+    color: "from-purple-600 to-violet-700",
+    iconBg:
+      "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300",
+    btnBg: "bg-purple-600 hover:bg-purple-700 text-white",
   },
   {
-    title: 'Build My Setup',
-    desc: 'Create your perfect setup (gaming, school, work, editing).',
-    cta: 'Start Building',
-    href: '/requests/new',
+    title: "Build My Setup",
+    desc: "Create your perfect setup (gaming, school, work, editing).",
+    cta: "Start Building",
+    href: "/requests/new",
     icon: Wrench,
-    color: 'from-emerald-600 to-teal-700',
-    iconBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-    btnBg: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    color: "from-emerald-600 to-teal-700",
+    iconBg:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+    btnBg: "bg-emerald-600 hover:bg-emerald-700 text-white",
   },
   {
-    title: 'Sell Your Tech',
-    desc: 'Turn your old gadgets into cash. Fast, verified, and secure.',
-    cta: 'Start Selling',
-    href: '/seller/listings/new',
+    title: "Sell Your Tech",
+    desc: "Turn your old gadgets into cash. Fast, verified, and secure.",
+    cta: "Start Selling",
+    href: "/seller/listings/new",
     icon: Tag,
-    color: 'from-orange-600 to-rose-600',
-    iconBg: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
-    btnBg: 'bg-orange-600 hover:bg-orange-700 text-white',
+    color: "from-orange-600 to-rose-600",
+    iconBg:
+      "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
+    btnBg: "bg-orange-600 hover:bg-orange-700 text-white",
   },
   {
-    title: 'Learn Tech',
-    desc: 'Device testing checklists, IMEI check guides & Abuja tips.',
-    cta: 'Explore Hub',
-    href: '/help',
+    title: "Learn Tech",
+    desc: "Device testing checklists, IMEI check guides & Abuja tips.",
+    cta: "Explore Hub",
+    href: "/help",
     icon: BookOpen,
-    color: 'from-amber-600 to-yellow-600',
-    iconBg: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-    btnBg: 'bg-amber-600 hover:bg-amber-700 text-white',
+    color: "from-amber-600 to-yellow-600",
+    iconBg: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+    btnBg: "bg-amber-600 hover:bg-amber-700 text-white",
   },
-]
+];
 
 const FEATURED_BRANDS = [
-  'Apple',
-  'Samsung',
-  'Dell',
-  'HP',
-  'Lenovo',
-  'ASUS',
-  'Sony',
-  'Canon',
-  'Microsoft',
-]
+  "Apple",
+  "Samsung",
+  "Dell",
+  "HP",
+  "Lenovo",
+  "ASUS",
+  "Sony",
+  "Canon",
+  "Microsoft",
+];
 
 export default async function FeedPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login?next=/feed')
+    redirect("/login?next=/feed");
   }
 
-  const now = new Date().toISOString()
+  const now = new Date().toISOString();
 
   // Parallel database telemetry
   const [
@@ -177,40 +182,42 @@ export default async function FeedPage() {
     { data: dealsPromos },
     { data: products },
   ] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single(),
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
 
     supabase
-      .from('promotions')
-      .select('*, products(*), profiles(business_name, district, tech_trust_status)')
-      .eq('package_type', 'homepage_hero')
-      .eq('status', 'active')
-      .gt('ends_at', now)
-      .order('created_at', { ascending: false })
+      .from("promotions")
+      .select(
+        "*, products(*), profiles(business_name, district, tech_trust_status)",
+      )
+      .eq("package_type", "homepage_hero")
+      .eq("status", "active")
+      .gt("ends_at", now)
+      .order("created_at", { ascending: false })
       .limit(1),
 
     supabase
-      .from('promotions')
-      .select('*, products(*), profiles(business_name, district, tech_trust_status)')
-      .eq('package_type', 'deals_spotlight')
-      .eq('status', 'active')
-      .gt('ends_at', now)
-      .order('created_at', { ascending: false })
+      .from("promotions")
+      .select(
+        "*, products(*), profiles(business_name, district, tech_trust_status)",
+      )
+      .eq("package_type", "deals_spotlight")
+      .eq("status", "active")
+      .gt("ends_at", now)
+      .order("created_at", { ascending: false })
       .limit(4),
 
     supabase
-      .from('products')
-      .select('*, profiles!products_seller_id_fkey(business_name, district, tech_trust_status)')
-      .eq('status', 'published')
-      .order('is_featured', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
+      .from("products")
+      .select(
+        "*, profiles!products_seller_id_fkey(business_name, district, tech_trust_status)",
+      )
+      .eq("status", "published")
+      .order("is_featured", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
       .limit(16),
-  ])
+  ]);
 
-  const activeHero = heroPromos?.[0] || null
+  const activeHero = heroPromos?.[0] || null;
 
   return (
     <div className="min-h-screen bg-slate-100/60 dark:bg-slate-950 flex flex-col">
@@ -228,10 +235,11 @@ export default async function FeedPage() {
               <div className="space-y-3 max-w-lg z-10 w-full">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge className="bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider px-2 py-0.5 border-none flex items-center gap-1 shadow-xs">
-                    <Crown className="w-2.5 h-2.5 fill-slate-950" /> Featured Tech
+                    <Crown className="w-2.5 h-2.5 fill-slate-950" /> Featured
+                    Tech
                   </Badge>
                   <span className="text-xs text-blue-300 font-semibold truncate max-w-[200px]">
-                    {activeHero.profiles?.business_name || 'Verified Vendor'}
+                    {activeHero.profiles?.business_name || "Verified Vendor"}
                   </span>
                 </div>
 
@@ -240,7 +248,8 @@ export default async function FeedPage() {
                 </h1>
 
                 <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                  {activeHero.products.description || 'Verified Abuja technology available for physical inspection and pickup or express dispatch.'}
+                  {activeHero.products.description ||
+                    "Verified Abuja technology available for physical inspection and pickup or express dispatch."}
                 </p>
 
                 <div className="flex items-center gap-3 pt-1">
@@ -281,16 +290,19 @@ export default async function FeedPage() {
                   <span className="text-blue-500">For Your Life.</span>
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                  Buy, Compare, Learn, Sell, Upgrade. Everything tech in Abuja, made simple with physical inspection guarantees.
+                  Buy, Compare, Learn, Sell, Upgrade. Everything tech in Abuja,
+                  made simple with physical inspection guarantees.
                 </p>
 
                 {/* Trust guarantee pill indicators */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 text-[10px] font-semibold text-slate-200">
-                    <ShieldCheck className="w-3 h-3 text-emerald-400" /> Verified Sellers
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />{" "}
+                    Verified Sellers
                   </span>
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 text-[10px] font-semibold text-slate-200">
-                    <Truck className="w-3 h-3 text-sky-400" /> Abuja Fast Delivery
+                    <Truck className="w-3 h-3 text-sky-400" /> Abuja Fast
+                    Delivery
                   </span>
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 text-[10px] font-semibold text-slate-200">
                     <Lock className="w-3 h-3 text-purple-400" /> Escrow Safe
@@ -304,7 +316,10 @@ export default async function FeedPage() {
                     </Button>
                   </Link>
                   <Link href="/help#safety">
-                    <Button variant="outline" className="text-xs font-bold h-9 rounded-xl border-white/20 text-white hover:bg-white/10">
+                    <Button
+                      variant="ghost"
+                      className="text-xs font-bold h-9 px-4 rounded-xl bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 border-none transition shadow-xs"
+                    >
                       Buyer Safety Guide
                     </Button>
                   </Link>
@@ -314,8 +329,12 @@ export default async function FeedPage() {
               {/* Visual Banner Card */}
               <div className="hidden md:flex flex-col items-center justify-center p-5 bg-white/5 border border-white/10 rounded-2xl text-center w-64 shrink-0 backdrop-blur-xs">
                 <Sparkles className="w-7 h-7 text-amber-400 mb-1.5 animate-pulse" />
-                <p className="text-xs font-black text-slate-100">Abuja Verified Tech</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Banex • Emab • Wuse 2</p>
+                <p className="text-xs font-black text-slate-100">
+                  Abuja Verified Tech
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Banex • Emab • Wuse 2
+                </p>
                 <div className="mt-3 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
                   ● 100% Inspected Hardware
                 </div>
@@ -328,14 +347,16 @@ export default async function FeedPage() {
           ========================================================= */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {FEATURE_TILES.map((tile) => {
-              const Icon = tile.icon
+              const Icon = tile.icon;
               return (
                 <div
                   key={tile.title}
                   className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between space-y-3 hover:shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition group"
                 >
                   <div className="space-y-2">
-                    <div className={`w-9 h-9 rounded-xl ${tile.iconBg} flex items-center justify-center shrink-0`}>
+                    <div
+                      className={`w-9 h-9 rounded-xl ${tile.iconBg} flex items-center justify-center shrink-0`}
+                    >
                       <Icon className="w-4 h-4" />
                     </div>
                     <div>
@@ -358,7 +379,7 @@ export default async function FeedPage() {
                     </button>
                   </Link>
                 </div>
-              )
+              );
             })}
           </div>
 
@@ -370,18 +391,26 @@ export default async function FeedPage() {
               <h2 className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">
                 Shop by Category
               </h2>
-              <Link href="/products" className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
-                <span>View All Categories</span> <ArrowRight className="w-3 h-3" />
+              <Link
+                href="/products"
+                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                <span>View All Categories</span>{" "}
+                <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
 
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
               {CATEGORY_CHIPS.map((cat) => {
-                const Icon = cat.icon
+                const Icon = cat.icon;
                 return (
                   <Link
                     key={cat.id}
-                    href={cat.id === 'all' ? '/products' : `/products?category=${cat.id}`}
+                    href={
+                      cat.id === "all"
+                        ? "/products"
+                        : `/products?category=${cat.id}`
+                    }
                     className="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-blue-500 hover:shadow-2xs min-w-[62px] sm:min-w-[76px] transition group shrink-0"
                   >
                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:bg-blue-50 group-hover:text-blue-600 transition">
@@ -391,7 +420,7 @@ export default async function FeedPage() {
                       {cat.label}
                     </span>
                   </Link>
-                )
+                );
               })}
             </div>
           </div>
@@ -415,7 +444,9 @@ export default async function FeedPage() {
                         Limited Time
                       </Badge>
                     </div>
-                    <p className="text-[10px] text-slate-400">Exclusive discounted hardware in Abuja</p>
+                    <p className="text-[10px] text-slate-400">
+                      Exclusive discounted hardware in Abuja
+                    </p>
                   </div>
                 </div>
 
@@ -426,7 +457,10 @@ export default async function FeedPage() {
                     <span>24h Deals Window</span>
                   </div>
 
-                  <Link href="/products?filter=deals" className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                  <Link
+                    href="/products?filter=deals"
+                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                  >
                     View All Deals &rarr;
                   </Link>
                 </div>
@@ -434,11 +468,18 @@ export default async function FeedPage() {
 
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3.5">
                 {dealsPromos.map((deal, idx) => {
-                  const item = deal.products
-                  if (!item) return null
+                  const item = deal.products;
+                  if (!item) return null;
 
-                  const discountPercent = idx === 0 ? '-20%' : idx === 1 ? '-15%' : idx === 2 ? '-25%' : '-10%'
-                  const originalPrice = Math.round(Number(item.price) * 1.2)
+                  const discountPercent =
+                    idx === 0
+                      ? "-20%"
+                      : idx === 1
+                        ? "-15%"
+                        : idx === 2
+                          ? "-25%"
+                          : "-10%";
+                  const originalPrice = Math.round(Number(item.price) * 1.2);
 
                   return (
                     <div key={deal.id} className="relative group">
@@ -469,17 +510,20 @@ export default async function FeedPage() {
                               <h3 className="font-bold text-xs text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition line-clamp-1">
                                 {item.title}
                               </h3>
-                              
+
                               {/* Rating & Verified Vendor Badge */}
                               <div className="flex items-center gap-1 text-[10px] text-amber-500 font-bold mt-1">
                                 <Star className="w-3 h-3 fill-amber-400 stroke-amber-400" />
                                 <span>4.9</span>
-                                <span className="text-slate-400 font-normal">({idx * 14 + 18})</span>
+                                <span className="text-slate-400 font-normal">
+                                  ({idx * 14 + 18})
+                                </span>
                               </div>
 
                               <div className="flex items-center gap-1 text-[10px] text-slate-400 truncate mt-0.5">
                                 <span className="font-semibold text-slate-700 dark:text-slate-300 truncate">
-                                  {deal.profiles?.business_name || 'Verified Vendor'}
+                                  {deal.profiles?.business_name ||
+                                    "Verified Vendor"}
                                 </span>
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                               </div>
@@ -503,7 +547,7 @@ export default async function FeedPage() {
                         </Card>
                       </Link>
                     </div>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -528,11 +572,16 @@ export default async function FeedPage() {
                     TechPass Membership
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Zero delivery fees across Abuja districts, tracked warranty cards, and direct vendor WhatsApp lines.
+                    Zero delivery fees across Abuja districts, tracked warranty
+                    cards, and direct vendor WhatsApp lines.
                   </p>
                 </div>
                 <Link href="/subscription">
-                  <Button size="sm" variant="outline" className="w-full text-xs font-bold rounded-xl h-8 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300 hover:bg-amber-100">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs font-bold rounded-xl h-8 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300 hover:bg-amber-100"
+                  >
                     Create Your TechPass &rarr;
                   </Button>
                 </Link>
@@ -548,11 +597,16 @@ export default async function FeedPage() {
                     Student Tech Hub
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Campus-verified discounts on programming laptops, iPads, and accessories for Abuja tertiary students.
+                    Campus-verified discounts on programming laptops, iPads, and
+                    accessories for Abuja tertiary students.
                   </p>
                 </div>
                 <Link href="/products?tag=student">
-                  <Button size="sm" variant="outline" className="w-full text-xs font-bold rounded-xl h-8 border-blue-300 dark:border-blue-800 text-blue-900 dark:text-blue-300 hover:bg-blue-100">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs font-bold rounded-xl h-8 border-blue-300 dark:border-blue-800 text-blue-900 dark:text-blue-300 hover:bg-blue-100"
+                  >
                     Get Student Discounts &rarr;
                   </Button>
                 </Link>
@@ -568,11 +622,16 @@ export default async function FeedPage() {
                     TechTrust Guarantee
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Test battery health, screen touch, and IMEI at the seller’s plaza booth before any payment release.
+                    Test battery health, screen touch, and IMEI at the seller’s
+                    plaza booth before any payment release.
                   </p>
                 </div>
                 <Link href="/help#safety">
-                  <Button size="sm" variant="outline" className="w-full text-xs font-bold rounded-xl h-8 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-300 hover:bg-emerald-100">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs font-bold rounded-xl h-8 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-300 hover:bg-emerald-100"
+                  >
                     Learn Safety Protocols &rarr;
                   </Button>
                 </Link>
@@ -590,9 +649,14 @@ export default async function FeedPage() {
                 <h2 className="text-xs sm:text-sm md:text-base font-black text-slate-900 dark:text-slate-100">
                   Available Technology
                 </h2>
-                <span className="text-[10px] text-slate-400 hidden sm:inline">• Live verified listings</span>
+                <span className="text-[10px] text-slate-400 hidden sm:inline">
+                  • Live verified listings
+                </span>
               </div>
-              <Link href="/products" className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">
+              <Link
+                href="/products"
+                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+              >
                 View All Catalog &rarr;
               </Link>
             </div>
@@ -603,17 +667,19 @@ export default async function FeedPage() {
                   const isFeatured =
                     item.is_featured &&
                     item.featured_until &&
-                    new Date(item.featured_until) > new Date()
+                    new Date(item.featured_until) > new Date();
 
                   return (
                     <div key={item.id} className="relative group">
                       <SaveButton product={item} />
                       <Link href={`/products/${item.id}`}>
-                        <Card className={`h-full rounded-2xl overflow-hidden hover:shadow-md transition bg-white dark:bg-slate-900 flex flex-col justify-between ${
-                          isFeatured 
-                            ? 'border-2 border-blue-400/80 ring-2 ring-blue-500/10 shadow-2xs' 
-                            : 'border border-slate-200/80 dark:border-slate-800 shadow-2xs'
-                        }`}>
+                        <Card
+                          className={`h-full rounded-2xl overflow-hidden hover:shadow-md transition bg-white dark:bg-slate-900 flex flex-col justify-between ${
+                            isFeatured
+                              ? "border-2 border-blue-400/80 ring-2 ring-blue-500/10 shadow-2xs"
+                              : "border border-slate-200/80 dark:border-slate-800 shadow-2xs"
+                          }`}
+                        >
                           <div className="aspect-square bg-slate-50 dark:bg-slate-800/40 relative overflow-hidden p-2 flex items-center justify-center">
                             <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10">
                               {isFeatured && (
@@ -622,7 +688,7 @@ export default async function FeedPage() {
                                 </Badge>
                               )}
                               <Badge className="bg-slate-900/80 backdrop-blur-xs text-white border-none text-[8px] capitalize px-1.5 py-0">
-                                {item.condition?.replace('_', ' ') || 'Good'}
+                                {item.condition?.replace("_", " ") || "Good"}
                               </Badge>
                             </div>
 
@@ -636,7 +702,9 @@ export default async function FeedPage() {
                                 className="max-h-full object-contain group-hover:scale-105 transition duration-300"
                               />
                             ) : (
-                              <div className="text-[10px] text-slate-400">No Image</div>
+                              <div className="text-[10px] text-slate-400">
+                                No Image
+                              </div>
                             )}
                           </div>
 
@@ -647,12 +715,12 @@ export default async function FeedPage() {
                               </h3>
                               <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
                                 <span className="uppercase tracking-wider font-semibold truncate max-w-[60px] sm:max-w-none">
-                                  {item.brand || 'Device'}
+                                  {item.brand || "Device"}
                                 </span>
                                 {item.profiles?.district && (
                                   <span className="flex items-center gap-0.5 text-[9px] sm:text-[10px] shrink-0">
                                     <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                                    {item.profiles.district.split(' ')[0]}
+                                    {item.profiles.district.split(" ")[0]}
                                   </span>
                                 )}
                               </div>
@@ -670,11 +738,13 @@ export default async function FeedPage() {
                         </Card>
                       </Link>
                     </div>
-                  )
+                  );
                 })
               ) : (
                 <div className="col-span-full p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <p className="text-xs text-slate-500">No items available yet.</p>
+                  <p className="text-xs text-slate-500">
+                    No items available yet.
+                  </p>
                 </div>
               )}
             </div>
@@ -694,8 +764,12 @@ export default async function FeedPage() {
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">Trusted Sellers</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">CAC &amp; ID verified Abuja plaza vendors</p>
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    Trusted Sellers
+                  </h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    CAC &amp; ID verified Abuja plaza vendors
+                  </p>
                 </div>
               </div>
 
@@ -704,8 +778,12 @@ export default async function FeedPage() {
                   <Lock className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">Secure Payments</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Escrow-backed buyer protection</p>
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    Secure Payments
+                  </h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Escrow-backed buyer protection
+                  </p>
                 </div>
               </div>
 
@@ -714,8 +792,12 @@ export default async function FeedPage() {
                   <Truck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">Fast Delivery</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Prompt intra-city dispatch</p>
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    Fast Delivery
+                  </h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Prompt intra-city dispatch
+                  </p>
                 </div>
               </div>
 
@@ -724,8 +806,12 @@ export default async function FeedPage() {
                   <RotateCcw className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">Easy Returns</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Physical testing before release</p>
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    Easy Returns
+                  </h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Physical testing before release
+                  </p>
                 </div>
               </div>
             </div>
@@ -764,5 +850,5 @@ export default async function FeedPage() {
         />
       </div>
     </div>
-  )
+  );
 }

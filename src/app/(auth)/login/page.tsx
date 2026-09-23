@@ -56,7 +56,7 @@ export default function LoginPage() {
               className="inline-flex items-center gap-2 mb-2 group"
             >
               <div className="bg-blue-600 text-white w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-lg shadow-md shadow-blue-500/20 group-hover:scale-105 transition">
-                T
+                B
               </div>
               <span className="font-extrabold text-xl text-slate-900 tracking-tight">
                 BenchTech

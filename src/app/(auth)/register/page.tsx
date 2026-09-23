@@ -97,7 +97,7 @@ export default function RegisterPage() {
               <div>
                 <Link href="/" className="inline-flex items-center gap-2">
                   <div className="bg-white text-blue-700 w-8 h-8 rounded-xl flex items-center justify-center font-extrabold text-base shadow-sm">
-                    T
+                    B
                   </div>
                   <span className="text-xl font-extrabold tracking-tight text-white">
                     BenchTech
