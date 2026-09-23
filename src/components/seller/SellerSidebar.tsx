@@ -55,12 +55,10 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // Close drawer whenever route changes
   useEffect(() => {
     setMobileOpen(false)
   }, [pathname])
 
-  // Lock body scroll when mobile menu is open
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = 'hidden'
@@ -72,7 +70,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     }
   }, [mobileOpen])
 
-  // Poll for unread buyer enquiries
   useEffect(() => {
     if (!profile?.id) return
 
@@ -120,11 +117,10 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     { label: 'Help & Support', href: '/seller/support', icon: HelpCircle },
   ]
 
-  // Reusable Navigation Body
   const SidebarBody = ({ onLinkClick }: { onLinkClick?: () => void }) => (
     <div className="flex flex-col h-full justify-between bg-white text-slate-800">
       <div className="flex flex-col overflow-y-auto flex-1">
-        {/* Brand & Store Header */}
+        {/* Brand Header */}
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <Link href="/seller" onClick={onLinkClick} className="flex items-center gap-2">
             <span className="bg-blue-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shadow-xs">
@@ -136,28 +132,24 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
             </div>
           </Link>
 
-          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider ${
-            isPro ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-600'
-          }`}>
-            {isPro ? 'PRO' : 'FREE'}
-          </span>
+          {isPro && (
+            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider bg-[#f3e8ff] text-[#9333ea]">
+              PRO
+            </span>
+          )}
         </div>
 
-        {/* Store Profile Card */}
-        <div className="p-3 mx-3 my-2.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-1.5">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Store</p>
-          <p className="text-xs font-black text-slate-900 truncate">
-            {profile?.business_name || profile?.full_name || 'My Tech Store'}
-          </p>
+        {/* Active Store Card */}
+        <div className="p-3.5 mx-3 my-2.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ACTIVE STORE</p>
+            <p className="text-xs font-black text-slate-900 truncate mt-0.5">
+              {profile?.business_name || profile?.full_name || 'My Tech Hub'}
+            </p>
+          </div>
 
-          <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-slate-200/60">
-            <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${
-              profile?.tech_trust_status === 'verified'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : profile?.tech_trust_status === 'pending'
-                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                : 'bg-amber-50 text-amber-700 border border-amber-200'
-            }`}>
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-200/50">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
               <ShieldCheck className="w-3 h-3" />
               {profile?.tech_trust_status === 'verified'
                 ? 'Verified'
@@ -167,8 +159,8 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
             </span>
 
             {isPro && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
-                <Crown className="w-3 h-3 text-purple-600" /> Pro Badge
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-[#9333ea] border border-purple-200">
+                <Crown className="w-3 h-3" /> Pro Badge
               </span>
             )}
           </div>
@@ -218,8 +210,18 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
 
       {/* Footer / Status / Actions */}
       <div className="p-3 border-t border-slate-100 space-y-2 shrink-0">
-        {!isPro ? (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-2.5 space-y-1.5">
+        {isPro ? (
+          <div className="bg-[#0f172a] text-white rounded-2xl p-3 space-y-1 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+                <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> Pro Member
+              </span>
+              <span className="text-[9px] text-slate-400 font-medium">5% comm.</span>
+            </div>
+            <p className="text-[10px] text-slate-400">25 credits &amp; pro business tools active.</p>
+          </div>
+        ) : (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-3 space-y-1.5">
             <div className="flex items-center gap-1 text-xs font-black text-blue-900">
               <Crown className="w-3.5 h-3.5 text-blue-600" /> Upgrade to Pro
             </div>
@@ -232,27 +234,17 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
               </Button>
             </Link>
           </div>
-        ) : (
-          <div className="bg-slate-900 text-white rounded-2xl p-2.5 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
-                <Crown className="w-3 h-3 fill-amber-400" /> Pro Member
-              </span>
-              <span className="text-[9px] text-slate-400">5% comm.</span>
-            </div>
-            <p className="text-[10px] text-slate-400">25 credits &amp; pro business tools active.</p>
-          </div>
         )}
 
-        {/* Admin Console Link */}
+        {/* Admin Console Link (Styled purple as shown in screenshot) */}
         {isAdmin && (
           <Link
             href="/admin"
             onClick={onLinkClick}
-            className="flex items-center justify-between px-3 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 transition rounded-xl border border-purple-200"
+            className="flex items-center justify-between px-3 py-2 text-xs font-bold text-[#9333ea] bg-[#faf5ff] hover:bg-[#f3e8ff] transition rounded-2xl border border-purple-200"
           >
             <span className="flex items-center gap-2">
-              <ShieldAlert className="w-3.5 h-3.5 text-purple-600" /> Admin Console
+              <ShieldAlert className="w-3.5 h-3.5 text-[#9333ea]" /> Admin Console
             </span>
             <ArrowRight className="w-3 h-3" />
           </Link>
@@ -284,9 +276,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
 
   return (
     <>
-      {/* =========================================================
-          1. MOBILE TOP HEADER (Screens < 1024px)
-      ========================================================= */}
+      {/* Mobile Top Header Bar */}
       <div className="lg:hidden sticky top-0 z-40 bg-white border-b border-slate-200 px-3.5 h-14 flex items-center justify-between w-full shadow-2xs">
         <div className="flex items-center gap-2">
           <button
@@ -309,11 +299,11 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-            isPro ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'
-          }`}>
-            {isPro ? 'PRO' : 'FREE'}
-          </span>
+          {isPro && (
+            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[#f3e8ff] text-[#9333ea]">
+              PRO
+            </span>
+          )}
 
           <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center border border-blue-200">
             {(profile?.business_name || profile?.full_name || 'S')?.[0]?.toUpperCase()}
@@ -321,9 +311,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       </div>
 
-      {/* =========================================================
-          2. MOBILE SLIDE-OUT DRAWER (Off-canvas)
-      ========================================================= */}
+      {/* Mobile Slide-Out Drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
@@ -344,9 +332,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       )}
 
-      {/* =========================================================
-          3. DESKTOP PERSISTENT SIDEBAR (Screens >= 1024px)
-      ========================================================= */}
+      {/* Desktop Persistent Sidebar */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0 sticky top-0 h-screen overflow-hidden">
         <SidebarBody />
       </aside>
