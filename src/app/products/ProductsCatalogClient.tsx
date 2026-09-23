@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { SaveButton } from '@/components/SaveButton'
@@ -31,7 +31,6 @@ import {
   BatteryCharging,
   Cpu,
   HardDrive,
-  RotateCcw,
 } from 'lucide-react'
 
 const CATEGORIES = [
@@ -48,7 +47,6 @@ const CATEGORIES = [
   { id: 'smarthome', label: 'Smart Home', icon: HomeIcon },
 ]
 
-// Category-Specific Facet Specs
 const PHONE_BRANDS = ['Apple', 'Samsung', 'Google', 'Xiaomi', 'OnePlus', 'Tecno', 'Infinix']
 const LAPTOP_BRANDS = ['Apple', 'Dell', 'HP', 'Lenovo', 'ASUS', 'Acer', 'Microsoft']
 const GENERAL_BRANDS = ['Apple', 'Samsung', 'Sony', 'Dell', 'HP', 'Lenovo', 'Logitech', 'Canon', 'LG']
@@ -91,6 +89,10 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>(searchParams.get('category') || 'all')
   const [searchQuery, setSearchQuery] = useState<string>(searchParams.get('q') || '')
+  
+  // High-performance deferred search value to prevent keyboard lag on phones
+  const deferredSearch = useDeferredValue(searchQuery)
+
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
   const [selectedRam, setSelectedRam] = useState<string[]>([])
   const [selectedStorage, setSelectedStorage] = useState<string[]>([])
@@ -102,7 +104,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [sortBy, setSortBy] = useState<'featured' | 'newest' | 'price_low' | 'price_high'>('featured')
 
-  // Section accordions inside the drawer
   const [openSections, setOpenSections] = useState({
     price: true,
     brand: true,
@@ -115,42 +116,37 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }))
   }
 
-  // Active Brands list based on category
   const activeBrands = useMemo(() => {
     if (selectedCategory === 'phones') return PHONE_BRANDS
     if (selectedCategory === 'laptops') return LAPTOP_BRANDS
     return GENERAL_BRANDS
   }, [selectedCategory])
 
-  // Real-Time Live Filtering
+  // Memoized live filtering
   const filteredProducts = useMemo(() => {
+    const q = deferredSearch.trim().toLowerCase()
+
     return initialProducts
       .filter((item) => {
-        // Category Match
         if (selectedCategory !== 'all' && item.category?.toLowerCase() !== selectedCategory.toLowerCase()) {
           return false
         }
 
-        // Search Query Match
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase()
+        if (q) {
           const matchTitle = item.title?.toLowerCase().includes(q)
           const matchBrand = item.brand?.toLowerCase().includes(q)
           const matchDesc = item.description?.toLowerCase().includes(q)
           if (!matchTitle && !matchBrand && !matchDesc) return false
         }
 
-        // Brands Match
         if (selectedBrands.length > 0 && !selectedBrands.some((b) => item.brand?.toLowerCase() === b.toLowerCase())) {
           return false
         }
 
-        // Conditions Match
         if (selectedConditions.length > 0 && !selectedConditions.includes(item.condition)) {
           return false
         }
 
-        // Hub Location Match
         if (selectedHubs.length > 0) {
           const district = item.profiles?.district || ''
           if (!selectedHubs.some((h) => district.toLowerCase().includes(h.toLowerCase()))) {
@@ -158,7 +154,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           }
         }
 
-        // Price Budget Match
         if (selectedPriceRange) {
           const price = Number(item.price) || 0
           if (price < selectedPriceRange.min || price > selectedPriceRange.max) {
@@ -166,12 +161,10 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           }
         }
 
-        // TechTrust Verified Sellers Only
         if (verifiedOnly && item.profiles?.tech_trust_status !== 'verified') {
           return false
         }
 
-        // Category-Specific: RAM Capacity (Structured specs or title/desc search)
         if (selectedRam.length > 0) {
           const itemRam = item.specs?.ram || ''
           const content = `${item.title} ${item.description} ${itemRam}`.toUpperCase()
@@ -180,7 +173,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           }
         }
 
-        // Category-Specific: Storage Capacity
         if (selectedStorage.length > 0) {
           const itemStorage = item.specs?.storage || ''
           const content = `${item.title} ${item.description} ${itemStorage}`.toUpperCase()
@@ -189,7 +181,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           }
         }
 
-        // Category-Specific: Processor Type
         if (selectedProcessors.length > 0) {
           const itemProc = item.specs?.processor || ''
           const content = `${item.title} ${item.description} ${itemProc}`.toLowerCase()
@@ -198,7 +189,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           }
         }
 
-        // Category-Specific: Battery Health
         if (selectedBatteryHealth.length > 0) {
           const healthNum = parseInt(item.specs?.battery_health || '0')
           const meetsThreshold = selectedBatteryHealth.some((threshold) => {
@@ -219,7 +209,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
   }, [
     initialProducts,
     selectedCategory,
-    searchQuery,
+    deferredSearch,
     selectedBrands,
     selectedConditions,
     selectedHubs,
@@ -232,7 +222,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     sortBy,
   ])
 
-  // Count active filter criteria
   const activeFilterCount =
     (selectedCategory !== 'all' ? 1 : 0) +
     selectedBrands.length +
@@ -277,12 +266,12 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
               key={cat.id}
               onClick={() => {
                 setSelectedCategory(cat.id)
-                clearAllFilters() // Reset sub-filters cleanly when switching main hardware category
+                clearAllFilters()
               }}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition ${
                 isSelected
                   ? 'bg-blue-600 text-white font-bold shadow-xs'
-                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
               }`}
             >
               <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
@@ -292,7 +281,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         })}
       </div>
 
-      {/* 2. Top Toolbar (Clean, Uncluttered: Search count, Sort, and Hidden Drawer Trigger) */}
+      {/* 2. Top Toolbar */}
       <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
@@ -302,13 +291,12 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Sort Selector */}
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <span className="hidden sm:inline font-bold">Sort:</span>
             <select
               value={sortBy}
               onChange={(e: any) => setSortBy(e.target.value)}
-              className="h-9 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-600"
+              className="h-9 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
             >
               <option value="featured">Featured First</option>
               <option value="newest">Newest Listed</option>
@@ -317,7 +305,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
             </select>
           </div>
 
-          {/* Dedicated Filter Button (Opens the hidden Drawer) */}
           <Button
             size="sm"
             onClick={() => setDrawerOpen(true)}
@@ -334,20 +321,20 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         </div>
       </div>
 
-      {/* 3. Active Filter Chips Row (Quick-Dismiss Tags) */}
+      {/* 3. Active Filters Chips */}
       {activeFilterCount > 0 && (
         <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
           <span className="text-[11px] font-bold text-slate-400 mr-1">Active filters:</span>
 
           {verifiedOnly && (
-            <Badge className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+            <Badge className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
               Verified Only
               <X className="w-3 h-3 cursor-pointer hover:text-emerald-900" onClick={() => setVerifiedOnly(false)} />
             </Badge>
           )}
 
           {selectedPriceRange && (
-            <Badge className="bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+            <Badge className="bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
               {selectedPriceRange.label}
               <X className="w-3 h-3 cursor-pointer hover:text-blue-900" onClick={() => setSelectedPriceRange(null)} />
             </Badge>
@@ -411,7 +398,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         </div>
       )}
 
-      {/* 4. Full-Width Product Grid (Now expanded across the entire layout!) */}
+      {/* 4. Full-Width Grid with Lazy Images */}
       {filteredProducts.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3.5">
           {filteredProducts.map((item) => {
@@ -448,6 +435,8 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                         <img
                           src={item.images[0]}
                           alt={item.title}
+                          loading="lazy"
+                          decoding="async"
                           className="max-h-full object-contain group-hover:scale-105 transition duration-300"
                         />
                       ) : (
@@ -503,18 +492,15 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         </div>
       )}
 
-      {/* 5. HIDDEN SLIDE-OUT FILTER DRAWER (Mobile & Desktop) */}
+      {/* 5. HIDDEN SLIDE-OUT FILTER DRAWER */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop blur */}
           <div
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in"
             onClick={() => setDrawerOpen(false)}
           />
 
-          {/* Drawer Panel */}
           <div className="relative ml-auto w-96 max-w-[88vw] h-full bg-white dark:bg-slate-900 z-10 shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:border-slate-800">
-            {/* Drawer Header */}
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
@@ -547,9 +533,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
               </div>
             </div>
 
-            {/* Scrollable Filters Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 text-xs text-slate-700 dark:text-slate-300">
-              {/* TechTrust Badge Checkbox */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 text-xs text-slate-700 dark:text-slate-300 [scrollbar-width:thin]">
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl flex items-center justify-between">
                 <label className="flex items-center gap-2.5 cursor-pointer font-bold text-emerald-950 dark:text-emerald-200">
                   <input
@@ -565,7 +549,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                 </label>
               </div>
 
-              {/* Price Budget Section */}
               <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
                 <button
                   onClick={() => toggleSection('price')}
@@ -600,7 +583,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                 )}
               </div>
 
-              {/* Brands Section (Adapts by category) */}
               <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
                 <button
                   onClick={() => toggleSection('brand')}
@@ -628,10 +610,8 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                 )}
               </div>
 
-              {/* CATEGORY-DEPENDENT SECTION: Phones Specifics */}
               {selectedCategory === 'phones' && (
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-4 space-y-4">
-                  {/* Phone Storage */}
                   <div>
                     <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
                       <HardDrive className="w-3.5 h-3.5 text-blue-600" /> Storage Capacity
@@ -657,7 +637,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                     </div>
                   </div>
 
-                  {/* Battery Health Thresholds */}
                   <div>
                     <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
                       <BatteryCharging className="w-3.5 h-3.5 text-emerald-600" /> Minimum Battery Health
@@ -685,10 +664,8 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                 </div>
               )}
 
-              {/* CATEGORY-DEPENDENT SECTION: Laptops Specifics */}
               {selectedCategory === 'laptops' && (
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-4 space-y-4">
-                  {/* Laptop RAM */}
                   <div>
                     <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
                       <Cpu className="w-3.5 h-3.5 text-blue-600" /> RAM Memory
@@ -714,7 +691,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                     </div>
                   </div>
 
-                  {/* Processor Family */}
                   <div>
                     <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2">Processor Family</span>
                     <div className="grid grid-cols-2 gap-1.5">
@@ -734,7 +710,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                     </div>
                   </div>
 
-                  {/* Laptop Storage */}
                   <div>
                     <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
                       <HardDrive className="w-3.5 h-3.5 text-blue-600" /> Solid State Drive (SSD)
@@ -762,7 +737,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                 </div>
               )}
 
-              {/* Hardware Condition Section */}
               <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
                 <button
                   onClick={() => toggleSection('condition')}
@@ -790,7 +764,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                 )}
               </div>
 
-              {/* Abuja Plaza / Hub Location */}
               <div>
                 <button
                   onClick={() => toggleSection('hub')}
@@ -819,7 +792,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
               </div>
             </div>
 
-            {/* Drawer Bottom Action Bar */}
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center gap-2 shrink-0">
               <Button
                 variant="outline"

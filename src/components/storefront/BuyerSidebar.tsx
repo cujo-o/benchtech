@@ -65,12 +65,17 @@ export function BuyerSidebar() {
     }
   }, [])
 
-  // 2. Poll for unread buyer messages / vendor replies
+  // 2. Optimized unread checking (only runs when active)
   const checkUnreadMessages = useCallback(async () => {
     try {
       if (pathname === '/messages') {
         setUnreadMessages(0)
         previousUnreadRef.current = 0
+        return
+      }
+
+      // Skip checking if document is not visible
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return
       }
 
@@ -106,40 +111,46 @@ export function BuyerSidebar() {
       }
       isInitialLoad.current = false
     } catch {
-      // Ignore transient network errors
+      // Ignore network dropouts
     }
   }, [pathname, supabase])
 
+  // 3. Smart event-based sync (Zero polling when tab is inactive)
   useEffect(() => {
     updateSavedCount()
     checkUnreadMessages()
 
-    const handleCustomSync = () => {
-      updateSavedCount()
-    }
-
+    const handleCustomSync = () => updateSavedCount()
     window.addEventListener('storage', handleCustomSync)
     window.addEventListener('savedItemsUpdated', handleCustomSync)
 
-    const interval = setInterval(checkUnreadMessages, 5000)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkUnreadMessages()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    // Poll conservatively every 60s instead of 5s only if tab is visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        checkUnreadMessages()
+      }
+    }, 60000)
 
     return () => {
       window.removeEventListener('storage', handleCustomSync)
       window.removeEventListener('savedItemsUpdated', handleCustomSync)
+      document.removeEventListener('visibilitychange', handleVisibility)
       clearInterval(interval)
     }
   }, [checkUnreadMessages, updateSavedCount])
 
-  // Discovery & Buyer Account Navigation Items
   const NAV_ITEMS = [
     { label: 'Home', href: '/feed', icon: Home },
     { label: 'Shop by Category', href: '/products', icon: Grid },
     { label: 'Verified Sellers', href: '/sellers', icon: Store },
-    {
-      label: 'Request a Gadget',
-      href: '/requests/new',
-      icon: Sparkles,
-    },
+    { label: 'Request a Gadget', href: '/requests/new', icon: Sparkles },
     {
       label: 'Deals & Offers',
       href: '/deals',
@@ -155,11 +166,7 @@ export function BuyerSidebar() {
       badge: 'AI',
       badgeColor: 'bg-indigo-600 text-white',
     },
-    {
-      label: 'TechSpin',
-      href: '/techspin',
-      icon: Disc,
-    },
+    { label: 'TechSpin', href: '/techspin', icon: Disc },
     { label: 'TechPass', href: '/subscription', icon: Crown },
     { label: 'My Orders', href: '/orders', icon: Package },
     {
@@ -225,7 +232,7 @@ export function BuyerSidebar() {
       </div>
 
       {/* 2. Scrollable Navigation List with Visible Custom Scroller */}
-      <nav className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1.5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+      <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-1 pr-1 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -251,12 +258,9 @@ export function BuyerSidebar() {
                     isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'
                   }`}
                 />
-                {!isCollapsed && (
-                  <span className="truncate">{item.label}</span>
-                )}
+                {!isCollapsed && <span className="truncate">{item.label}</span>}
               </div>
 
-              {/* Badges in Full Mode */}
               {!isCollapsed && item.badge && (
                 <span
                   className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-2xs shrink-0 ${item.badgeColor}`}
@@ -265,7 +269,6 @@ export function BuyerSidebar() {
                 </span>
               )}
 
-              {/* Indicator Dot in Collapsed Mode */}
               {isCollapsed && item.badge && (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400" />
               )}
@@ -274,10 +277,9 @@ export function BuyerSidebar() {
         })}
       </nav>
 
-      {/* 3. Footer Banners (Hidden in Mini-Sidebar Mode) */}
+      {/* 3. Footer Banners */}
       {!isCollapsed && (
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2 shrink-0">
-          {/* TechPass Card */}
           <div className="bg-gradient-to-b from-slate-900 to-slate-950 text-white rounded-2xl p-3 space-y-2 border border-slate-800 shadow-2xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-amber-300 flex items-center gap-1">
@@ -295,7 +297,6 @@ export function BuyerSidebar() {
             </Link>
           </div>
 
-          {/* Quick Support Links */}
           <div className="p-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
             <Link
               href="/help"

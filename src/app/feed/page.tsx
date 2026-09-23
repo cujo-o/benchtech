@@ -33,7 +33,8 @@ import {
   MapPin
 } from 'lucide-react'
 
-export const dynamic = 'force-dynamic'
+// Cache this public page on edge for 30s instead of force-dynamic querying on every user hit
+export const revalidate = 30
 
 const CATEGORY_CHIPS = [
   { id: 'phones', label: 'Phones', icon: Smartphone },
@@ -59,55 +60,57 @@ export default async function FeedPage() {
 
   const now = new Date().toISOString()
 
-  // 1. Fetch user profile
-  const { data: userProfile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  // Execute all 4 database queries in parallel for high throughput & low TTFB
+  const [
+    { data: userProfile },
+    { data: heroPromos },
+    { data: dealsPromos },
+    { data: products },
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single(),
 
-  // 2. Fetch live Homepage Hero Showcase promotion
-  const { data: heroPromos } = await supabase
-    .from('promotions')
-    .select('*, products(*), profiles(business_name, district, tech_trust_status)')
-    .eq('package_type', 'homepage_hero')
-    .eq('status', 'active')
-    .gt('ends_at', now)
-    .order('created_at', { ascending: false })
-    .limit(1)
+    supabase
+      .from('promotions')
+      .select('*, products(*), profiles(business_name, district, tech_trust_status)')
+      .eq('package_type', 'homepage_hero')
+      .eq('status', 'active')
+      .gt('ends_at', now)
+      .order('created_at', { ascending: false })
+      .limit(1),
+
+    supabase
+      .from('promotions')
+      .select('*, products(*), profiles(business_name, district)')
+      .eq('package_type', 'deals_spotlight')
+      .eq('status', 'active')
+      .gt('ends_at', now)
+      .order('created_at', { ascending: false })
+      .limit(4),
+
+    supabase
+      .from('products')
+      .select('*, profiles!products_seller_id_fkey(business_name, district, tech_trust_status)')
+      .eq('status', 'published')
+      .order('is_featured', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(16),
+  ])
 
   const activeHero = heroPromos?.[0] || null
 
-  // 3. Fetch live Deals & Clearance Spotlight promotions
-  const { data: dealsPromos } = await supabase
-    .from('promotions')
-    .select('*, products(*), profiles(business_name, district)')
-    .eq('package_type', 'deals_spotlight')
-    .eq('status', 'active')
-    .gt('ends_at', now)
-    .order('created_at', { ascending: false })
-    .limit(4)
-
-  // 4. Fetch Product Catalog: Featured listings first, then recent
-  const { data: products } = await supabase
-    .from('products')
-    .select('*, profiles!products_seller_id_fkey(business_name, district, tech_trust_status)')
-    .eq('status', 'published')
-    .order('is_featured', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .limit(16)
-
   return (
-    <div className="min-h-screen bg-slate-100/60 flex flex-col">
+    <div className="min-h-screen bg-slate-100/60 dark:bg-slate-950 flex flex-col">
       <Navbar />
 
       <div className="max-w-[1700px] w-full mx-auto flex flex-1">
         <BuyerSidebar />
 
         <main className="flex-1 min-w-0 p-2.5 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
-          {/* =========================================================
-              1. HERO BANNER (Optimized for Phones & PC)
-          ========================================================= */}
+          {/* 1. HERO BANNER */}
           {activeHero?.products ? (
             <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-xs flex flex-col md:flex-row items-center justify-between gap-4 border border-blue-900/40">
               <div className="space-y-2.5 sm:space-y-3 max-w-lg z-10 w-full">
@@ -140,13 +143,14 @@ export default async function FeedPage() {
                 </div>
               </div>
 
-              {/* Product Hero Image */}
               <div className="relative z-10 w-full md:w-64 aspect-[16/9] md:aspect-[4/3] bg-white/5 rounded-xl border border-white/10 flex items-center justify-center p-2.5 backdrop-blur-xs">
                 {activeHero.products.images?.[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={activeHero.products.images[0]}
                     alt={activeHero.products.title}
+                    loading="lazy"
+                    decoding="async"
                     className="max-h-full max-w-full object-contain drop-shadow-xl"
                   />
                 ) : (
@@ -155,7 +159,6 @@ export default async function FeedPage() {
               </div>
             </div>
           ) : (
-            /* Default Compact Hero: The empty blue container is hidden on mobile screens */
             <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-xs flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="space-y-1.5 sm:space-y-2.5 max-w-md z-10 w-full">
                 <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-blue-400 font-bold block">
@@ -177,7 +180,6 @@ export default async function FeedPage() {
                 </div>
               </div>
 
-              {/* Decorative block only shown on desktop/tablets */}
               <div className="hidden md:flex flex-col items-center justify-center p-4 bg-white/5 border border-white/10 rounded-2xl text-center w-60 shrink-0">
                 <Sparkles className="w-6 h-6 text-amber-400 mb-1" />
                 <p className="text-xs font-bold text-slate-200">Abuja Tech Hub</p>
@@ -186,9 +188,7 @@ export default async function FeedPage() {
             </div>
           )}
 
-          {/* =========================================================
-              2. SLIM CATEGORY CHIPS (Native Horizontal Scroll)
-          ========================================================= */}
+          {/* 2. SLIM CATEGORY CHIPS */}
           <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
             {CATEGORY_CHIPS.map((cat) => {
               const Icon = cat.icon
@@ -196,12 +196,12 @@ export default async function FeedPage() {
                 <Link
                   key={cat.id}
                   href={cat.id === 'all' ? '/products' : `/products?category=${cat.id}`}
-                  className="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-2xs min-w-[58px] sm:min-w-[70px] transition group shrink-0"
+                  className="flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-blue-500 hover:shadow-2xs min-w-[58px] sm:min-w-[70px] transition group shrink-0"
                 >
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:bg-blue-50 group-hover:text-blue-600 transition">
                     <Icon className="w-4 h-4" />
                   </div>
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 group-hover:text-blue-600 text-center whitespace-nowrap">
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 text-center whitespace-nowrap">
                     {cat.label}
                   </span>
                 </Link>
@@ -209,9 +209,7 @@ export default async function FeedPage() {
             })}
           </div>
 
-          {/* =========================================================
-              3. DEALS & SPOTLIGHT ROW (2-Column Grid on Mobile)
-          ========================================================= */}
+          {/* 3. DEALS & SPOTLIGHT ROW */}
           {dealsPromos && dealsPromos.length > 0 && (
             <div className="space-y-2.5">
               <div className="flex justify-between items-center">
@@ -219,7 +217,7 @@ export default async function FeedPage() {
                   <div className="w-6 h-6 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
                     <Flame className="w-3.5 h-3.5" />
                   </div>
-                  <h2 className="text-xs sm:text-sm md:text-base font-black text-slate-900">Deals Spotlight</h2>
+                  <h2 className="text-xs sm:text-sm md:text-base font-black text-slate-900 dark:text-slate-100">Deals Spotlight</h2>
                   <Badge className="bg-red-50 text-red-600 border border-red-200 text-[8px] sm:text-[9px] font-black uppercase px-1.5 py-0">
                     Hot
                   </Badge>
@@ -238,7 +236,7 @@ export default async function FeedPage() {
                     <div key={deal.id} className="relative group">
                       <SaveButton product={item} />
                       <Link href={`/products/${item.id}`}>
-                        <Card className="h-full border border-red-200/80 rounded-xl sm:rounded-2xl overflow-hidden hover:shadow-xs transition bg-white flex flex-col justify-between">
+                        <Card className="h-full border border-red-200/80 dark:border-red-900/60 rounded-xl sm:rounded-2xl overflow-hidden hover:shadow-xs transition bg-white dark:bg-slate-900 flex flex-col justify-between">
                           <div className="aspect-square bg-red-50/20 relative overflow-hidden p-2 flex items-center justify-center">
                             <Badge className="absolute top-2 left-2 bg-red-600 text-white border-none text-[8px] font-bold uppercase">
                               Deal
@@ -249,6 +247,8 @@ export default async function FeedPage() {
                               <img
                                 src={item.images[0]}
                                 alt={item.title}
+                                loading="lazy"
+                                decoding="async"
                                 className="max-h-full object-contain group-hover:scale-105 transition duration-300"
                               />
                             ) : (
@@ -258,7 +258,7 @@ export default async function FeedPage() {
 
                           <CardContent className="p-2 sm:p-3 flex-1 flex flex-col justify-between space-y-1.5">
                             <div>
-                              <h3 className="font-bold text-[11px] sm:text-xs text-slate-900 group-hover:text-blue-600 transition line-clamp-1">
+                              <h3 className="font-bold text-[11px] sm:text-xs text-slate-900 dark:text-slate-100 group-hover:text-blue-600 transition line-clamp-1">
                                 {item.title}
                               </h3>
                               <p className="text-[9px] sm:text-[10px] text-slate-400 truncate">
@@ -266,7 +266,7 @@ export default async function FeedPage() {
                               </p>
                             </div>
 
-                            <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                            <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                               <p className="text-xs sm:text-sm font-black text-red-600">
                                 ₦{Number(item.price).toLocaleString()}
                               </p>
@@ -282,59 +282,55 @@ export default async function FeedPage() {
             </div>
           )}
 
-          {/* =========================================================
-              4. COMPACT TRUST GUARANTEES (2x2 Mobile Grid)
-          ========================================================= */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 bg-white p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-2xs">
+          {/* 4. COMPACT TRUST GUARANTEES */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 bg-white dark:bg-slate-900 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
             <div className="flex items-center gap-2 px-1">
-              <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+              <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950 flex items-center justify-center text-blue-600 shrink-0">
                 <ShieldCheck className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] sm:text-xs font-bold text-slate-900 truncate">Verified Sellers</p>
+                <p className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 truncate">Verified Sellers</p>
                 <p className="text-[9px] sm:text-[10px] text-slate-400 truncate">Shop with confidence</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 px-1 sm:border-l border-slate-100">
-              <div className="w-7 h-7 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <div className="flex items-center gap-2 px-1 sm:border-l border-slate-100 dark:border-slate-800">
+              <div className="w-7 h-7 rounded-full bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 shrink-0">
                 <Lock className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] sm:text-xs font-bold text-slate-900 truncate">Secure Payments</p>
+                <p className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 truncate">Secure Payments</p>
                 <p className="text-[9px] sm:text-[10px] text-slate-400 truncate">Protected escrow</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 px-1 border-t sm:border-t-0 sm:border-l border-slate-100 pt-1.5 sm:pt-0">
-              <div className="w-7 h-7 rounded-full bg-sky-50 flex items-center justify-center text-sky-600 shrink-0">
+            <div className="flex items-center gap-2 px-1 border-t sm:border-t-0 sm:border-l border-slate-100 dark:border-slate-800 pt-1.5 sm:pt-0">
+              <div className="w-7 h-7 rounded-full bg-sky-50 dark:bg-sky-950 flex items-center justify-center text-sky-600 shrink-0">
                 <Truck className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] sm:text-xs font-bold text-slate-900 truncate">Fast Delivery</p>
+                <p className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 truncate">Fast Delivery</p>
                 <p className="text-[9px] sm:text-[10px] text-slate-400 truncate">Abuja &amp; nationwide</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 px-1 border-t sm:border-t-0 sm:border-l border-slate-100 pt-1.5 sm:pt-0">
-              <div className="w-7 h-7 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+            <div className="flex items-center gap-2 px-1 border-t sm:border-t-0 sm:border-l border-slate-100 dark:border-slate-800 pt-1.5 sm:pt-0">
+              <div className="w-7 h-7 rounded-full bg-purple-50 dark:bg-purple-950 flex items-center justify-center text-purple-600 shrink-0">
                 <RotateCcw className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] sm:text-xs font-bold text-slate-900 truncate">Easy Returns</p>
+                <p className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 truncate">Easy Returns</p>
                 <p className="text-[9px] sm:text-[10px] text-slate-400 truncate">Hassle-free inspection</p>
               </div>
             </div>
           </div>
 
-          {/* =========================================================
-              5. 2-COLUMN PRODUCT FEED (Mobile App Grid Layout)
-          ========================================================= */}
+          {/* 5. 2-COLUMN PRODUCT FEED */}
           <div className="space-y-2.5 sm:space-y-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-1.5">
                 <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-red-500 fill-red-500" />
-                <h2 className="text-xs sm:text-sm md:text-base font-black text-slate-900">Available Technology</h2>
+                <h2 className="text-xs sm:text-sm md:text-base font-black text-slate-900 dark:text-slate-100">Available Technology</h2>
                 <span className="text-[10px] text-slate-400 hidden sm:inline">• Live verified listings</span>
               </div>
               <Link href="/products" className="text-[11px] sm:text-xs font-bold text-blue-600 hover:underline">
@@ -342,7 +338,6 @@ export default async function FeedPage() {
               </Link>
             </div>
 
-            {/* Changed from grid-cols-1 to grid-cols-2 on mobile */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3.5">
               {products && products.length > 0 ? (
                 products.map((item) => {
@@ -355,13 +350,12 @@ export default async function FeedPage() {
                     <div key={item.id} className="relative group">
                       <SaveButton product={item} />
                       <Link href={`/products/${item.id}`}>
-                        <Card className={`h-full rounded-xl sm:rounded-2xl overflow-hidden hover:shadow-md transition bg-white flex flex-col justify-between ${
+                        <Card className={`h-full rounded-xl sm:rounded-2xl overflow-hidden hover:shadow-md transition bg-white dark:bg-slate-900 flex flex-col justify-between ${
                           isFeatured 
                             ? 'border-2 border-blue-400/80 ring-2 ring-blue-500/10 shadow-2xs' 
-                            : 'border border-slate-200/80 shadow-2xs'
+                            : 'border border-slate-200/80 dark:border-slate-800 shadow-2xs'
                         }`}>
-                          <div className="aspect-square bg-slate-50 relative overflow-hidden p-2 flex items-center justify-center">
-                            {/* Badges */}
+                          <div className="aspect-square bg-slate-50 dark:bg-slate-800/40 relative overflow-hidden p-2 flex items-center justify-center">
                             <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
                               {isFeatured && (
                                 <Badge className="bg-blue-600 text-white border-none text-[8px] font-black uppercase tracking-wider flex items-center gap-0.5 shadow-xs px-1.5 py-0">
@@ -378,6 +372,8 @@ export default async function FeedPage() {
                               <img
                                 src={item.images[0]}
                                 alt={item.title}
+                                loading="lazy"
+                                decoding="async"
                                 className="max-h-full object-contain group-hover:scale-105 transition duration-300"
                               />
                             ) : (
@@ -387,7 +383,7 @@ export default async function FeedPage() {
 
                           <CardContent className="p-2.5 sm:p-3.5 flex-1 flex flex-col justify-between space-y-1.5">
                             <div>
-                              <h3 className="font-bold text-[11px] sm:text-xs text-slate-900 group-hover:text-blue-600 transition line-clamp-1">
+                              <h3 className="font-bold text-[11px] sm:text-xs text-slate-900 dark:text-slate-100 group-hover:text-blue-600 transition line-clamp-1">
                                 {item.title}
                               </h3>
                               <div className="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
@@ -403,8 +399,8 @@ export default async function FeedPage() {
                               </div>
                             </div>
 
-                            <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
-                              <p className="text-xs sm:text-sm font-black text-slate-900">
+                            <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                              <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
                                 ₦{Number(item.price).toLocaleString()}
                               </p>
                               <AddToCartButton product={item} variant="icon" />
@@ -416,7 +412,7 @@ export default async function FeedPage() {
                   )
                 })
               ) : (
-                <div className="col-span-full p-8 text-center bg-white rounded-xl border border-slate-200">
+                <div className="col-span-full p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                   <p className="text-xs text-slate-500">No items available yet.</p>
                 </div>
               )}
