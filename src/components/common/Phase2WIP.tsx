@@ -28,14 +28,12 @@ export function Phase2WIP({
   expectedRelease = 'Phase 2 Release',
 }: Phase2WIPProps) {
   return (
-    <div className="min-h-[70vh] w-full flex items-center justify-center p-4 sm:p-6">
-      <Card className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-xs">
-        {/* Animated Icon Container */}
+    <div className="min-h-[75vh] w-full flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <Card className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-xs mx-auto">
         <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/60 flex items-center justify-center mx-auto text-blue-600 dark:text-blue-400 shadow-2xs">
           <Icon className="w-6 h-6 animate-pulse" />
         </div>
 
-        {/* Status Badge & Titles */}
         <div className="space-y-2">
           <Badge className="bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
             <Sparkles className="w-2.5 h-2.5 mr-1 text-amber-500" />
@@ -52,13 +50,11 @@ export function Phase2WIP({
           </p>
         </div>
 
-        {/* Feature Timeline Note */}
         <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300 flex items-center justify-center gap-2">
           <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span>Under active development • Launching post-Abuja rollout</span>
         </div>
 
-        {/* Return Button */}
         <div className="pt-1">
           <Link href={backHref}>
             <Button
