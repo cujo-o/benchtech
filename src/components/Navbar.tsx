@@ -5,6 +5,7 @@ import { MobileSidebarDrawer } from "@/components/storefront/MobileSidebarDrawer
 import { Button } from "@/components/ui/button";
 import { BenchTechLogo } from "@/components/BenchTechLogo";
 import { CartDrawer } from "@/components/cart/CartDrawer";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   Search,
   MapPin,
@@ -33,11 +34,12 @@ export async function Navbar() {
 
   const userRoles: string[] =
     profile?.roles || (profile?.role ? [profile.role] : ["buyer"]);
-  
+
   const isAdmin = userRoles.includes("admin") || profile?.role === "admin";
-  
+
   // A user is a seller if they have a registered store name or seller/admin role
-  const isSeller = Boolean(profile?.business_name) || userRoles.includes("seller") || isAdmin;
+  const isSeller =
+    Boolean(profile?.business_name) || userRoles.includes("seller") || isAdmin;
   const sellerDestination = isSeller ? "/seller" : "/seller/onboarding";
 
   return (
@@ -47,10 +49,7 @@ export async function Navbar() {
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <MobileSidebarDrawer profile={profile} />
 
-          <Link
-            href={user ? "/feed" : "/"}
-            className="flex items-center gap-2"
-          >
+          <Link href={user ? "/feed" : "/"} className="flex items-center gap-2">
             <BenchTechLogo size={32} />
             <div className="hidden min-[400px]:block">
               <span className="font-black text-base sm:text-lg text-slate-900 tracking-tight leading-none block">
@@ -129,6 +128,14 @@ export async function Navbar() {
                   </span>
                 </Button>
               </Link>
+              <div className="flex items-center gap-1 sm:gap-2 text-xs font-semibold text-slate-600 shrink-0">
+                <ThemeToggle />
+                <Link href="/saved" className="hidden sm:flex ...">
+                  <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
+                </Link>
+                <CartDrawer />
+                ...
+              </div>
 
               {/* Sign Out */}
               <form action={signOut}>
@@ -145,7 +152,11 @@ export async function Navbar() {
           ) : (
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-200">
               <Link href="/login">
-                <Button size="sm" variant="ghost" className="text-xs h-8 px-2 sm:px-3 rounded-xl font-bold">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs h-8 px-2 sm:px-3 rounded-xl font-bold"
+                >
                   Sign In
                 </Button>
               </Link>

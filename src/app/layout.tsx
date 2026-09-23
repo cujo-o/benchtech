@@ -1,17 +1,13 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import './globals.css'
-import { CompareDrawer } from '@/components/CompareDrawer'
+import { ThemeProvider } from '@/components/theme-provider'
 
-const font = Plus_Jakarta_Sans({ 
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-sans',
-})
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'BenchTech | Buy & Sell Technology in Abuja',
-  description: 'Verified gadget marketplace for phones, laptops, and electronics.',
+  title: 'BenchTech | Abuja Technology Marketplace',
+  description: 'Buy and sell verified hardware in Abuja.',
 }
 
 export default function RootLayout({
@@ -20,10 +16,16 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={font.className}>
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
-        {children}
-        <CompareDrawer />
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased transition-colors duration-200`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )
