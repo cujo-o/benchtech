@@ -5,7 +5,7 @@ import { Navbar } from '@/components/Navbar'
 import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
 import { BuyerRightSidebar } from '@/components/storefront/BuyerRightSidebar'
 import { SaveButton } from '@/components/SaveButton'
-import { AddToCartButton } from '@/components/cart/AddToCartButton'
+//import { AddToCartButton } from '@/components/cart/AddToCartButton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -270,7 +270,7 @@ export default async function FeedPage() {
                               <p className="text-xs sm:text-sm font-black text-red-600">
                                 ₦{Number(item.price).toLocaleString()}
                               </p>
-                              <AddToCartButton product={item} variant="icon" />
+                              {/* <AddToCartButton product={item} variant="icon" /> */}
                             </div>
                           </CardContent>
                         </Card>
@@ -403,7 +403,7 @@ export default async function FeedPage() {
                               <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
                                 ₦{Number(item.price).toLocaleString()}
                               </p>
-                              <AddToCartButton product={item} variant="icon" />
+                              {/* <AddToCartButton product={item} variant="icon" /> */}
                             </div>
                           </CardContent>
                         </Card>

@@ -91,7 +91,7 @@ export default async function AdminOverviewPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Real-time Abuja marketplace telemetry, live listing moderation, and TechTrust verification queue[cite: 20].
+            Real-time Abuja marketplace telemetry, live listing moderation, and TechTrust verification queue.
           </p>
         </div>
 

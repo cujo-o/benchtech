@@ -1,13 +1,13 @@
-'use client'
+"use client";
 
-import { useState, useMemo, useDeferredValue } from 'react'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { SaveButton } from '@/components/SaveButton'
-import { AddToCartButton } from '@/components/cart/AddToCartButton'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { useState, useMemo, useDeferredValue } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { SaveButton } from "@/components/SaveButton";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   SlidersHorizontal,
   X,
@@ -31,78 +31,127 @@ import {
   BatteryCharging,
   Cpu,
   HardDrive,
-} from 'lucide-react'
+} from "lucide-react";
 
 const CATEGORIES = [
-  { id: 'all', label: 'All Catalog', icon: Grid },
-  { id: 'phones', label: 'Phones', icon: Smartphone },
-  { id: 'laptops', label: 'Laptops', icon: Laptop },
-  { id: 'gaming', label: 'Gaming', icon: Gamepad2 },
-  { id: 'tablets', label: 'Tablets', icon: Tablet },
-  { id: 'accessories', label: 'Accessories', icon: Headphones },
-  { id: 'cameras', label: 'Cameras', icon: Camera },
-  { id: 'networking', label: 'Networking', icon: Network },
-  { id: 'monitors', label: 'Monitors', icon: Monitor },
-  { id: 'wearables', label: 'Wearables', icon: Watch },
-  { id: 'smarthome', label: 'Smart Home', icon: HomeIcon },
-]
+  { id: "all", label: "All Catalog", icon: Grid },
+  { id: "phones", label: "Phones", icon: Smartphone },
+  { id: "laptops", label: "Laptops", icon: Laptop },
+  { id: "gaming", label: "Gaming", icon: Gamepad2 },
+  { id: "tablets", label: "Tablets", icon: Tablet },
+  { id: "accessories", label: "Accessories", icon: Headphones },
+  { id: "cameras", label: "Cameras", icon: Camera },
+  { id: "networking", label: "Networking", icon: Network },
+  { id: "monitors", label: "Monitors", icon: Monitor },
+  { id: "wearables", label: "Wearables", icon: Watch },
+  { id: "smarthome", label: "Smart Home", icon: HomeIcon },
+];
 
-const PHONE_BRANDS = ['Apple', 'Samsung', 'Google', 'Xiaomi', 'OnePlus', 'Tecno', 'Infinix']
-const LAPTOP_BRANDS = ['Apple', 'Dell', 'HP', 'Lenovo', 'ASUS', 'Acer', 'Microsoft']
-const GENERAL_BRANDS = ['Apple', 'Samsung', 'Sony', 'Dell', 'HP', 'Lenovo', 'Logitech', 'Canon', 'LG']
+const PHONE_BRANDS = [
+  "Apple",
+  "Samsung",
+  "Google",
+  "Xiaomi",
+  "OnePlus",
+  "Tecno",
+  "Infinix",
+];
+const LAPTOP_BRANDS = [
+  "Apple",
+  "Dell",
+  "HP",
+  "Lenovo",
+  "ASUS",
+  "Acer",
+  "Microsoft",
+];
+const GENERAL_BRANDS = [
+  "Apple",
+  "Samsung",
+  "Sony",
+  "Dell",
+  "HP",
+  "Lenovo",
+  "Logitech",
+  "Canon",
+  "LG",
+];
 
-const PHONE_STORAGE = ['64GB', '128GB', '256GB', '512GB', '1TB']
-const LAPTOP_RAM = ['8GB', '16GB', '32GB', '64GB+']
-const LAPTOP_STORAGE = ['256GB SSD', '512GB SSD', '1TB SSD', '2TB SSD']
-const PROCESSORS = ['Apple M1/M2/M3', 'Core i5', 'Core i7', 'Core i9', 'Ryzen 5', 'Ryzen 7']
-const BATTERY_HEALTH = ['90%+', '85%+', '80%+']
+const PHONE_STORAGE = ["64GB", "128GB", "256GB", "512GB", "1TB"];
+const LAPTOP_RAM = ["8GB", "16GB", "32GB", "64GB+"];
+const LAPTOP_STORAGE = ["256GB SSD", "512GB SSD", "1TB SSD", "2TB SSD"];
+const PROCESSORS = [
+  "Apple M1/M2/M3",
+  "Core i5",
+  "Core i7",
+  "Core i9",
+  "Ryzen 5",
+  "Ryzen 7",
+];
+const BATTERY_HEALTH = ["90%+", "85%+", "80%+"];
 
 const CONDITIONS = [
-  { id: 'brand_new', label: 'Brand New (Sealed)' },
-  { id: 'open_box', label: 'Open Box / Mint' },
-  { id: 'refurbished', label: 'Refurbished' },
-  { id: 'used', label: 'Clean Fairly Used' },
-]
+  { id: "brand_new", label: "Brand New (Sealed)" },
+  { id: "open_box", label: "Open Box / Mint" },
+  { id: "refurbished", label: "Refurbished" },
+  { id: "used", label: "Clean Fairly Used" },
+];
 
 const ABUJA_HUBS = [
-  'Banex Plaza',
-  'Emab Plaza',
-  'Wuse 2',
-  'Garki',
-  'CBD',
-  'Maitama',
-  'Gwarinpa',
-  'Apo',
-]
+  "Banex Plaza",
+  "Emab Plaza",
+  "Wuse 2",
+  "Garki",
+  "CBD",
+  "Maitama",
+  "Gwarinpa",
+  "Apo",
+];
 
 const PRICE_BUCKETS = [
-  { label: 'Under ₦150k', min: 0, max: 150000 },
-  { label: '₦150k – ₦350k', min: 150000, max: 350000 },
-  { label: '₦350k – ₦750k', min: 350000, max: 750000 },
-  { label: '₦750k – ₦1.5M', min: 750000, max: 1500000 },
-  { label: 'Above ₦1.5M', min: 1500000, max: 999999999 },
-]
+  { label: "Under ₦150k", min: 0, max: 150000 },
+  { label: "₦150k – ₦350k", min: 150000, max: 350000 },
+  { label: "₦350k – ₦750k", min: 350000, max: 750000 },
+  { label: "₦750k – ₦1.5M", min: 750000, max: 1500000 },
+  { label: "Above ₦1.5M", min: 1500000, max: 999999999 },
+];
 
-export function ProductsCatalogClient({ initialProducts }: { initialProducts: any[] }) {
-  const searchParams = useSearchParams()
+export function ProductsCatalogClient({
+  initialProducts,
+}: {
+  initialProducts: any[];
+}) {
+  const searchParams = useSearchParams();
 
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<string>(searchParams.get('category') || 'all')
-  const [searchQuery, setSearchQuery] = useState<string>(searchParams.get('q') || '')
-  
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>(
+    searchParams.get("category") || "all",
+  );
+  const [searchQuery, setSearchQuery] = useState<string>(
+    searchParams.get("q") || "",
+  );
+
   // High-performance deferred search value to prevent keyboard lag on phones
-  const deferredSearch = useDeferredValue(searchQuery)
+  const deferredSearch = useDeferredValue(searchQuery);
 
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([])
-  const [selectedRam, setSelectedRam] = useState<string[]>([])
-  const [selectedStorage, setSelectedStorage] = useState<string[]>([])
-  const [selectedProcessors, setSelectedProcessors] = useState<string[]>([])
-  const [selectedBatteryHealth, setSelectedBatteryHealth] = useState<string[]>([])
-  const [selectedConditions, setSelectedConditions] = useState<string[]>([])
-  const [selectedHubs, setSelectedHubs] = useState<string[]>([])
-  const [selectedPriceRange, setSelectedPriceRange] = useState<{ min: number; max: number; label: string } | null>(null)
-  const [verifiedOnly, setVerifiedOnly] = useState(false)
-  const [sortBy, setSortBy] = useState<'featured' | 'newest' | 'price_low' | 'price_high'>('featured')
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedRam, setSelectedRam] = useState<string[]>([]);
+  const [selectedStorage, setSelectedStorage] = useState<string[]>([]);
+  const [selectedProcessors, setSelectedProcessors] = useState<string[]>([]);
+  const [selectedBatteryHealth, setSelectedBatteryHealth] = useState<string[]>(
+    [],
+  );
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [selectedHubs, setSelectedHubs] = useState<string[]>([]);
+  const [selectedPriceRange, setSelectedPriceRange] = useState<{
+    min: number;
+    max: number;
+    label: string;
+  } | null>(null);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<
+    "featured" | "newest" | "price_low" | "price_high"
+  >("featured");
 
   const [openSections, setOpenSections] = useState({
     price: true,
@@ -110,102 +159,138 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     specs: true,
     condition: true,
     hub: false,
-  })
+  });
 
   const toggleSection = (section: keyof typeof openSections) => {
-    setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }))
-  }
+    setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
 
   const activeBrands = useMemo(() => {
-    if (selectedCategory === 'phones') return PHONE_BRANDS
-    if (selectedCategory === 'laptops') return LAPTOP_BRANDS
-    return GENERAL_BRANDS
-  }, [selectedCategory])
+    if (selectedCategory === "phones") return PHONE_BRANDS;
+    if (selectedCategory === "laptops") return LAPTOP_BRANDS;
+    return GENERAL_BRANDS;
+  }, [selectedCategory]);
 
   // Memoized live filtering
   const filteredProducts = useMemo(() => {
-    const q = deferredSearch.trim().toLowerCase()
+    const q = deferredSearch.trim().toLowerCase();
 
     return initialProducts
       .filter((item) => {
-        if (selectedCategory !== 'all' && item.category?.toLowerCase() !== selectedCategory.toLowerCase()) {
-          return false
+        if (
+          selectedCategory !== "all" &&
+          item.category?.toLowerCase() !== selectedCategory.toLowerCase()
+        ) {
+          return false;
         }
 
         if (q) {
-          const matchTitle = item.title?.toLowerCase().includes(q)
-          const matchBrand = item.brand?.toLowerCase().includes(q)
-          const matchDesc = item.description?.toLowerCase().includes(q)
-          if (!matchTitle && !matchBrand && !matchDesc) return false
+          const matchTitle = item.title?.toLowerCase().includes(q);
+          const matchBrand = item.brand?.toLowerCase().includes(q);
+          const matchDesc = item.description?.toLowerCase().includes(q);
+          if (!matchTitle && !matchBrand && !matchDesc) return false;
         }
 
-        if (selectedBrands.length > 0 && !selectedBrands.some((b) => item.brand?.toLowerCase() === b.toLowerCase())) {
-          return false
+        if (
+          selectedBrands.length > 0 &&
+          !selectedBrands.some(
+            (b) => item.brand?.toLowerCase() === b.toLowerCase(),
+          )
+        ) {
+          return false;
         }
 
-        if (selectedConditions.length > 0 && !selectedConditions.includes(item.condition)) {
-          return false
+        if (
+          selectedConditions.length > 0 &&
+          !selectedConditions.includes(item.condition)
+        ) {
+          return false;
         }
 
         if (selectedHubs.length > 0) {
-          const district = item.profiles?.district || ''
-          if (!selectedHubs.some((h) => district.toLowerCase().includes(h.toLowerCase()))) {
-            return false
+          const district = item.profiles?.district || "";
+          if (
+            !selectedHubs.some((h) =>
+              district.toLowerCase().includes(h.toLowerCase()),
+            )
+          ) {
+            return false;
           }
         }
 
         if (selectedPriceRange) {
-          const price = Number(item.price) || 0
-          if (price < selectedPriceRange.min || price > selectedPriceRange.max) {
-            return false
+          const price = Number(item.price) || 0;
+          if (
+            price < selectedPriceRange.min ||
+            price > selectedPriceRange.max
+          ) {
+            return false;
           }
         }
 
-        if (verifiedOnly && item.profiles?.tech_trust_status !== 'verified') {
-          return false
+        if (verifiedOnly && item.profiles?.tech_trust_status !== "verified") {
+          return false;
         }
 
         if (selectedRam.length > 0) {
-          const itemRam = item.specs?.ram || ''
-          const content = `${item.title} ${item.description} ${itemRam}`.toUpperCase()
-          if (!selectedRam.some((r) => content.includes(r.replace('+', '').toUpperCase()))) {
-            return false
+          const itemRam = item.specs?.ram || "";
+          const content =
+            `${item.title} ${item.description} ${itemRam}`.toUpperCase();
+          if (
+            !selectedRam.some((r) =>
+              content.includes(r.replace("+", "").toUpperCase()),
+            )
+          ) {
+            return false;
           }
         }
 
         if (selectedStorage.length > 0) {
-          const itemStorage = item.specs?.storage || ''
-          const content = `${item.title} ${item.description} ${itemStorage}`.toUpperCase()
-          if (!selectedStorage.some((s) => content.includes(s.replace(' SSD', '').toUpperCase()))) {
-            return false
+          const itemStorage = item.specs?.storage || "";
+          const content =
+            `${item.title} ${item.description} ${itemStorage}`.toUpperCase();
+          if (
+            !selectedStorage.some((s) =>
+              content.includes(s.replace(" SSD", "").toUpperCase()),
+            )
+          ) {
+            return false;
           }
         }
 
         if (selectedProcessors.length > 0) {
-          const itemProc = item.specs?.processor || ''
-          const content = `${item.title} ${item.description} ${itemProc}`.toLowerCase()
-          if (!selectedProcessors.some((p) => content.includes(p.toLowerCase().replace('apple ', '')))) {
-            return false
+          const itemProc = item.specs?.processor || "";
+          const content =
+            `${item.title} ${item.description} ${itemProc}`.toLowerCase();
+          if (
+            !selectedProcessors.some((p) =>
+              content.includes(p.toLowerCase().replace("apple ", "")),
+            )
+          ) {
+            return false;
           }
         }
 
         if (selectedBatteryHealth.length > 0) {
-          const healthNum = parseInt(item.specs?.battery_health || '0')
+          const healthNum = parseInt(item.specs?.battery_health || "0");
           const meetsThreshold = selectedBatteryHealth.some((threshold) => {
-            const min = parseInt(threshold)
-            return healthNum >= min
-          })
-          if (!meetsThreshold && item.specs?.battery_health) return false
+            const min = parseInt(threshold);
+            return healthNum >= min;
+          });
+          if (!meetsThreshold && item.specs?.battery_health) return false;
         }
 
-        return true
+        return true;
       })
       .sort((a, b) => {
-        if (sortBy === 'price_low') return Number(a.price) - Number(b.price)
-        if (sortBy === 'price_high') return Number(b.price) - Number(a.price)
-        if (sortBy === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)
-      })
+        if (sortBy === "price_low") return Number(a.price) - Number(b.price);
+        if (sortBy === "price_high") return Number(b.price) - Number(a.price);
+        if (sortBy === "newest")
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0);
+      });
   }, [
     initialProducts,
     selectedCategory,
@@ -220,10 +305,10 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     selectedProcessors,
     selectedBatteryHealth,
     sortBy,
-  ])
+  ]);
 
   const activeFilterCount =
-    (selectedCategory !== 'all' ? 1 : 0) +
+    (selectedCategory !== "all" ? 1 : 0) +
     selectedBrands.length +
     selectedConditions.length +
     selectedHubs.length +
@@ -232,52 +317,58 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     selectedProcessors.length +
     selectedBatteryHealth.length +
     (selectedPriceRange ? 1 : 0) +
-    (verifiedOnly ? 1 : 0)
+    (verifiedOnly ? 1 : 0);
 
   const clearAllFilters = () => {
-    setSelectedBrands([])
-    setSelectedRam([])
-    setSelectedStorage([])
-    setSelectedProcessors([])
-    setSelectedBatteryHealth([])
-    setSelectedConditions([])
-    setSelectedHubs([])
-    setSelectedPriceRange(null)
-    setVerifiedOnly(false)
-  }
+    setSelectedBrands([]);
+    setSelectedRam([]);
+    setSelectedStorage([]);
+    setSelectedProcessors([]);
+    setSelectedBatteryHealth([]);
+    setSelectedConditions([]);
+    setSelectedHubs([]);
+    setSelectedPriceRange(null);
+    setVerifiedOnly(false);
+  };
 
-  const toggleItem = (list: string[], setList: (val: string[]) => void, item: string) => {
+  const toggleItem = (
+    list: string[],
+    setList: (val: string[]) => void,
+    item: string,
+  ) => {
     if (list.includes(item)) {
-      setList(list.filter((x) => x !== item))
+      setList(list.filter((x) => x !== item));
     } else {
-      setList([...list, item])
+      setList([...list, item]);
     }
-  }
+  };
 
   return (
     <main className="flex-1 min-w-0 p-3 sm:p-5 lg:p-7 space-y-4 max-w-[1550px] mx-auto w-full">
       {/* 1. Category Bar Pills */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
         {CATEGORIES.map((cat) => {
-          const Icon = cat.icon
-          const isSelected = selectedCategory === cat.id
+          const Icon = cat.icon;
+          const isSelected = selectedCategory === cat.id;
           return (
             <button
               key={cat.id}
               onClick={() => {
-                setSelectedCategory(cat.id)
-                clearAllFilters()
+                setSelectedCategory(cat.id);
+                clearAllFilters();
               }}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition ${
                 isSelected
-                  ? 'bg-blue-600 text-white font-bold shadow-xs'
-                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  ? "bg-blue-600 text-white font-bold shadow-xs"
+                  : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300"
               }`}
             >
-              <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
+              <Icon
+                className={`w-3.5 h-3.5 ${isSelected ? "text-white" : "text-slate-500"}`}
+              />
               <span>{cat.label}</span>
             </button>
-          )
+          );
         })}
       </div>
 
@@ -285,7 +376,8 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
       <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
-            {filteredProducts.length} {filteredProducts.length === 1 ? 'Device' : 'Devices'}
+            {filteredProducts.length}{" "}
+            {filteredProducts.length === 1 ? "Device" : "Devices"}
           </span>
           <span className="text-xs text-slate-400">found in Abuja</span>
         </div>
@@ -324,68 +416,130 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
       {/* 3. Active Filters Chips */}
       {activeFilterCount > 0 && (
         <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
-          <span className="text-[11px] font-bold text-slate-400 mr-1">Active filters:</span>
+          <span className="text-[11px] font-bold text-slate-400 mr-1">
+            Active filters:
+          </span>
 
           {verifiedOnly && (
             <Badge className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
               Verified Only
-              <X className="w-3 h-3 cursor-pointer hover:text-emerald-900" onClick={() => setVerifiedOnly(false)} />
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-emerald-900"
+                onClick={() => setVerifiedOnly(false)}
+              />
             </Badge>
           )}
 
           {selectedPriceRange && (
             <Badge className="bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
               {selectedPriceRange.label}
-              <X className="w-3 h-3 cursor-pointer hover:text-blue-900" onClick={() => setSelectedPriceRange(null)} />
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-blue-900"
+                onClick={() => setSelectedPriceRange(null)}
+              />
             </Badge>
           )}
 
           {selectedBrands.map((b) => (
-            <Badge key={b} className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+            <Badge
+              key={b}
+              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+            >
               {b}
-              <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleItem(selectedBrands, setSelectedBrands, b)} />
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-red-600"
+                onClick={() => toggleItem(selectedBrands, setSelectedBrands, b)}
+              />
             </Badge>
           ))}
 
           {selectedRam.map((r) => (
-            <Badge key={r} className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+            <Badge
+              key={r}
+              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+            >
               {r} RAM
-              <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleItem(selectedRam, setSelectedRam, r)} />
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-red-600"
+                onClick={() => toggleItem(selectedRam, setSelectedRam, r)}
+              />
             </Badge>
           ))}
 
           {selectedStorage.map((s) => (
-            <Badge key={s} className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+            <Badge
+              key={s}
+              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+            >
               {s}
-              <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleItem(selectedStorage, setSelectedStorage, s)} />
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-red-600"
+                onClick={() =>
+                  toggleItem(selectedStorage, setSelectedStorage, s)
+                }
+              />
             </Badge>
           ))}
 
           {selectedProcessors.map((p) => (
-            <Badge key={p} className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+            <Badge
+              key={p}
+              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+            >
               {p}
-              <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleItem(selectedProcessors, setSelectedProcessors, p)} />
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-red-600"
+                onClick={() =>
+                  toggleItem(selectedProcessors, setSelectedProcessors, p)
+                }
+              />
             </Badge>
           ))}
 
           {selectedBatteryHealth.map((bh) => (
-            <Badge key={bh} className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+            <Badge
+              key={bh}
+              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+            >
               {bh} Battery
-              <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleItem(selectedBatteryHealth, setSelectedBatteryHealth, bh)} />
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-red-600"
+                onClick={() =>
+                  toggleItem(
+                    selectedBatteryHealth,
+                    setSelectedBatteryHealth,
+                    bh,
+                  )
+                }
+              />
             </Badge>
           ))}
 
           {selectedConditions.map((c) => (
-            <Badge key={c} className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg capitalize">
-              {c.replace('_', ' ')}
-              <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleItem(selectedConditions, setSelectedConditions, c)} />
+            <Badge
+              key={c}
+              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg capitalize"
+            >
+              {c.replace("_", " ")}
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-red-600"
+                onClick={() =>
+                  toggleItem(selectedConditions, setSelectedConditions, c)
+                }
+              />
             </Badge>
           ))}
 
           {selectedHubs.map((h) => (
-            <Badge key={h} className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+            <Badge
+              key={h}
+              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+            >
               {h}
-              <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleItem(selectedHubs, setSelectedHubs, h)} />
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-red-600"
+                onClick={() => toggleItem(selectedHubs, setSelectedHubs, h)}
+              />
             </Badge>
           ))}
 
@@ -405,7 +559,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
             const isFeatured =
               item.is_featured &&
               item.featured_until &&
-              new Date(item.featured_until) > new Date()
+              new Date(item.featured_until) > new Date();
 
             return (
               <div key={item.id} className="relative group">
@@ -414,8 +568,8 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                   <Card
                     className={`h-full rounded-2xl overflow-hidden hover:shadow-md transition bg-white dark:bg-slate-900 flex flex-col justify-between ${
                       isFeatured
-                        ? 'border-2 border-blue-500/80 ring-2 ring-blue-500/10 shadow-2xs'
-                        : 'border border-slate-200/90 dark:border-slate-800 shadow-2xs'
+                        ? "border-2 border-blue-500/80 ring-2 ring-blue-500/10 shadow-2xs"
+                        : "border border-slate-200/90 dark:border-slate-800 shadow-2xs"
                     }`}
                   >
                     <div className="aspect-square bg-slate-50 dark:bg-slate-800/40 relative overflow-hidden p-2 flex items-center justify-center">
@@ -426,7 +580,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                           </Badge>
                         )}
                         <Badge className="bg-slate-900/85 backdrop-blur-xs text-white border-none text-[8px] capitalize px-1.5 py-0">
-                          {item.condition?.replace('_', ' ') || 'Refurbished'}
+                          {item.condition?.replace("_", " ") || "Refurbished"}
                         </Badge>
                       </div>
 
@@ -451,12 +605,12 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                         </h3>
                         <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
                           <span className="uppercase tracking-wider font-semibold truncate max-w-[80px]">
-                            {item.brand || 'Device'}
+                            {item.brand || "Device"}
                           </span>
                           {item.profiles?.district && (
                             <span className="flex items-center gap-0.5 text-[10px] shrink-0">
                               <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                              {item.profiles.district.split(' ')[0]}
+                              {item.profiles.district.split(" ")[0]}
                             </span>
                           )}
                         </div>
@@ -466,13 +620,15 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                         <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
                           ₦{Number(item.price).toLocaleString()}
                         </p>
-                        <AddToCartButton product={item} variant="icon" />
+                        <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-600 flex items-center gap-0.5 transition">
+                          Inspect &rarr;
+                        </span>
                       </div>
                     </CardContent>
                   </Card>
                 </Link>
               </div>
-            )
+            );
           })}
         </div>
       ) : (
@@ -481,12 +637,20 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
             <SlidersHorizontal className="w-6 h-6" />
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-black text-slate-800 dark:text-slate-200">No hardware found matching active filters</p>
+            <p className="text-sm font-black text-slate-800 dark:text-slate-200">
+              No hardware found matching active filters
+            </p>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Try adjusting your price budget, storage parameters, or clearing active filters to browse the catalog.
+              Try adjusting your price budget, storage parameters, or clearing
+              active filters to browse the catalog.
             </p>
           </div>
-          <Button size="sm" onClick={clearAllFilters} variant="outline" className="text-xs font-bold rounded-xl mt-2">
+          <Button
+            size="sm"
+            onClick={clearAllFilters}
+            variant="outline"
+            className="text-xs font-bold rounded-xl mt-2"
+          >
             Clear Active Filters
           </Button>
         </div>
@@ -504,7 +668,8 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter Catalogue
+                  <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter
+                  Catalogue
                 </span>
                 {activeFilterCount > 0 && (
                   <Badge className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
@@ -551,33 +716,50 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
 
               <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
                 <button
-                  onClick={() => toggleSection('price')}
+                  onClick={() => toggleSection("price")}
                   className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
                 >
                   <span>Price Budget (Naira)</span>
-                  {openSections.price ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                  {openSections.price ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
                 </button>
                 {openSections.price && (
                   <div className="space-y-1.5 pl-0.5">
                     {PRICE_BUCKETS.map((b, i) => {
-                      const isSelected = selectedPriceRange?.min === b.min && selectedPriceRange?.max === b.max
+                      const isSelected =
+                        selectedPriceRange?.min === b.min &&
+                        selectedPriceRange?.max === b.max;
                       return (
-                        <label key={i} className="flex items-center gap-2.5 cursor-pointer py-1 hover:text-blue-600 transition">
+                        <label
+                          key={i}
+                          className="flex items-center gap-2.5 cursor-pointer py-1 hover:text-blue-600 transition"
+                        >
                           <input
                             type="radio"
                             name="price_bucket"
                             checked={isSelected}
-                            onChange={() => setSelectedPriceRange(isSelected ? null : b)}
+                            onChange={() =>
+                              setSelectedPriceRange(isSelected ? null : b)
+                            }
                             onClick={() => {
-                              if (isSelected) setSelectedPriceRange(null)
+                              if (isSelected) setSelectedPriceRange(null);
                             }}
                             className="w-3.5 h-3.5 text-blue-600"
                           />
-                          <span className={isSelected ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}>
+                          <span
+                            className={
+                              isSelected
+                                ? "font-bold text-blue-600 dark:text-blue-400"
+                                : "text-slate-600 dark:text-slate-400"
+                            }
+                          >
                             {b.label}
                           </span>
                         </label>
-                      )
+                      );
                     })}
                   </div>
                 )}
@@ -585,23 +767,42 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
 
               <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
                 <button
-                  onClick={() => toggleSection('brand')}
+                  onClick={() => toggleSection("brand")}
                   className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
                 >
-                  <span className="capitalize">{selectedCategory !== 'all' ? `${selectedCategory} Brands` : 'Brands'}</span>
-                  {openSections.brand ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                  <span className="capitalize">
+                    {selectedCategory !== "all"
+                      ? `${selectedCategory} Brands`
+                      : "Brands"}
+                  </span>
+                  {openSections.brand ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
                 </button>
                 {openSections.brand && (
                   <div className="grid grid-cols-2 gap-2 pl-0.5">
                     {activeBrands.map((brand) => (
-                      <label key={brand} className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 transition">
+                      <label
+                        key={brand}
+                        className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 transition"
+                      >
                         <input
                           type="checkbox"
                           checked={selectedBrands.includes(brand)}
-                          onChange={() => toggleItem(selectedBrands, setSelectedBrands, brand)}
+                          onChange={() =>
+                            toggleItem(selectedBrands, setSelectedBrands, brand)
+                          }
                           className="w-3.5 h-3.5 rounded text-blue-600"
                         />
-                        <span className={selectedBrands.includes(brand) ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}>
+                        <span
+                          className={
+                            selectedBrands.includes(brand)
+                              ? "font-bold text-blue-600 dark:text-blue-400"
+                              : "text-slate-600 dark:text-slate-400"
+                          }
+                        >
                           {brand}
                         </span>
                       </label>
@@ -610,61 +811,75 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                 )}
               </div>
 
-              {selectedCategory === 'phones' && (
+              {selectedCategory === "phones" && (
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-4 space-y-4">
                   <div>
                     <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
-                      <HardDrive className="w-3.5 h-3.5 text-blue-600" /> Storage Capacity
+                      <HardDrive className="w-3.5 h-3.5 text-blue-600" />{" "}
+                      Storage Capacity
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {PHONE_STORAGE.map((storage) => {
-                        const isSelected = selectedStorage.includes(storage)
+                        const isSelected = selectedStorage.includes(storage);
                         return (
                           <button
                             key={storage}
                             type="button"
-                            onClick={() => toggleItem(selectedStorage, setSelectedStorage, storage)}
+                            onClick={() =>
+                              toggleItem(
+                                selectedStorage,
+                                setSelectedStorage,
+                                storage,
+                              )
+                            }
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
                               isSelected
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                                ? "bg-blue-600 text-white border-blue-600"
+                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
                             }`}
                           >
                             {storage}
                           </button>
-                        )
+                        );
                       })}
                     </div>
                   </div>
 
                   <div>
                     <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
-                      <BatteryCharging className="w-3.5 h-3.5 text-emerald-600" /> Minimum Battery Health
+                      <BatteryCharging className="w-3.5 h-3.5 text-emerald-600" />{" "}
+                      Minimum Battery Health
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {BATTERY_HEALTH.map((bh) => {
-                        const isSelected = selectedBatteryHealth.includes(bh)
+                        const isSelected = selectedBatteryHealth.includes(bh);
                         return (
                           <button
                             key={bh}
                             type="button"
-                            onClick={() => toggleItem(selectedBatteryHealth, setSelectedBatteryHealth, bh)}
+                            onClick={() =>
+                              toggleItem(
+                                selectedBatteryHealth,
+                                setSelectedBatteryHealth,
+                                bh,
+                              )
+                            }
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
                               isSelected
-                                ? 'bg-emerald-600 text-white border-emerald-600'
-                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                                ? "bg-emerald-600 text-white border-emerald-600"
+                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
                             }`}
                           >
                             {bh}
                           </button>
-                        )
+                        );
                       })}
                     </div>
                   </div>
                 </div>
               )}
 
-              {selectedCategory === 'laptops' && (
+              {selectedCategory === "laptops" && (
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-4 space-y-4">
                   <div>
                     <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
@@ -672,37 +887,56 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {LAPTOP_RAM.map((ram) => {
-                        const isSelected = selectedRam.includes(ram)
+                        const isSelected = selectedRam.includes(ram);
                         return (
                           <button
                             key={ram}
                             type="button"
-                            onClick={() => toggleItem(selectedRam, setSelectedRam, ram)}
+                            onClick={() =>
+                              toggleItem(selectedRam, setSelectedRam, ram)
+                            }
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
                               isSelected
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                                ? "bg-blue-600 text-white border-blue-600"
+                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
                             }`}
                           >
                             {ram}
                           </button>
-                        )
+                        );
                       })}
                     </div>
                   </div>
 
                   <div>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2">Processor Family</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2">
+                      Processor Family
+                    </span>
                     <div className="grid grid-cols-2 gap-1.5">
                       {PROCESSORS.map((proc) => (
-                        <label key={proc} className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 transition">
+                        <label
+                          key={proc}
+                          className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 transition"
+                        >
                           <input
                             type="checkbox"
                             checked={selectedProcessors.includes(proc)}
-                            onChange={() => toggleItem(selectedProcessors, setSelectedProcessors, proc)}
+                            onChange={() =>
+                              toggleItem(
+                                selectedProcessors,
+                                setSelectedProcessors,
+                                proc,
+                              )
+                            }
                             className="w-3.5 h-3.5 rounded text-blue-600"
                           />
-                          <span className={selectedProcessors.includes(proc) ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}>
+                          <span
+                            className={
+                              selectedProcessors.includes(proc)
+                                ? "font-bold text-blue-600 dark:text-blue-400"
+                                : "text-slate-600 dark:text-slate-400"
+                            }
+                          >
                             {proc}
                           </span>
                         </label>
@@ -712,25 +946,32 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
 
                   <div>
                     <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
-                      <HardDrive className="w-3.5 h-3.5 text-blue-600" /> Solid State Drive (SSD)
+                      <HardDrive className="w-3.5 h-3.5 text-blue-600" /> Solid
+                      State Drive (SSD)
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {LAPTOP_STORAGE.map((storage) => {
-                        const isSelected = selectedStorage.includes(storage)
+                        const isSelected = selectedStorage.includes(storage);
                         return (
                           <button
                             key={storage}
                             type="button"
-                            onClick={() => toggleItem(selectedStorage, setSelectedStorage, storage)}
+                            onClick={() =>
+                              toggleItem(
+                                selectedStorage,
+                                setSelectedStorage,
+                                storage,
+                              )
+                            }
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
                               isSelected
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                                ? "bg-blue-600 text-white border-blue-600"
+                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
                             }`}
                           >
                             {storage}
                           </button>
-                        )
+                        );
                       })}
                     </div>
                   </div>
@@ -739,23 +980,42 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
 
               <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
                 <button
-                  onClick={() => toggleSection('condition')}
+                  onClick={() => toggleSection("condition")}
                   className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
                 >
                   <span>Device Condition</span>
-                  {openSections.condition ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                  {openSections.condition ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
                 </button>
                 {openSections.condition && (
                   <div className="space-y-1.5 pl-0.5">
                     {CONDITIONS.map((c) => (
-                      <label key={c.id} className="flex items-center gap-2.5 cursor-pointer py-1 hover:text-blue-600 transition">
+                      <label
+                        key={c.id}
+                        className="flex items-center gap-2.5 cursor-pointer py-1 hover:text-blue-600 transition"
+                      >
                         <input
                           type="checkbox"
                           checked={selectedConditions.includes(c.id)}
-                          onChange={() => toggleItem(selectedConditions, setSelectedConditions, c.id)}
+                          onChange={() =>
+                            toggleItem(
+                              selectedConditions,
+                              setSelectedConditions,
+                              c.id,
+                            )
+                          }
                           className="w-3.5 h-3.5 rounded text-blue-600"
                         />
-                        <span className={selectedConditions.includes(c.id) ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}>
+                        <span
+                          className={
+                            selectedConditions.includes(c.id)
+                              ? "font-bold text-blue-600 dark:text-blue-400"
+                              : "text-slate-600 dark:text-slate-400"
+                          }
+                        >
                           {c.label}
                         </span>
                       </label>
@@ -766,23 +1026,38 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
 
               <div>
                 <button
-                  onClick={() => toggleSection('hub')}
+                  onClick={() => toggleSection("hub")}
                   className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
                 >
                   <span>Abuja Hub Location</span>
-                  {openSections.hub ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                  {openSections.hub ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
                 </button>
                 {openSections.hub && (
                   <div className="grid grid-cols-2 gap-1.5 pl-0.5">
                     {ABUJA_HUBS.map((hub) => (
-                      <label key={hub} className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 transition">
+                      <label
+                        key={hub}
+                        className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 transition"
+                      >
                         <input
                           type="checkbox"
                           checked={selectedHubs.includes(hub)}
-                          onChange={() => toggleItem(selectedHubs, setSelectedHubs, hub)}
+                          onChange={() =>
+                            toggleItem(selectedHubs, setSelectedHubs, hub)
+                          }
                           className="w-3.5 h-3.5 rounded text-blue-600"
                         />
-                        <span className={selectedHubs.includes(hub) ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}>
+                        <span
+                          className={
+                            selectedHubs.includes(hub)
+                              ? "font-bold text-blue-600 dark:text-blue-400"
+                              : "text-slate-600 dark:text-slate-400"
+                          }
+                        >
                           {hub}
                         </span>
                       </label>
@@ -813,5 +1088,5 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         </div>
       )}
     </main>
-  )
+  );
 }
