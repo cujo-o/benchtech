@@ -117,7 +117,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
 
   const SidebarBody = ({ onLinkClick }: { onLinkClick?: () => void }) => (
     <div className="flex flex-col h-full justify-between bg-[#f8fafc] text-slate-700 transition-colors">
-      {/* 1. Header (Single Brand Identifier - Top Buyer Button Removed) */}
+      {/* 1. Header */}
       <div className="p-4 border-b border-slate-200/70 flex items-center justify-between shrink-0">
         <Link href="/seller" onClick={onLinkClick} className="flex flex-col group">
           <div className="flex items-center gap-1.5">
@@ -138,7 +138,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       </div>
 
-      {/* 2. Scrollable Navigation (Muted in background, lights up clearly on hover) */}
+      {/* 2. Scrollable Navigation */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
         {/* Core Store Essentials */}
         <div className="space-y-0.5">
@@ -181,7 +181,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         <div className="space-y-0.5">
           <span className="text-[9px] uppercase font-bold tracking-wider text-purple-700 px-2 flex items-center justify-between mb-1">
             <span>Pro Business Tools</span>
-            <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
+            {isPro && <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />}
           </span>
           {PRO_NAV.map((item) => {
             const Icon = item.icon
@@ -203,15 +203,12 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                   <span>{item.label}</span>
                 </div>
 
-                <span
-                  className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-md ${
-                    isActive
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-purple-100 text-purple-700 border border-purple-200'
-                  }`}
-                >
-                  Pro
-                </span>
+                {/* Only display the PRO side pill if the user is NOT in Pro */}
+                {!isPro && (
+                  <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200">
+                    Pro
+                  </span>
+                )}
               </Link>
             )
           })}
@@ -245,24 +242,10 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       </div>
 
-      {/* 3. Bottom Footer (Houses the Single Buyer View Button) */}
+      {/* 3. Bottom Footer */}
       <div className="p-3 border-t border-slate-200/70 space-y-2 shrink-0 bg-[#f8fafc]">
-        {/* Subtle Pro Status Pill */}
-        {isPro ? (
-          <div className="bg-white border border-slate-200/90 rounded-xl p-2.5 flex items-center justify-between shadow-2xs">
-            <div>
-              <span className="text-[11px] font-black text-slate-900 flex items-center gap-1">
-                <Crown className="w-3 h-3 text-amber-500 fill-amber-400" /> Pro Member
-              </span>
-              <p className="text-[9px] text-slate-400">5% reduced commission</p>
-            </div>
-            <Link href="/seller/subscription" onClick={onLinkClick}>
-              <span className="text-[10px] font-bold text-blue-600 hover:underline">
-                Manage
-              </span>
-            </Link>
-          </div>
-        ) : (
+        {/* Only show Upgrade Card if user is on Free tier */}
+        {!isPro && (
           <div className="bg-white border border-blue-200 rounded-xl p-2.5 space-y-1 shadow-2xs">
             <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
               <Crown className="w-3 h-3 text-blue-600" /> Upgrade to Pro
@@ -288,7 +271,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           <ArrowRight className="w-3 h-3 text-slate-400 group-hover:translate-x-0.5 transition" />
         </Link>
 
-        {/* Admin Console Shortcut (Admins Only) */}
+        {/* Admin Console Shortcut */}
         {isAdmin && (
           <Link
             href="/admin"
@@ -364,7 +347,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       )}
 
-      {/* Desktop Persistent Sidebar (Blends seamlessly with the #f8fafc page background) */}
+      {/* Desktop Persistent Sidebar */}
       <aside className="hidden lg:flex w-64 border-r border-slate-200/70 bg-[#f8fafc] flex-col shrink-0 sticky top-0 h-screen overflow-hidden">
         <SidebarBody />
       </aside>

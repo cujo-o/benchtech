@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Star,
   ChevronDown,
+  Package,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -50,27 +51,43 @@ export default async function SellerDashboardPage() {
     profile?.subscription_tier === 'pro' ||
     profile?.subscription_plan === 'professional'
 
+  // Fetch actual products belonging to this seller
   const { data: products } = await supabase
     .from('products')
-    .select('*', { count: 'exact' })
+    .select('*')
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false })
 
+  // Fetch actual orders belonging to this seller
   const { data: orders } = await supabase
     .from('orders')
     .select('*')
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(5)
 
-  const activeListings = products?.filter((p) => p.status === 'published').length || 0
-  const totalEarnings = (orders || []).reduce(
+  const allProducts = products || []
+  const allOrders = orders || []
+
+  // Real calculations
+  const activeListings = allProducts.filter((p) => p.status === 'published').length
+  const totalEarnings = allOrders.reduce(
     (acc, curr) => acc + (Number(curr.total_amount) || 0),
     0
   )
+  const totalViews = allProducts.reduce(
+    (acc, curr) => acc + (Number(curr.views) || 0),
+    0
+  )
+  const totalOrdersCount = allOrders.length
+
+  // Sort real products by view velocity
+  const topProducts = [...allProducts]
+    .sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0))
+    .slice(0, 4)
 
   const listingCredits = profile?.listing_credits ?? (isPro ? 25 : 5)
   const promoBalance = profile?.promotional_balance ?? (isPro ? 1000 : 0)
+  const storeRating = profile?.rating ? Number(profile.rating).toFixed(1) : null
 
   // =========================================================================
   // VIEW A: PRO SELLER DASHBOARD
@@ -118,10 +135,10 @@ export default async function SellerDashboardPage() {
             </div>
             <div>
               <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                {listingCredits} <span className="text-sm font-bold text-slate-400">/ 25</span>
+                {activeListings} <span className="text-sm font-bold text-slate-400">/ {listingCredits}</span>
               </p>
               <p className="text-[11px] text-slate-400 mt-1">
-                {Math.max(0, 25 - listingCredits)} listing credits remaining this month
+                {Math.max(0, listingCredits - activeListings)} listing slots available
               </p>
             </div>
             <Link href="/seller/listings/new" className="block pt-1">
@@ -144,7 +161,7 @@ export default async function SellerDashboardPage() {
                 ₦{Number(promoBalance).toLocaleString()}
               </p>
               <p className="text-[11px] text-slate-400 mt-1">
-                Use credits to promote your products
+                Use credits to boost listings across Abuja
               </p>
             </div>
             <Link href="/seller/promotions" className="block pt-1">
@@ -164,11 +181,11 @@ export default async function SellerDashboardPage() {
             </div>
             <div>
               <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">5%</p>
-              <p className="text-[11px] text-slate-400 mt-1">(vs 10% for Free plan)</p>
+              <p className="text-[11px] text-slate-400 mt-1">(vs 10% standard rate)</p>
             </div>
             <div className="pt-1">
               <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
-                ✓ Lower Commission
+                ✓ Pro Discount Active
               </span>
             </div>
           </Card>
@@ -184,13 +201,9 @@ export default async function SellerDashboardPage() {
               </span>
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-semibold">Next billing date</p>
-              <p className="text-sm font-black text-slate-800 mt-0.5">
-                {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
+              <p className="text-xs text-slate-400 font-semibold">Store Status</p>
+              <p className="text-sm font-black text-slate-800 mt-0.5 capitalize">
+                {profile?.tech_trust_status || 'Verified Vendor'}
               </p>
             </div>
             <Link href="/seller/subscription" className="block pt-1">
@@ -201,98 +214,94 @@ export default async function SellerDashboardPage() {
           </Card>
         </div>
 
-        {/* Sales Overview Chart + Top Products */}
+        {/* Live Sales Overview + Top Products */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Sales Overview Chart (8 Cols) */}
-          <Card className="lg:col-span-8 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs space-y-4">
+          {/* Sales Overview (8 Cols) */}
+          <Card className="lg:col-span-8 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <h2 className="text-sm font-black text-slate-900">Sales Overview</h2>
+              <div>
+                <h2 className="text-sm font-black text-slate-900">Sales Overview</h2>
+                <p className="text-[11px] text-slate-400">Actual performance metrics from your store</p>
+              </div>
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
-                <span>Last 30 Days</span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
+                <span>All Time</span>
               </div>
             </div>
 
+            {/* Real Metrics Strip */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
               <div>
                 <span className="text-[11px] font-bold text-slate-400 uppercase">Total Revenue</span>
                 <p className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">
-                  ₦{(totalEarnings || 2400000).toLocaleString()}
+                  ₦{totalEarnings.toLocaleString()}
                 </p>
-                <span className="text-[10px] font-bold text-emerald-600">↑ 18%</span>
+                <span className="text-[10px] font-medium text-slate-400">From completed sales</span>
               </div>
               <div>
                 <span className="text-[11px] font-bold text-slate-400 uppercase">Orders</span>
                 <p className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">
-                  {orders?.length || 47}
+                  {totalOrdersCount}
                 </p>
-                <span className="text-[10px] font-bold text-emerald-600">↑ 24%</span>
+                <span className="text-[10px] font-medium text-slate-400">Buyer purchases</span>
               </div>
               <div>
                 <span className="text-[11px] font-bold text-slate-400 uppercase">Product Views</span>
-                <p className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">1,240</p>
-                <span className="text-[10px] font-bold text-emerald-600">↑ 32%</span>
+                <p className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">
+                  {totalViews.toLocaleString()}
+                </p>
+                <span className="text-[10px] font-medium text-slate-400">Unique store impressions</span>
               </div>
               <div>
                 <span className="text-[11px] font-bold text-slate-400 uppercase">Store Rating</span>
                 <div className="flex items-center gap-1 mt-0.5">
-                  <span className="text-lg sm:text-xl font-black text-slate-900">4.8</span>
-                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  {storeRating ? (
+                    <>
+                      <span className="text-lg sm:text-xl font-black text-slate-900">{storeRating}</span>
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    </>
+                  ) : (
+                    <span className="text-xs font-bold text-slate-500 py-1">New Seller</span>
+                  )}
                 </div>
-                <span className="text-[10px] font-bold text-emerald-600">↑ 12%</span>
+                <span className="text-[10px] font-medium text-slate-400">Based on customer feedback</span>
               </div>
             </div>
 
+            {/* Dynamic Graph / Empty State */}
             <div className="pt-2">
-              <div className="flex justify-end gap-4 text-[10px] font-bold text-slate-500 mb-2">
-                <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600" /> Revenue
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Orders
-                </span>
-              </div>
+              {allOrders.length > 0 ? (
+                <div className="h-44 w-full flex items-end gap-2 border-b border-slate-100 pb-2">
+                  {allOrders.slice(-8).map((ord, idx) => {
+                    const maxAmount = Math.max(...allOrders.map((o) => Number(o.total_amount) || 1))
+                    const heightPct = Math.max(Math.round(((Number(ord.total_amount) || 0) / maxAmount) * 100), 15)
 
-              <div className="h-44 w-full relative">
-                <svg className="w-full h-full overflow-visible" viewBox="0 0 500 150" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-                  <line x1="0" y1="30" x2="500" y2="30" stroke="#f1f5f9" strokeWidth="1" />
-                  <line x1="0" y1="75" x2="500" y2="75" stroke="#f1f5f9" strokeWidth="1" />
-                  <line x1="0" y1="120" x2="500" y2="120" stroke="#f1f5f9" strokeWidth="1" />
-
-                  <path
-                    d="M 0 110 Q 70 80, 130 95 T 250 50 T 370 70 T 500 35 L 500 150 L 0 150 Z"
-                    fill="url(#revenueGradient)"
-                  />
-                  <path
-                    d="M 0 110 Q 70 80, 130 95 T 250 50 T 370 70 T 500 35"
-                    fill="none"
-                    stroke="#2563eb"
-                    strokeWidth="2.5"
-                  />
-
-                  <path
-                    d="M 0 130 Q 70 120, 130 110 T 250 85 T 370 95 T 500 70"
-                    fill="none"
-                    stroke="#8b5cf6"
-                    strokeWidth="2"
-                    strokeDasharray="4 4"
-                  />
-                </svg>
-
-                <div className="flex justify-between text-[10px] text-slate-400 font-semibold pt-2">
-                  <span>Oct 1</span>
-                  <span>Oct 7</span>
-                  <span>Oct 14</span>
-                  <span>Oct 21</span>
-                  <span>Oct 28</span>
+                    return (
+                      <div key={ord.id || idx} className="flex-1 flex flex-col items-center gap-1 group relative">
+                        <div className="hidden group-hover:block absolute -top-8 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap z-10 shadow-xs">
+                          ₦{Number(ord.total_amount).toLocaleString()}
+                        </div>
+                        <div
+                          className="w-full bg-blue-600 hover:bg-blue-700 transition rounded-t-md"
+                          style={{ height: `${heightPct}%` }}
+                        />
+                        <span className="text-[9px] text-slate-400 truncate w-full text-center">
+                          #{ord.id.slice(0, 4)}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
-              </div>
+              ) : (
+                <div className="py-12 px-4 text-center bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-400 flex items-center justify-center mx-auto shadow-2xs">
+                    <TrendingUp className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-800">No Sales Recorded Yet</h4>
+                  <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                    When buyers complete order checkouts or finalize pickup in Abuja, your live daily transaction volume will plot here automatically.
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -306,34 +315,37 @@ export default async function SellerDashboardPage() {
             </div>
 
             <div className="divide-y divide-slate-100 my-2">
-              {(products && products.length > 0 ? products.slice(0, 4) : [
-                { id: '1', title: 'iPhone 13', price: 450000, views: 320 },
-                { id: '2', title: 'HP Laptop', price: 320000, views: 280 },
-                { id: '3', title: 'Samsung Monitor', price: 150000, views: 210 },
-                { id: '4', title: 'Logitech Mouse', price: 25000, views: 190 },
-              ]).map((p: any, idx: number) => (
-                <div key={p.id || idx} className="py-2.5 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/80 flex items-center justify-center shrink-0 overflow-hidden">
-                      {p.images?.[0] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.images[0]} alt={p.title} className="max-h-full object-contain" />
-                      ) : (
-                        <Boxes className="w-4 h-4 text-slate-400" />
-                      )}
+              {topProducts.length > 0 ? (
+                topProducts.map((p) => (
+                  <div key={p.id} className="py-2.5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/80 flex items-center justify-center shrink-0 overflow-hidden">
+                        {p.images?.[0] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.images[0]} alt={p.title} className="max-h-full object-contain" />
+                        ) : (
+                          <Boxes className="w-4 h-4 text-slate-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate">{p.title}</p>
+                        <p className="text-[10px] text-slate-500 font-semibold">
+                          ₦{Number(p.price).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 truncate">{p.title}</p>
-                      <p className="text-[10px] text-slate-500 font-semibold">
-                        ₦{Number(p.price).toLocaleString()}
-                      </p>
-                    </div>
+                    <span className="text-[11px] font-bold text-slate-600 shrink-0">
+                      {p.views || 0} views
+                    </span>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-500 shrink-0">
-                    {p.views || (300 - idx * 40)} views
-                  </span>
+                ))
+              ) : (
+                <div className="py-12 text-center text-xs text-slate-400 space-y-1">
+                  <Package className="w-6 h-6 text-slate-300 mx-auto" />
+                  <p className="font-semibold text-slate-600">No live listings</p>
+                  <p className="text-[10px] text-slate-400">Add products to start tracking buyer views.</p>
                 </div>
-              ))}
+              )}
             </div>
 
             <Link href="/seller/listings/new" className="block pt-2">
@@ -496,7 +508,7 @@ export default async function SellerDashboardPage() {
           <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
             <ShoppingBag className="w-4 h-4" />
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-slate-900">{orders?.length || 0}</p>
+          <p className="text-2xl sm:text-3xl font-black text-slate-900">{totalOrdersCount}</p>
           <span className="text-xs font-bold text-slate-400">Orders</span>
         </Card>
 
@@ -512,7 +524,7 @@ export default async function SellerDashboardPage() {
           <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
             <Eye className="w-4 h-4" />
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-slate-900">24</p>
+          <p className="text-2xl sm:text-3xl font-black text-slate-900">{totalViews}</p>
           <span className="text-xs font-bold text-slate-400">Product Views</span>
         </Card>
       </div>
