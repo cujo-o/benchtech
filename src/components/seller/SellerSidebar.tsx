@@ -6,16 +6,13 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Boxes,
-  PackagePlus,
   MessageSquare,
   ClipboardList,
   Sparkles,
   BarChart3,
   Settings,
   HelpCircle,
-  ExternalLink,
   LogOut,
-  ShieldCheck,
   CreditCard,
   Upload,
   FileText,
@@ -115,19 +112,19 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         isPro ? 'bg-[#0c1322] text-slate-200' : 'bg-white text-slate-800'
       }`}
     >
-      <div className="flex flex-col overflow-y-auto flex-1">
+      <div className="flex flex-col overflow-y-auto flex-1 scrollbar-none">
         {/* Brand Header */}
-        <div className={`p-4 border-b flex items-center justify-between ${isPro ? 'border-slate-800' : 'border-slate-100'}`}>
+        <div className={`p-4 border-b flex items-center justify-between shrink-0 ${isPro ? 'border-slate-800' : 'border-slate-100'}`}>
           <Link href="/seller" onClick={onLinkClick} className="flex flex-col">
             <span className={`font-black text-base tracking-tight ${isPro ? 'text-white' : 'text-slate-900'}`}>
-              ShopBenchTech[cite: 14]
+              ShopBenchTech
             </span>
-            <span className="text-[9px] text-slate-400 font-medium">Buy. Sell. Build Tech Together.[cite: 14]</span>
+            <span className="text-[9px] text-slate-400 font-medium">Buy. Sell. Build Tech Together.</span>
           </Link>
 
           {isPro && (
             <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-[#4f46e5] text-white">
-              PRO[cite: 14]
+              PRO
             </span>
           )}
         </div>
@@ -145,27 +142,25 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                 onClick={onLinkClick}
                 className={`flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition ${
                   isActive
-                    ? isPro
-                      ? 'bg-blue-600 text-white font-bold'
-                      : 'bg-blue-600 text-white font-bold shadow-xs'
+                    ? 'bg-blue-600 text-white font-bold'
                     : isPro
                     ? 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : isPro ? 'text-slate-400' : 'text-slate-400'}`} />
+                  <Icon className="w-4 h-4 shrink-0 text-current" />
                   <span>{item.label}</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
                   {item.pro && (
                     <span
-                      className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-md ${
+                      className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
                         isPro ? 'bg-purple-900/60 text-purple-300 border border-purple-700/50' : 'bg-purple-100 text-purple-700'
                       }`}
                     >
-                      Pro[cite: 14]
+                      Pro
                     </span>
                   )}
 
@@ -186,26 +181,26 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         {isPro ? (
           <div className="bg-[#1e1b4b]/80 border border-indigo-900/80 rounded-2xl p-3 space-y-2 text-white">
             <div className="flex items-center gap-1.5 text-xs font-black text-amber-300">
-              <Crown className="w-3.5 h-3.5 fill-amber-300 text-amber-300" /> Pro Seller[cite: 14]
+              <Crown className="w-3.5 h-3.5 fill-amber-300 text-amber-300" /> Pro Seller
             </div>
-            <p className="text-[10px] text-indigo-200">You&apos;re on the Pro Plan[cite: 14]</p>
+            <p className="text-[10px] text-indigo-200">You&apos;re on the Pro Plan</p>
             <Link href="/seller/subscription" onClick={onLinkClick} className="block pt-0.5">
               <Button size="sm" className="w-full bg-[#4f46e5] hover:bg-[#4338ca] text-white font-bold text-[10px] h-7 rounded-xl shadow-xs">
-                Manage Subscription[cite: 14]
+                Manage Subscription
               </Button>
             </Link>
           </div>
         ) : (
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-3 space-y-1.5">
             <div className="flex items-center gap-1 text-xs font-black text-blue-900">
-              <Crown className="w-3.5 h-3.5 text-blue-600" /> Upgrade to Pro[cite: 14]
+              <Crown className="w-3.5 h-3.5 text-blue-600" /> Upgrade to Pro
             </div>
             <p className="text-[10px] text-blue-800 leading-snug">
-              Get more listings, lower commission and advanced tools.[cite: 14]
+              Get more listings, lower commission and advanced tools.
             </p>
             <Link href="/seller/subscription" onClick={onLinkClick} className="block pt-0.5">
               <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] h-7 rounded-xl shadow-xs">
-                Upgrade Now[cite: 14]
+                Upgrade Now
               </Button>
             </Link>
           </div>
@@ -242,7 +237,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
 
   return (
     <>
-      {/* Mobile Top Header */}
       <div
         className={`lg:hidden sticky top-0 z-40 px-3.5 h-14 flex items-center justify-between w-full shadow-2xs border-b ${
           isPro ? 'bg-[#0c1322] border-slate-800 text-white' : 'bg-white border-slate-200'
@@ -257,17 +251,16 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-black text-sm tracking-tight">ShopBenchTech[cite: 14]</span>
+          <span className="font-black text-sm tracking-tight">ShopBenchTech</span>
         </div>
 
         {isPro && (
           <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-[#4f46e5] text-white">
-            PRO[cite: 14]
+            PRO
           </span>
         )}
       </div>
 
-      {/* Mobile Off-Canvas Drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
@@ -288,7 +281,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       )}
 
-      {/* Desktop Persistent Sidebar */}
       <aside
         className={`hidden lg:flex w-64 border-r flex-col shrink-0 sticky top-0 h-screen overflow-hidden ${
           isPro ? 'border-slate-800' : 'border-slate-200/80'
