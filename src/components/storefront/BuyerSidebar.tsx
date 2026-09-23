@@ -13,7 +13,7 @@ import {
   Disc,
   Crown,
   Package,
-  Heart,
+  Bookmark,
   MessageSquare,
   Clock,
   Bell,
@@ -101,7 +101,7 @@ export function BuyerSidebar() {
       }
       isInitialLoad.current = false
     } catch {
-      // Ignore transient errors
+      // Ignore transient network errors
     }
   }, [pathname, supabase])
 
@@ -163,7 +163,7 @@ export function BuyerSidebar() {
     {
       label: 'Saved Items',
       href: '/saved',
-      icon: Heart,
+      icon: Bookmark,
       badge: savedCount > 0 ? String(savedCount) : undefined,
       badgeColor:
         pathname === '/saved'
@@ -193,7 +193,7 @@ export function BuyerSidebar() {
   ]
 
   return (
-    <aside className="w-64 shrink-0 hidden xl:flex flex-col gap-6 p-4 bg-white border-r border-slate-200 min-h-[calc(100vh-4rem)]">
+    <aside className="w-64 shrink-0 hidden xl:flex flex-col gap-6 p-4 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 min-h-[calc(100vh-4rem)] transition-colors">
       <nav className="space-y-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
@@ -206,12 +206,14 @@ export function BuyerSidebar() {
               className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-xs font-bold'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               <div className="flex items-center gap-3">
                 <Icon
-                  className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`}
+                  className={`w-4 h-4 ${
+                    isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'
+                  }`}
                 />
                 <span>{item.label}</span>
               </div>
@@ -227,8 +229,8 @@ export function BuyerSidebar() {
         })}
       </nav>
 
-      {/* TechPass Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 text-white rounded-2xl p-4 space-y-3 relative overflow-hidden shadow-xs">
+      {/* TechPass Upgrade Banner */}
+      <div className="bg-gradient-to-b from-slate-900 to-slate-950 text-white rounded-2xl p-4 space-y-3 relative overflow-hidden shadow-xs border border-slate-800">
         <div className="w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
           <Crown className="w-4 h-4 text-amber-400" />
         </div>
@@ -245,21 +247,37 @@ export function BuyerSidebar() {
         </Link>
       </div>
 
-      {/* Need Help Box */}
-      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2.5 mt-auto">
-        <p className="text-xs font-bold text-slate-800">Need Help?</p>
-        <div className="space-y-1.5 text-xs text-slate-500">
-          <Link href="/messages" className="flex items-center gap-2 hover:text-blue-600 transition">
-            <MessageCircle className="w-3.5 h-3.5 text-slate-400" /> Chat with us
+      {/* Support & Help Card */}
+      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 space-y-2.5 mt-auto transition-colors">
+        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Need Help?</p>
+        <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <Link
+            href="/messages"
+            className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition"
+          >
+            <MessageCircle className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+            <span>Chat with us</span>
           </Link>
-          <a href="tel:+2348000000000" className="flex items-center gap-2 hover:text-blue-600 transition">
-            <PhoneCall className="w-3.5 h-3.5 text-slate-400" /> Call support
+          <a
+            href="tel:+2348000000000"
+            className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition"
+          >
+            <PhoneCall className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+            <span>Call support</span>
           </a>
-          <Link href="/help" className="flex items-center gap-2 hover:text-blue-600 transition">
-            <HelpCircle className="w-3.5 h-3.5 text-slate-400" /> Help Centre
+          <Link
+            href="/help"
+            className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+            <span>Help Centre</span>
           </Link>
-          <Link href="/help#report" className="flex items-center gap-2 hover:text-red-500 transition">
-            <AlertTriangle className="w-3.5 h-3.5 text-slate-400" /> Report a problem
+          <Link
+            href="/help#report"
+            className="flex items-center gap-2 hover:text-red-500 dark:hover:text-red-400 transition"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+            <span>Report a problem</span>
           </Link>
         </div>
       </div>
