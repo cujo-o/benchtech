@@ -60,7 +60,7 @@ export function BuyerSidebar() {
     }
   }, [])
 
-  // 2. Fetch unread messages count
+  // 2. Poll for unread buyer messages / vendor replies
   const checkUnreadMessages = useCallback(async () => {
     try {
       if (pathname === '/messages') {
@@ -101,7 +101,7 @@ export function BuyerSidebar() {
       }
       isInitialLoad.current = false
     } catch {
-      // Ignore transient network errors
+      // Ignore transient errors
     }
   }, [pathname, supabase])
 
@@ -125,9 +125,17 @@ export function BuyerSidebar() {
     }
   }, [checkUnreadMessages, updateSavedCount])
 
+  // Discovery & Buyer Account Navigation Items
   const NAV_ITEMS = [
     { label: 'Home', href: '/feed', icon: Home },
     { label: 'Shop by Category', href: '/products', icon: Grid },
+    {
+      label: 'Request a Gadget',
+      href: '/requests/new',
+      icon: Sparkles,
+      badge: 'New',
+      badgeColor: 'bg-blue-600 text-white font-black',
+    },
     {
       label: 'Deals & Offers',
       href: '/deals',
@@ -135,21 +143,21 @@ export function BuyerSidebar() {
       badge: 'Hot',
       badgeColor: 'bg-red-500 text-white',
     },
-    {
-      label: 'TechSpin',
-      href: '/techspin',
-      icon: Disc,
-      badge: 'Daily',
-      badgeColor: 'bg-amber-500 text-slate-950 font-black',
-    },
+    { label: 'Compare Tech', href: '/compare', icon: Scale },
     {
       label: 'Find My Tech',
       href: '/assistant',
       icon: Sparkles,
       badge: 'AI',
-      badgeColor: 'bg-blue-600 text-white',
+      badgeColor: 'bg-indigo-600 text-white',
     },
-    { label: 'Compare Tech', href: '/compare', icon: Scale },
+    {
+      label: 'TechSpin',
+      href: '/techspin',
+      icon: Disc,
+      badge: 'Daily',
+      badgeColor: 'bg-amber-400 text-slate-950 font-black',
+    },
     { label: 'TechPass', href: '/subscription', icon: Crown },
     { label: 'My Orders', href: '/orders', icon: Package },
     {
@@ -177,11 +185,11 @@ export function BuyerSidebar() {
           ? 'bg-white text-red-600 font-black'
           : 'bg-red-500 text-white',
     },
-    { label: 'Recently Viewed', href: '#', icon: Clock },
-    { label: 'Price Alerts', href: '#', icon: Bell },
-    { label: 'My Wallet', href: '#', icon: Wallet },
-    { label: 'Referrals', href: '#', icon: Users },
-    { label: 'Help & Support', href: '#', icon: HelpCircle },
+    { label: 'Recently Viewed', href: '/recently-viewed', icon: Clock },
+    { label: 'Price Alerts', href: '/price-alerts', icon: Bell },
+    { label: 'My Wallet', href: '/wallet', icon: Wallet },
+    { label: 'Referrals', href: '/referrals', icon: Users },
+    { label: 'Help & Support', href: '/help', icon: HelpCircle },
   ]
 
   return (
@@ -197,7 +205,7 @@ export function BuyerSidebar() {
               href={item.href}
               className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
@@ -209,7 +217,7 @@ export function BuyerSidebar() {
               </div>
               {item.badge && (
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm ${item.badgeColor}`}
+                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full shadow-2xs ${item.badgeColor}`}
                 >
                   {item.badge}
                 </span>
@@ -220,7 +228,7 @@ export function BuyerSidebar() {
       </nav>
 
       {/* TechPass Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 text-white rounded-2xl p-4 space-y-3 relative overflow-hidden">
+      <div className="bg-gradient-to-b from-slate-900 to-slate-950 text-white rounded-2xl p-4 space-y-3 relative overflow-hidden shadow-xs">
         <div className="w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
           <Crown className="w-4 h-4 text-amber-400" />
         </div>
@@ -230,8 +238,8 @@ export function BuyerSidebar() {
             Get exclusive deals, free delivery, unlock direct contacts &amp; more.
           </p>
         </div>
-        <Link href="/subscription">
-          <button className="w-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition">
+        <Link href="/subscription" className="block">
+          <button className="w-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition">
             View Plans <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </Link>
@@ -241,17 +249,17 @@ export function BuyerSidebar() {
       <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2.5 mt-auto">
         <p className="text-xs font-bold text-slate-800">Need Help?</p>
         <div className="space-y-1.5 text-xs text-slate-500">
-          <Link href="#" className="flex items-center gap-2 hover:text-blue-600 transition">
-            <MessageCircle className="w-3.5 h-3.5" /> Chat with us
+          <Link href="/messages" className="flex items-center gap-2 hover:text-blue-600 transition">
+            <MessageCircle className="w-3.5 h-3.5 text-slate-400" /> Chat with us
           </Link>
-          <Link href="#" className="flex items-center gap-2 hover:text-blue-600 transition">
-            <PhoneCall className="w-3.5 h-3.5" /> Call support
+          <a href="tel:+2348000000000" className="flex items-center gap-2 hover:text-blue-600 transition">
+            <PhoneCall className="w-3.5 h-3.5 text-slate-400" /> Call support
+          </a>
+          <Link href="/help" className="flex items-center gap-2 hover:text-blue-600 transition">
+            <HelpCircle className="w-3.5 h-3.5 text-slate-400" /> Help Centre
           </Link>
-          <Link href="#" className="flex items-center gap-2 hover:text-blue-600 transition">
-            <HelpCircle className="w-3.5 h-3.5" /> Help Centre
-          </Link>
-          <Link href="#" className="flex items-center gap-2 hover:text-red-500 transition">
-            <AlertTriangle className="w-3.5 h-3.5" /> Report a problem
+          <Link href="/help#report" className="flex items-center gap-2 hover:text-red-500 transition">
+            <AlertTriangle className="w-3.5 h-3.5 text-slate-400" /> Report a problem
           </Link>
         </div>
       </div>

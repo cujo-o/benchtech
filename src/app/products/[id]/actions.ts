@@ -5,33 +5,35 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function submitEnquiry(formData: FormData) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const productId = formData.get('productId') as string
   const sellerId = formData.get('sellerId') as string
   const buyerName = formData.get('buyerName') as string
   const buyerPhone = formData.get('buyerPhone') as string
-  const buyerEmail = (formData.get('buyerEmail') as string) || null
+  const buyerEmail = formData.get('buyerEmail') as string
   const message = formData.get('message') as string
 
-  const { data: { user } } = await supabase.auth.getUser()
+  if (!productId || !sellerId || !buyerName?.trim() || !buyerPhone?.trim() || !message?.trim()) {
+    return { error: 'Please provide your name, phone number, and enquiry message.' }
+  }
 
   const { error } = await supabase.from('enquiries').insert({
-    product_id: productId,
     seller_id: sellerId,
     buyer_id: user?.id || null,
-    buyer_name: buyerName,
-    buyer_phone: buyerPhone,
-    buyer_email: buyerEmail,
-    message,
-    status: 'new',
+    product_id: productId,
+    buyer_name: buyerName.trim(),
+    buyer_phone: buyerPhone.trim(),
+    message: message.trim(),
+    status: 'new', // Triggers unread counter in Seller Hub
   })
 
   if (error) {
-    console.error('Enquiry insert error:', error.message)
+    console.error('Enquiry insertion error:', error)
     return { error: error.message }
   }
 
+  revalidatePath(`/products/${productId}`)
   revalidatePath('/seller/enquiries')
-  revalidatePath('/messages')
   return { success: true }
 }
