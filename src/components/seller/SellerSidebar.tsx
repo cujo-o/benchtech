@@ -20,11 +20,14 @@ import {
   Store,
   Crown,
   ShieldAlert,
+  ShieldCheck,
   ArrowRight,
   Menu,
   X,
   Users,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { signOut } from '@/app/(auth)/actions'
 import { Button } from '@/components/ui/button'
@@ -38,6 +41,7 @@ interface SellerSidebarProps {
 export function SellerSidebar({ profile }: SellerSidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const previousCountRef = useRef<number>(0)
   const isInitialLoad = useRef<boolean>(true)
@@ -88,7 +92,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     return () => clearInterval(interval)
   }, [profile?.id, supabase])
 
-  // Core Management Links
+  // Core Store Management Links
   const CORE_NAV = [
     { label: 'Dashboard', href: '/seller', icon: LayoutDashboard },
     { label: 'My Storefront', href: '/seller/store', icon: Store },
@@ -108,43 +112,60 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     { label: 'Customers', href: '/seller/customers', icon: Users, pro: true },
   ]
 
-  // Account & Support
-  const ACCOUNT_NAV = [
+  // Settings & Verification
+  const SETTINGS_NAV = [
+    { label: 'Store Verification', href: '/seller/verification', icon: ShieldCheck, badge: profile?.tech_trust_status === 'verified' ? 'Verified' : 'Get Verified' },
     { label: 'Subscription & Plan', href: '/seller/subscription', icon: CreditCard },
     { label: 'Store Settings', href: '/seller/settings', icon: Settings },
-    { label: 'Help & Support', href: '/seller/support', icon: HelpCircle },
+    { label: 'Help & Support', href: '/help', icon: HelpCircle },
   ]
 
   const SidebarBody = ({ onLinkClick }: { onLinkClick?: () => void }) => (
     <div className="flex flex-col h-full justify-between bg-[#f8fafc] text-slate-700 transition-colors">
-      {/* 1. Header */}
-      <div className="p-4 border-b border-slate-200/70 flex items-center justify-between shrink-0">
-        <Link href="/seller" onClick={onLinkClick} className="flex flex-col group">
-          <div className="flex items-center gap-1.5">
-            <span className="font-black text-sm tracking-tight text-slate-900 group-hover:text-blue-600 transition">
-              ShopBenchTech
-            </span>
-            {isPro && (
-              <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200">
-                PRO
+      {/* 1. Header with Collapse / Expand Trigger */}
+      <div className="p-3.5 border-b border-slate-200/70 flex items-center justify-between shrink-0">
+        {!isCollapsed ? (
+          <Link href="/seller" onClick={onLinkClick} className="flex flex-col group min-w-0">
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="font-black text-sm tracking-tight text-slate-900 group-hover:text-blue-600 transition">
+                ShopBenchTech
               </span>
-            )}
+              {isPro && (
+                <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-700 border border-purple-200">
+                  PRO
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">Seller Hub</span>
+          </Link>
+        ) : (
+          <div className="w-8 h-8 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-xs font-bold text-slate-700 mx-auto">
+            {(profile?.business_name || profile?.full_name || 'S')?.[0]?.toUpperCase()}
           </div>
-          <span className="text-[10px] text-slate-400 font-medium">Seller Hub</span>
-        </Link>
+        )}
 
-        <div className="w-7 h-7 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-xs font-bold text-slate-700">
-          {(profile?.business_name || profile?.full_name || 'S')?.[0]?.toUpperCase()}
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={`hidden lg:flex p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-white hover:shadow-2xs transition ${
+            isCollapsed ? 'mx-auto mt-2' : 'ml-auto'
+          }`}
+          title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          aria-label={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+        >
+          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
       </div>
 
       {/* 2. Scrollable Navigation */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+      <div className="flex-1 overflow-y-auto px-2 sm:px-3 py-3 space-y-4 scrollbar-none">
         {/* Core Store Essentials */}
         <div className="space-y-0.5">
-          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1">
-            Store Essentials
-          </span>
+          {!isCollapsed && (
+            <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1">
+              Store Essentials
+            </span>
+          )}
           {CORE_NAV.map((item) => {
             const Icon = item.icon
             const isActive =
@@ -156,21 +177,28 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                 key={item.label}
                 href={item.href}
                 onClick={onLinkClick}
-                className={`flex items-center justify-between px-2.5 py-1.5 text-xs font-semibold rounded-xl transition duration-150 ${
+                title={isCollapsed ? item.label : undefined}
+                className={`flex items-center rounded-xl text-xs font-semibold transition relative group ${
+                  isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-1.5'
+                } ${
                   isActive
                     ? 'bg-blue-600 text-white font-bold shadow-xs'
                     : 'text-slate-500 hover:text-slate-900 hover:bg-white hover:shadow-2xs'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
+                  {!isCollapsed && <span className="truncate">{item.label}</span>}
                 </div>
 
-                {item.label === 'Messages' && unreadCount > 0 && (
+                {!isCollapsed && item.label === 'Messages' && unreadCount > 0 && (
                   <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
+                )}
+
+                {isCollapsed && item.label === 'Messages' && unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-600" />
                 )}
               </Link>
             )
@@ -179,10 +207,12 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
 
         {/* Pro Business Tools */}
         <div className="space-y-0.5">
-          <span className="text-[9px] uppercase font-bold tracking-wider text-purple-700 px-2 flex items-center justify-between mb-1">
-            <span>Pro Business Tools</span>
-            {isPro && <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />}
-          </span>
+          {!isCollapsed && (
+            <span className="text-[9px] uppercase font-bold tracking-wider text-purple-700 px-2 flex items-center justify-between mb-1">
+              <span>Pro Business Tools</span>
+              {isPro && <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />}
+            </span>
+          )}
           {PRO_NAV.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
@@ -192,19 +222,21 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                 key={item.label}
                 href={item.href}
                 onClick={onLinkClick}
-                className={`flex items-center justify-between px-2.5 py-1.5 text-xs font-semibold rounded-xl transition duration-150 ${
+                title={isCollapsed ? item.label : undefined}
+                className={`flex items-center rounded-xl text-xs font-semibold transition relative group ${
+                  isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-1.5'
+                } ${
                   isActive
                     ? 'bg-blue-600 text-white font-bold shadow-xs'
                     : 'text-slate-500 hover:text-slate-900 hover:bg-white hover:shadow-2xs'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
+                  {!isCollapsed && <span className="truncate">{item.label}</span>}
                 </div>
 
-                {/* Only display the PRO side pill if the user is NOT in Pro */}
-                {!isPro && (
+                {!isCollapsed && !isPro && (
                   <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200">
                     Pro
                   </span>
@@ -214,12 +246,14 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           })}
         </div>
 
-        {/* Settings & Support */}
+        {/* Settings, Verification & Support */}
         <div className="space-y-0.5">
-          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1">
-            Settings &amp; Support
-          </span>
-          {ACCOUNT_NAV.map((item) => {
+          {!isCollapsed && (
+            <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1">
+              Store &amp; Verification
+            </span>
+          )}
+          {SETTINGS_NAV.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
 
@@ -228,14 +262,31 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                 key={item.label}
                 href={item.href}
                 onClick={onLinkClick}
-                className={`flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl transition duration-150 ${
+                title={isCollapsed ? item.label : undefined}
+                className={`flex items-center rounded-xl text-xs font-semibold transition relative group ${
+                  isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-1.5'
+                } ${
                   isActive
                     ? 'bg-blue-600 text-white font-bold shadow-xs'
                     : 'text-slate-500 hover:text-slate-900 hover:bg-white hover:shadow-2xs'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+                </div>
+
+                {!isCollapsed && item.badge && (
+                  <span
+                    className={`text-[8px] font-bold px-1.5 py-0.2 rounded-md ${
+                      item.badge === 'Verified'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             )
           })}
@@ -243,9 +294,9 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
       </div>
 
       {/* 3. Bottom Footer */}
-      <div className="p-3 border-t border-slate-200/70 space-y-2 shrink-0 bg-[#f8fafc]">
-        {/* Only show Upgrade Card if user is on Free tier */}
-        {!isPro && (
+      <div className="p-2 sm:p-3 border-t border-slate-200/70 space-y-2 shrink-0 bg-[#f8fafc]">
+        {/* Upgrade pill for Free tier */}
+        {!isCollapsed && !isPro && (
           <div className="bg-white border border-blue-200 rounded-xl p-2.5 space-y-1 shadow-2xs">
             <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
               <Crown className="w-3 h-3 text-blue-600" /> Upgrade to Pro
@@ -258,17 +309,20 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           </div>
         )}
 
-        {/* Sole Buyer View Link */}
+        {/* Switch to Buyer View */}
         <Link
           href="/feed"
           onClick={onLinkClick}
-          className="flex items-center justify-between px-2.5 py-2 text-xs font-bold rounded-xl transition bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-300 shadow-2xs group"
+          title={isCollapsed ? 'Switch to Buyer View' : undefined}
+          className={`flex items-center rounded-xl transition bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-300 shadow-2xs group ${
+            isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-2 text-xs font-bold'
+          }`}
         >
-          <span className="flex items-center gap-2">
-            <ExternalLink className="w-3.5 h-3.5 text-blue-600 group-hover:scale-105 transition" />
-            Switch to Buyer View
-          </span>
-          <ArrowRight className="w-3 h-3 text-slate-400 group-hover:translate-x-0.5 transition" />
+          <div className="flex items-center gap-2">
+            <ExternalLink className="w-3.5 h-3.5 text-blue-600 group-hover:scale-105 transition shrink-0" />
+            {!isCollapsed && <span>Switch to Buyer View</span>}
+          </div>
+          {!isCollapsed && <ArrowRight className="w-3 h-3 text-slate-400 group-hover:translate-x-0.5 transition shrink-0" />}
         </Link>
 
         {/* Admin Console Shortcut */}
@@ -276,24 +330,32 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           <Link
             href="/admin"
             onClick={onLinkClick}
-            className="flex items-center justify-between px-2.5 py-1.5 text-xs font-bold rounded-xl transition bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100"
+            title={isCollapsed ? 'Admin Console' : undefined}
+            className={`flex items-center rounded-xl transition bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 ${
+              isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-1.5 text-xs font-bold'
+            }`}
           >
-            <span className="flex items-center gap-2">
-              <ShieldAlert className="w-3.5 h-3.5 text-purple-600" /> Admin Console
-            </span>
-            <ArrowRight className="w-3 h-3" />
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              {!isCollapsed && <span>Admin Console</span>}
+            </div>
+            {!isCollapsed && <ArrowRight className="w-3 h-3 shrink-0" />}
           </Link>
         )}
 
-        {/* Sign Out */}
+        {/* Log Out */}
         <form action={signOut}>
           <Button
             variant="ghost"
             size="sm"
             type="submit"
-            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 px-2.5 text-xs h-7 rounded-xl font-bold"
+            title={isCollapsed ? 'Log Out' : undefined}
+            className={`w-full text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 h-7 rounded-xl font-bold ${
+              isCollapsed ? 'justify-center p-0' : 'justify-start px-2.5 text-xs'
+            }`}
           >
-            <LogOut className="w-3.5 h-3.5" /> Log Out
+            <LogOut className="w-3.5 h-3.5 shrink-0" />
+            {!isCollapsed && <span>Log Out</span>}
           </Button>
         </form>
       </div>
@@ -347,8 +409,12 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       )}
 
-      {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex w-64 border-r border-slate-200/70 bg-[#f8fafc] flex-col shrink-0 sticky top-0 h-screen overflow-hidden">
+      {/* Desktop Persistent Sidebar (Collapsible between w-16 and w-64) */}
+      <aside
+        className={`hidden lg:flex flex-col shrink-0 sticky top-0 h-screen overflow-hidden border-r border-slate-200/70 bg-[#f8fafc] transition-all duration-200 ${
+          isCollapsed ? 'w-16' : 'w-60 xl:w-64'
+        }`}
+      >
         <SidebarBody />
       </aside>
     </>
