@@ -17,6 +17,7 @@ import {
 import { BuyingRequestModal } from "@/components/products/BuyingRequestModal";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { CompareButton } from "@/components/CompareButton";
+import { ProductViewTracker } from "@/components/products/ProductViewTracker";
 
 export default async function ProductDetailPage({
   params,
@@ -49,6 +50,9 @@ export default async function ProductDetailPage({
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* Background Analytics Tracker */}
+      <ProductViewTracker productId={id} />
+
       <Navbar />
 
       <main className="max-w-6xl mx-auto px-4 py-6 md:py-10 space-y-8">

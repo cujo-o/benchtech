@@ -2,16 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ProGate } from '@/components/seller/ProGate'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
-import {
-  Calendar,
-  Eye,
-  TrendingUp,
-  Lightbulb,
-  Package,
-} from 'lucide-react'
+import { Calendar, Eye, TrendingUp, Lightbulb, Package } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,17 +27,27 @@ export default async function SellerAnalyticsPage() {
     .eq('id', user.id)
     .single()
 
-  const { data: products } = await supabase
+  // 1. Fetch seller's actual products (using select('*') prevents column name aborts)
+  const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id, title, price, category, condition, status, views, created_at')
+    .select('*')
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false })
 
-  const { data: orders } = await supabase
+  if (productsError) {
+    console.error('Products fetch error in analytics:', productsError)
+  }
+
+  // 2. Fetch seller's actual orders
+  const { data: orders, error: ordersError } = await supabase
     .from('orders')
-    .select('id, total_amount, status, created_at')
+    .select('*')
     .eq('seller_id', user.id)
     .order('created_at', { ascending: true })
+
+  if (ordersError) {
+    console.error('Orders fetch error in analytics:', ordersError)
+  }
 
   const allProducts = products || []
   const allOrders = orders || []
@@ -320,7 +323,7 @@ export default async function SellerAnalyticsPage() {
               {activeProducts.length === 0
                 ? 'Your store is currently empty. List your available phones, laptops, or electronics to appear in Abuja search queries.'
                 : totalOrdersCount === 0
-                ? `You have ${activeProducts.length} published gadgets in Abuja with a total portfolio value of ₦${portfolioValue.toLocaleString()}. Make sure your pricing matches current Banex Plaza market averages to attract your first buyer enquiry.`
+                ? `You have ${activeProducts.length} published gadget(s) in Abuja with a total portfolio value of ₦${portfolioValue.toLocaleString()}. Make sure your pricing matches current Banex Plaza market averages to attract your first buyer enquiry.`
                 : `You have completed ${totalOrdersCount} orders generating ₦${totalRevenue.toLocaleString()} in revenue. Maintain quick response times on enquiries to keep conversion high.`}
             </p>
           </div>
