@@ -18,6 +18,64 @@ import { BuyingRequestModal } from "@/components/products/BuyingRequestModal";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { CompareButton } from "@/components/CompareButton";
 import { ProductViewTracker } from "@/components/products/ProductViewTracker";
+import type { Metadata } from 'next';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+
+  const { data: product } = await supabase
+    .from('products')
+    .select('*, profiles!products_seller_id_fkey(business_name, district)')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!product) {
+    return {
+      title: 'Device Not Found',
+    }
+  }
+
+  const sellerName = product.profiles?.business_name || 'Verified Vendor'
+  const location = product.profiles?.district || 'Abuja'
+  const formattedPrice = `₦${Number(product.price).toLocaleString()}`
+  const title = `${product.title} - ${formattedPrice}`
+  const description = `Buy ${product.condition?.replace('_', ' ') || 'clean'} ${product.title} in ${location}, Abuja for ${formattedPrice} from ${sellerName}. Safe in-person inspection available.`
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `/products/${id}`,
+    },
+    openGraph: {
+      title: `${title} | BenchTech Abuja`,
+      description,
+      url: `https://shopbenchtech.com/products/${id}`,
+      type: 'article',
+      images: product.images?.[0]
+        ? [
+            {
+              url: product.images[0],
+              width: 800,
+              height: 800,
+              alt: product.title,
+            },
+          ]
+        : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: product.images?.[0] ? [product.images[0]] : [],
+    },
+  }
+}
 
 export default async function ProductDetailPage({
   params,
