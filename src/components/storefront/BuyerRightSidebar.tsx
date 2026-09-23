@@ -124,7 +124,7 @@ export function BuyerRightSidebar({
             </h4>
             <p className="text-xs text-slate-500 mt-1">
               Sign in to manage enquiries, list technology, and access seller
-              tools[cite: 9].
+              tools.
             </p>
           </div>
           <div className="pt-1 flex gap-2">
@@ -155,11 +155,11 @@ export function BuyerRightSidebar({
           <div className="w-7 h-7 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
           </div>
-          <span className="text-xs font-black tracking-tight">Request a Gadget[cite: 9]</span>
+          <span className="text-xs font-black tracking-tight">Request a Gadget</span>
         </div>
 
         <p className="text-[11px] text-slate-300 leading-snug">
-          Can&apos;t find your target specs? Broadcast your target device &amp; budget to verified Abuja dealers[cite: 9].
+          Can&apos;t find your target specs? Broadcast your target device &amp; budget to verified Abuja dealers.
         </p>
 
         <Link href="/requests/new" className="block pt-0.5">
@@ -167,7 +167,7 @@ export function BuyerRightSidebar({
             size="sm"
             className="w-full bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs h-8 rounded-xl gap-1.5 shadow-xs"
           >
-            Broadcast Request[cite: 9] <ArrowRight className="w-3 h-3" />
+            Broadcast Request <ArrowRight className="w-3 h-3" />
           </Button>
         </Link>
       </div>
@@ -177,27 +177,27 @@ export function BuyerRightSidebar({
         <div className="flex items-center gap-2 text-slate-900">
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
           <h4 className="text-xs font-bold uppercase tracking-wider">
-            TechTrust Safety[cite: 9]
+            TechTrust Safety
           </h4>
         </div>
         <ul className="text-xs text-slate-600 space-y-2">
           <li className="flex items-start gap-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
             <span>
-              Always verify hardware specs and condition before payment[cite: 9].
+              Always verify hardware specs and condition before payment.
             </span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
             <span>
               Arrange pickup in public spaces or verified business premises in
-              Abuja[cite: 9].
+              Abuja.
             </span>
           </li>
           <li className="flex items-start gap-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
             <span>
-              Look for the TechTrust badge on verified vendor profiles[cite: 9].
+              Look for the TechTrust badge on verified vendor profiles.
             </span>
           </li>
         </ul>
@@ -208,7 +208,7 @@ export function BuyerRightSidebar({
         <h4 className="text-xs font-bold">Have Gadgets to Sell?</h4>
         <p className="text-[11px] text-slate-400 leading-snug">
           List your phones, laptops, and tech accessories directly to buyers
-          across Abuja[cite: 9].
+          across Abuja.
         </p>
         <Link href={isSeller ? "/seller/listings/new" : "/seller/onboarding"}>
           <Button

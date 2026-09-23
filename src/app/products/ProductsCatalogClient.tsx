@@ -208,7 +208,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
             className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
           />
           <span className="flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Verified Dealers Only[cite: 8]
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Verified Dealers Only
           </span>
         </label>
       </div>
@@ -331,7 +331,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           onClick={() => toggleSection('hub')}
           className="w-full flex items-center justify-between font-bold text-slate-900 mb-2.5"
         >
-          <span>Abuja Hub Location[cite: 8]</span>
+          <span>Abuja Hub Location</span>
           {openSections.hub ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
         </button>
         {openSections.hub && (
@@ -430,7 +430,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
               onChange={(e: any) => setSortBy(e.target.value)}
               className="h-8 px-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-600"
             >
-              <option value="featured">Featured First[cite: 8]</option>
+              <option value="featured">Featured First</option>
               <option value="newest">Newest Listed</option>
               <option value="price_low">Price: Low to High</option>
               <option value="price_high">Price: High to Low</option>
@@ -494,7 +494,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                           <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
                             {isFeatured && (
                               <Badge className="bg-blue-600 text-white border-none text-[8px] font-black uppercase tracking-wider flex items-center gap-0.5 shadow-xs px-1.5 py-0">
-                                <Sparkles className="w-2.5 h-2.5" /> Featured[cite: 8]
+                                <Sparkles className="w-2.5 h-2.5" /> Featured
                               </Badge>
                             )}
                             <Badge className="bg-slate-900/80 backdrop-blur-xs text-white border-none text-[8px] capitalize px-1.5 py-0">

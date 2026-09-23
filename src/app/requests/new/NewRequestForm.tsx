@@ -101,7 +101,7 @@ export function NewRequestForm() {
         <div className="space-y-1">
           <h2 className="text-xl font-black text-slate-900">Request Broadcasted to Abuja Sellers!</h2>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Verified tech dealers across Banex and Wuse 2 with matching inventory will be alerted and can contact you with verified quotes[cite: 9].
+            Verified tech dealers across Banex and Wuse 2 with matching inventory will be alerted and can contact you with verified quotes.
           </p>
         </div>
         <div className="pt-2 flex justify-center gap-2">
@@ -139,7 +139,7 @@ export function NewRequestForm() {
               Can&apos;t Find Your Exact Gadget?
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              Broadcast your target specs and budget to verified Abuja dealers[cite: 9].
+              Broadcast your target specs and budget to verified Abuja dealers.
             </CardDescription>
           </div>
         </div>

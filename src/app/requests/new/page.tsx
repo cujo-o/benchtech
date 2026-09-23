@@ -4,7 +4,7 @@ import { NewRequestForm } from './NewRequestForm'
 
 export const metadata = {
   title: 'Request a Gadget | BenchTech Abuja',
-  description: 'Broadcast your target device specifications and budget to verified Abuja tech vendors[cite: 9].',
+  description: 'Broadcast your target device specifications and budget to verified Abuja tech vendors.',
 }
 
 export default function NewProductRequestPage() {
