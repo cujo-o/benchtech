@@ -1,4 +1,9 @@
 import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { ThemeProvider } from '@/components/theme-provider'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://shopbenchtech.com'),
@@ -37,21 +42,12 @@ export const metadata: Metadata = {
     siteName: 'BenchTech Abuja',
     locale: 'en_NG',
     type: 'website',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'BenchTech Abuja Tech Marketplace',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'BenchTech | Verified Tech Marketplace in Abuja',
     description:
       'Inspect physical laptops, phones, and hardware in Abuja before paying.',
-    images: ['/og-image.png'],
   },
   other: {
     'geo.region': 'NG-FC',
@@ -59,4 +55,27 @@ export const metadata: Metadata = {
     'geo.position': '9.0765;7.3986',
     ICBM: '9.0765, 7.3986',
   },
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.className} bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased transition-colors duration-200`}
+      >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  )
 }
