@@ -114,7 +114,12 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
 
   // Settings & Verification
   const SETTINGS_NAV = [
-    { label: 'Store Verification', href: '/seller/verification', icon: ShieldCheck, badge: profile?.tech_trust_status === 'verified' ? 'Verified' : 'Get Verified' },
+    {
+      label: 'Store Verification',
+      href: '/seller/verify',
+      icon: ShieldCheck,
+      badge: profile?.tech_trust_status === 'verified' ? 'Verified' : 'Get Verified',
+    },
     { label: 'Subscription & Plan', href: '/seller/subscription', icon: CreditCard },
     { label: 'Store Settings', href: '/seller/settings', icon: Settings },
     { label: 'Help & Support', href: '/help', icon: HelpCircle },
@@ -157,8 +162,8 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </button>
       </div>
 
-      {/* 2. Scrollable Navigation */}
-      <div className="flex-1 overflow-y-auto px-2 sm:px-3 py-3 space-y-4 scrollbar-none">
+      {/* 2. Scrollable Navigation with Visible Modern Scrollbar */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-3 py-3 space-y-4 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
         {/* Core Store Essentials */}
         <div className="space-y-0.5">
           {!isCollapsed && (
