@@ -4,7 +4,7 @@ import { signOut } from "@/app/(auth)/actions";
 import { MobileSidebarDrawer } from "@/components/storefront/MobileSidebarDrawer";
 import { Button } from "@/components/ui/button";
 import { BenchTechLogo } from "@/components/BenchTechLogo";
-import { CartDrawer } from "@/components/cart/CartDrawer";
+//import { CartDrawer } from "@/components/cart/CartDrawer";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   Search,
@@ -95,7 +95,7 @@ export async function Navbar() {
           </Link>
 
           {/* 3. Cart Drawer */}
-          <CartDrawer />
+          {/* <CartDrawer /> */}
 
           {/* 4. Authenticated Actions */}
           {user ? (
