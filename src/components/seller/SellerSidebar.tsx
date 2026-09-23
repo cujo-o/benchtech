@@ -23,7 +23,6 @@ import {
   ArrowRight,
   Menu,
   X,
-  Star,
   Users,
   ExternalLink,
 } from 'lucide-react'
@@ -117,52 +116,33 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
   ]
 
   const SidebarBody = ({ onLinkClick }: { onLinkClick?: () => void }) => (
-    <div
-      className={`flex flex-col h-full justify-between transition-colors duration-200 ${
-        isPro ? 'bg-[#0c1322] text-slate-200' : 'bg-white text-slate-800'
-      }`}
-    >
-      {/* 1. Header with Direct Buyer Mode Switcher */}
-      <div
-        className={`p-3.5 border-b flex items-center justify-between shrink-0 ${
-          isPro ? 'border-slate-800' : 'border-slate-100'
-        }`}
-      >
-        <Link href="/seller" onClick={onLinkClick} className="flex flex-col">
+    <div className="flex flex-col h-full justify-between bg-[#f8fafc] text-slate-700 transition-colors">
+      {/* 1. Header (Single Brand Identifier - Top Buyer Button Removed) */}
+      <div className="p-4 border-b border-slate-200/70 flex items-center justify-between shrink-0">
+        <Link href="/seller" onClick={onLinkClick} className="flex flex-col group">
           <div className="flex items-center gap-1.5">
-            <span className={`font-black text-sm tracking-tight ${isPro ? 'text-white' : 'text-slate-900'}`}>
+            <span className="font-black text-sm tracking-tight text-slate-900 group-hover:text-blue-600 transition">
               ShopBenchTech
             </span>
             {isPro && (
-              <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded bg-[#4f46e5] text-white">
+              <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200">
                 PRO
               </span>
             )}
           </div>
-          <span className="text-[9px] text-slate-400 font-medium">Seller Hub</span>
+          <span className="text-[10px] text-slate-400 font-medium">Seller Hub</span>
         </Link>
 
-        {/* Quick Buyer View Link at Top */}
-        <Link
-          href="/feed"
-          onClick={onLinkClick}
-          title="Switch to Buyer Marketplace"
-          className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg transition border ${
-            isPro
-              ? 'border-slate-800 bg-slate-900/80 text-blue-400 hover:text-white hover:bg-slate-800'
-              : 'border-slate-200 bg-slate-50 text-blue-600 hover:bg-blue-50'
-          }`}
-        >
-          <span>Buyer View</span>
-          <ExternalLink className="w-3 h-3" />
-        </Link>
+        <div className="w-7 h-7 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-xs font-bold text-slate-700">
+          {(profile?.business_name || profile?.full_name || 'S')?.[0]?.toUpperCase()}
+        </div>
       </div>
 
-      {/* 2. Scrollable Navigation List (Clean smooth scrollbar) */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
-        {/* Core Tools */}
+      {/* 2. Scrollable Navigation (Muted in background, lights up clearly on hover) */}
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+        {/* Core Store Essentials */}
         <div className="space-y-0.5">
-          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-500 px-2 block mb-1">
+          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1">
             Store Essentials
           </span>
           {CORE_NAV.map((item) => {
@@ -176,16 +156,14 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                 key={item.label}
                 href={item.href}
                 onClick={onLinkClick}
-                className={`flex items-center justify-between px-2.5 py-1.5 text-xs font-semibold rounded-xl transition ${
+                className={`flex items-center justify-between px-2.5 py-1.5 text-xs font-semibold rounded-xl transition duration-150 ${
                   isActive
                     ? 'bg-blue-600 text-white font-bold shadow-xs'
-                    : isPro
-                    ? 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white hover:shadow-2xs'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
                 </div>
 
@@ -199,11 +177,11 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           })}
         </div>
 
-        {/* Pro Suite */}
+        {/* Pro Business Tools */}
         <div className="space-y-0.5">
-          <span className="text-[9px] uppercase font-bold tracking-wider text-purple-400 px-2 flex items-center justify-between mb-1">
+          <span className="text-[9px] uppercase font-bold tracking-wider text-purple-700 px-2 flex items-center justify-between mb-1">
             <span>Pro Business Tools</span>
-            <Crown className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+            <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
           </span>
           {PRO_NAV.map((item) => {
             const Icon = item.icon
@@ -214,24 +192,22 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                 key={item.label}
                 href={item.href}
                 onClick={onLinkClick}
-                className={`flex items-center justify-between px-2.5 py-1.5 text-xs font-semibold rounded-xl transition ${
+                className={`flex items-center justify-between px-2.5 py-1.5 text-xs font-semibold rounded-xl transition duration-150 ${
                   isActive
                     ? 'bg-blue-600 text-white font-bold shadow-xs'
-                    : isPro
-                    ? 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white hover:shadow-2xs'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
                 </div>
 
                 <span
-                  className={`text-[8px] font-black uppercase tracking-wider px-1 rounded ${
-                    isPro
-                      ? 'bg-purple-900/60 text-purple-300 border border-purple-700/50'
-                      : 'bg-purple-100 text-purple-700'
+                  className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-md ${
+                    isActive
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-purple-100 text-purple-700 border border-purple-200'
                   }`}
                 >
                   Pro
@@ -241,9 +217,9 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           })}
         </div>
 
-        {/* Account / Support */}
+        {/* Settings & Support */}
         <div className="space-y-0.5">
-          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-500 px-2 block mb-1">
+          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1">
             Settings &amp; Support
           </span>
           {ACCOUNT_NAV.map((item) => {
@@ -255,15 +231,13 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                 key={item.label}
                 href={item.href}
                 onClick={onLinkClick}
-                className={`flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl transition ${
+                className={`flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl transition duration-150 ${
                   isActive
                     ? 'bg-blue-600 text-white font-bold shadow-xs'
-                    : isPro
-                    ? 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white hover:shadow-2xs'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 <span>{item.label}</span>
               </Link>
             )
@@ -271,29 +245,25 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       </div>
 
-      {/* 3. Compact Footer with Persistent Buyer View & Log Out */}
-      <div
-        className={`p-3 border-t space-y-2 shrink-0 ${
-          isPro ? 'border-slate-800' : 'border-slate-100'
-        }`}
-      >
-        {/* Compact Pro Status Banner */}
+      {/* 3. Bottom Footer (Houses the Single Buyer View Button) */}
+      <div className="p-3 border-t border-slate-200/70 space-y-2 shrink-0 bg-[#f8fafc]">
+        {/* Subtle Pro Status Pill */}
         {isPro ? (
-          <div className="bg-[#1e1b4b]/70 border border-indigo-900/60 rounded-xl p-2.5 flex items-center justify-between text-white">
+          <div className="bg-white border border-slate-200/90 rounded-xl p-2.5 flex items-center justify-between shadow-2xs">
             <div>
-              <span className="text-[11px] font-black text-amber-300 flex items-center gap-1">
-                <Crown className="w-3 h-3 fill-amber-300" /> Pro Active
+              <span className="text-[11px] font-black text-slate-900 flex items-center gap-1">
+                <Crown className="w-3 h-3 text-amber-500 fill-amber-400" /> Pro Member
               </span>
-              <p className="text-[9px] text-indigo-200">5% commission active</p>
+              <p className="text-[9px] text-slate-400">5% reduced commission</p>
             </div>
             <Link href="/seller/subscription" onClick={onLinkClick}>
-              <span className="text-[10px] font-bold text-blue-400 hover:underline">
+              <span className="text-[10px] font-bold text-blue-600 hover:underline">
                 Manage
               </span>
             </Link>
           </div>
         ) : (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-2.5 space-y-1">
+          <div className="bg-white border border-blue-200 rounded-xl p-2.5 space-y-1 shadow-2xs">
             <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
               <Crown className="w-3 h-3 text-blue-600" /> Upgrade to Pro
             </span>
@@ -305,48 +275,40 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           </div>
         )}
 
-        {/* Primary Buyer View Link */}
+        {/* Sole Buyer View Link */}
         <Link
           href="/feed"
           onClick={onLinkClick}
-          className={`flex items-center justify-between px-2.5 py-1.5 text-xs font-bold rounded-xl transition ${
-            isPro
-              ? 'text-slate-300 hover:text-white hover:bg-slate-800/80 bg-slate-900/50 border border-slate-800'
-              : 'text-slate-700 hover:text-blue-600 hover:bg-blue-50 bg-slate-50 border border-slate-200'
-          }`}
+          className="flex items-center justify-between px-2.5 py-2 text-xs font-bold rounded-xl transition bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-300 shadow-2xs group"
         >
           <span className="flex items-center gap-2">
-            <ExternalLink className="w-3.5 h-3.5 text-blue-500" />
+            <ExternalLink className="w-3.5 h-3.5 text-blue-600 group-hover:scale-105 transition" />
             Switch to Buyer View
           </span>
-          <span className="text-[10px] text-slate-400 font-normal">&rarr;</span>
+          <ArrowRight className="w-3 h-3 text-slate-400 group-hover:translate-x-0.5 transition" />
         </Link>
 
-        {/* Admin Console (If Admin) */}
+        {/* Admin Console Shortcut (Admins Only) */}
         {isAdmin && (
           <Link
             href="/admin"
             onClick={onLinkClick}
-            className={`flex items-center justify-between px-2.5 py-1.5 text-xs font-bold rounded-xl transition ${
-              isPro
-                ? 'bg-purple-950/60 text-purple-300 border border-purple-800/50'
-                : 'bg-purple-50 text-purple-700 border border-purple-200'
-            }`}
+            className="flex items-center justify-between px-2.5 py-1.5 text-xs font-bold rounded-xl transition bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100"
           >
             <span className="flex items-center gap-2">
-              <ShieldAlert className="w-3.5 h-3.5 text-purple-400" /> Admin Console
+              <ShieldAlert className="w-3.5 h-3.5 text-purple-600" /> Admin Console
             </span>
             <ArrowRight className="w-3 h-3" />
           </Link>
         )}
 
-        {/* Log Out */}
+        {/* Sign Out */}
         <form action={signOut}>
           <Button
             variant="ghost"
             size="sm"
             type="submit"
-            className="w-full justify-start text-red-500 hover:text-red-400 hover:bg-red-500/10 gap-2 px-2.5 text-xs h-7 rounded-xl font-bold"
+            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 px-2.5 text-xs h-7 rounded-xl font-bold"
           >
             <LogOut className="w-3.5 h-3.5" /> Log Out
           </Button>
@@ -358,26 +320,24 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
   return (
     <>
       {/* Mobile Top Header */}
-      <div
-        className={`lg:hidden sticky top-0 z-40 px-3.5 h-14 flex items-center justify-between w-full shadow-2xs border-b ${
-          isPro ? 'bg-[#0c1322] border-slate-800 text-white' : 'bg-white border-slate-200'
-        }`}
-      >
+      <div className="lg:hidden sticky top-0 z-40 px-3.5 h-14 flex items-center justify-between w-full shadow-2xs border-b bg-[#f8fafc] border-slate-200">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
-            className="p-1.5 text-slate-400 hover:text-white rounded-xl focus:outline-none"
+            className="p-1.5 text-slate-600 hover:text-slate-900 rounded-xl focus:outline-none"
             aria-label="Open seller menu"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-black text-sm tracking-tight">ShopBenchTech</span>
+          <span className="font-black text-sm tracking-tight text-slate-900">
+            ShopBenchTech
+          </span>
         </div>
 
         <Link
           href="/feed"
-          className="text-xs font-bold text-blue-400 hover:underline flex items-center gap-1"
+          className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
         >
           Buyer View <ExternalLink className="w-3 h-3" />
         </Link>
@@ -387,14 +347,14 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="relative w-72 max-w-[82vw] h-full z-10 shadow-2xl flex flex-col">
+          <div className="relative w-72 max-w-[82vw] h-full z-10 shadow-2xl flex flex-col bg-[#f8fafc]">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute top-3.5 right-3 p-1 text-slate-400 hover:text-white rounded-lg"
+              className="absolute top-3.5 right-3 p-1 text-slate-400 hover:text-slate-900 rounded-lg"
               aria-label="Close menu"
             >
               <X className="w-5 h-5" />
@@ -404,12 +364,8 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       )}
 
-      {/* Desktop Persistent Sidebar */}
-      <aside
-        className={`hidden lg:flex w-64 border-r flex-col shrink-0 sticky top-0 h-screen overflow-hidden ${
-          isPro ? 'border-slate-800' : 'border-slate-200/80'
-        }`}
-      >
+      {/* Desktop Persistent Sidebar (Blends seamlessly with the #f8fafc page background) */}
+      <aside className="hidden lg:flex w-64 border-r border-slate-200/70 bg-[#f8fafc] flex-col shrink-0 sticky top-0 h-screen overflow-hidden">
         <SidebarBody />
       </aside>
     </>
