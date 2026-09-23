@@ -224,8 +224,8 @@ export function BuyerSidebar() {
         </button>
       </div>
 
-      {/* 2. Scrollable Navigation List */}
-      <nav className="flex-1 overflow-y-auto space-y-1 pr-0.5 scrollbar-none">
+      {/* 2. Scrollable Navigation List with Visible Custom Scroller */}
+      <nav className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1.5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
