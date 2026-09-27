@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/Navbar'
 import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
@@ -24,10 +25,27 @@ export const metadata: Metadata = {
   },
 }
 
+function CatalogSkeleton() {
+  return (
+    <div className="p-3 sm:p-5 lg:p-6 space-y-4 max-w-[1600px] mx-auto w-full animate-pulse">
+      <div className="flex gap-2 overflow-hidden pb-1">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-8 w-24 bg-slate-200 dark:bg-slate-800 rounded-xl shrink-0" />
+        ))}
+      </div>
+      <div className="h-14 bg-slate-200 dark:bg-slate-800 rounded-2xl w-full" />
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4.5 pt-2">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="h-72 bg-slate-200 dark:bg-slate-800 rounded-2xl w-full" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default async function ProductsPage() {
   const supabase = await createClient()
 
-  // Fetch initial products cleanly on the server
   const { data: products } = await supabase
     .from('products')
     .select('*, profiles!products_seller_id_fkey(business_name, district, tech_trust_status)')
@@ -40,15 +58,17 @@ export default async function ProductsPage() {
       <Navbar />
 
       <div className="max-w-[1700px] w-full mx-auto flex flex-1 min-w-0">
-        {/* Desktop Sidebar Navigation (Hidden on mobile, fixed width on PC) */}
-        <div className="hidden lg:block shrink-0 border-r border-slate-200/80 dark:border-slate-800/80">
+        {/* Persistent App Navigation Sidebar (Desktop only) */}
+        <aside className="hidden lg:block shrink-0 border-r border-slate-200/80 dark:border-slate-800/80">
           <BuyerSidebar />
-        </div>
+        </aside>
 
-        {/* Catalog Main Content Area (min-w-0 prevents all grid blowout) */}
-        <div className="flex-1 min-w-0 w-full">
-          <ProductsCatalogClient initialProducts={products || []} />
-        </div>
+        {/* Main Catalog View */}
+        <main className="flex-1 min-w-0 w-full">
+          <Suspense fallback={<CatalogSkeleton />}>
+            <ProductsCatalogClient initialProducts={products || []} />
+          </Suspense>
+        </main>
       </div>
     </div>
   )

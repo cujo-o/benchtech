@@ -32,6 +32,7 @@ import {
   HardDrive,
   Cpu,
   BatteryCharging,
+  EyeOff,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -75,13 +76,29 @@ const PRICE_BUCKETS = [
   { label: "Above ₦1.5M", min: 1500000, max: 999999999 },
 ];
 
+function resolveFirstImage(images: any): string | null {
+  if (!images) return null;
+  if (Array.isArray(images)) return images[0] || null;
+  if (typeof images === "string") {
+    try {
+      const parsed = JSON.parse(images);
+      if (Array.isArray(parsed)) return parsed[0] || null;
+    } catch {
+      return images.startsWith("http") ? images : null;
+    }
+  }
+  return null;
+}
+
 export function ProductsCatalogClient({ initialProducts }: { initialProducts: any[] }) {
   const searchParams = useSearchParams();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>(searchParams.get("category") || "all");
-  const [searchQuery] = useState<string>(searchParams.get("q") || "");
+  const [desktopFilterOpen, setDesktopFilterOpen] = useState(true);
+
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const deferredSearch = useDeferredValue(searchQuery);
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -90,7 +107,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
   const [selectedPriceRange, setSelectedPriceRange] = useState<{ min: number; max: number; label: string } | null>(null);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
 
-  // Re-integrated specs states
   const [selectedRam, setSelectedRam] = useState<string[]>([]);
   const [selectedStorage, setSelectedStorage] = useState<string[]>([]);
   const [selectedProcessors, setSelectedProcessors] = useState<string[]>([]);
@@ -110,8 +126,19 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     setMounted(true);
   }, []);
 
+  // Synchronize state whenever URL query params change from Navbar or direct links
   useEffect(() => {
-    document.body.style.overflow = drawerOpen ? "hidden" : "unset";
+    setSelectedCategory(searchParams.get("category") || "all");
+    setSearchQuery(searchParams.get("q") || "");
+  }, [searchParams]);
+
+  // Lock mobile body scroll during drawer view
+  useEffect(() => {
+    if (drawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
     return () => {
       document.body.style.overflow = "unset";
     };
@@ -163,7 +190,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           return false;
         }
 
-        // Live specs matching
         if (selectedRam.length > 0) {
           const itemRam = item.specs?.ram || "";
           const content = `${item.title} ${item.description} ${itemRam}`.toUpperCase();
@@ -186,8 +212,8 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           }
         }
         if (selectedBatteryHealth.length > 0) {
-          const healthNum = parseInt(item.specs?.battery_health || "0");
-          const meetsThreshold = selectedBatteryHealth.some((threshold) => healthNum >= parseInt(threshold));
+          const healthNum = parseInt(item.specs?.battery_health || "0", 10);
+          const meetsThreshold = selectedBatteryHealth.some((threshold) => healthNum >= parseInt(threshold, 10));
           if (!meetsThreshold && item.specs?.battery_health) return false;
         }
 
@@ -243,8 +269,8 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     setList(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
   };
 
-  // Reusable Filter Content (Used in Desktop Sidebar AND Mobile Drawer)
-  const FilterControls = () => (
+  // Render helper function avoiding component unmounting issues
+  const renderFilterBody = () => (
     <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
       {/* Verified Dealers Only */}
       <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl">
@@ -265,6 +291,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
       {/* Price Budget */}
       <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
         <button
+          type="button"
           onClick={() => toggleSection("price")}
           className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2"
         >
@@ -300,6 +327,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
       {/* Brands */}
       <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
         <button
+          type="button"
           onClick={() => toggleSection("brand")}
           className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2"
         >
@@ -325,7 +353,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         )}
       </div>
 
-      {/* Dynamic Hardware Specs Filter */}
+      {/* Dynamic Hardware Specs */}
       {selectedCategory === "phones" && (
         <div className="border-b border-slate-100 dark:border-slate-800 pb-3 space-y-3">
           <div>
@@ -437,6 +465,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
       {/* Condition */}
       <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
         <button
+          type="button"
           onClick={() => toggleSection("condition")}
           className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2"
         >
@@ -462,9 +491,10 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         )}
       </div>
 
-      {/* Hub Location */}
+      {/* Abuja Hub Locations */}
       <div>
         <button
+          type="button"
           onClick={() => toggleSection("hub")}
           className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2"
         >
@@ -492,68 +522,11 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     </div>
   );
 
-  // Mobile Slide-out Drawer Portal
-  const filterDrawerPortal = (
-    <div className="fixed inset-0 z-[9999] flex lg:hidden">
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
-        onClick={() => setDrawerOpen(false)}
-      />
-
-      <div className="relative ml-auto w-80 max-w-[85vw] h-dvh bg-white dark:bg-slate-900 z-[10000] shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-              <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter Catalog
-            </span>
-            {activeFilterCount > 0 && (
-              <Badge className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
-                {activeFilterCount}
-              </Badge>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline mr-1"
-              >
-                Reset
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(false)}
-              className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin]">
-          <FilterControls />
-        </div>
-
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={clearAllFilters} className="w-1/3 text-xs font-bold rounded-xl h-10 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200">
-            Reset
-          </Button>
-          <Button size="sm" onClick={() => setDrawerOpen(false)} className="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 shadow-xs cursor-pointer">
-            Show ({filteredProducts.length})
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <main className="p-3 sm:p-5 lg:p-6 space-y-4 max-w-[1600px] mx-auto w-full">
+      <div className="p-3 sm:p-5 lg:p-6 space-y-4 max-w-[1600px] mx-auto w-full">
         
-        {/* 1. Category Navigation Pills */}
+        {/* 1. Category Bar Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon;
@@ -561,6 +534,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
             return (
               <button
                 key={cat.id}
+                type="button"
                 onClick={() => {
                   setSelectedCategory(cat.id);
                   clearAllFilters();
@@ -590,6 +564,18 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           </div>
 
           <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Desktop Filter Toggle Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDesktopFilterOpen(!desktopFilterOpen)}
+              className="hidden lg:flex items-center gap-1.5 h-9 px-3 rounded-xl border-slate-200 dark:border-slate-700 text-xs font-bold"
+            >
+              {desktopFilterOpen ? <EyeOff className="w-3.5 h-3.5 text-slate-500" /> : <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />}
+              <span>{desktopFilterOpen ? "Hide Filters" : "Show Filters"}</span>
+            </Button>
+
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
               <span className="hidden sm:inline font-bold">Sort:</span>
               <select
@@ -605,8 +591,9 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
               </select>
             </div>
 
-            {/* Mobile Filter Button (Hidden on PC desktop) */}
+            {/* Mobile Filter Button */}
             <Button
+              type="button"
               size="sm"
               onClick={() => setDrawerOpen(true)}
               className="lg:hidden h-9 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs gap-1.5 shadow-2xs cursor-pointer border border-transparent dark:border-slate-700"
@@ -622,33 +609,35 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           </div>
         </div>
 
-        {/* 3. Main Body: Split Desktop Sidebar (PC) + Responsive Grid */}
+        {/* 3. Catalog Split Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           
-          {/* PC Desktop Filter Sidebar (Persistent on PC, hidden on mobile) */}
-          <aside className="hidden lg:block lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-2xs space-y-4 sticky top-20">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter Devices
-              </span>
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  onClick={clearAllFilters}
-                  className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
-                >
-                  <RotateCcw className="w-3 h-3" /> Reset
-                </button>
-              )}
-            </div>
+          {/* PC Desktop Filter Sidebar */}
+          {desktopFilterOpen && (
+            <aside className="hidden lg:block lg:col-span-4 xl:col-span-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-2xs space-y-4 sticky top-20">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter Devices
+                </span>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Reset
+                  </button>
+                )}
+              </div>
 
-            <FilterControls />
-          </aside>
+              {renderFilterBody()}
+            </aside>
+          )}
 
-          {/* Catalog Grid Area (9 columns on PC, full on mobile) */}
-          <div className="lg:col-span-9 space-y-4 min-w-0">
+          {/* Product Cards Grid Area */}
+          <div className={`${desktopFilterOpen ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12"} space-y-4 min-w-0 w-full`}>
             
-            {/* Active Filters Bar */}
+            {/* Active Filters Badges */}
             {activeFilterCount > 0 && (
               <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
                 <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mr-1">
@@ -676,24 +665,25 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                   </Badge>
                 ))}
 
-                <button onClick={clearAllFilters} className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline ml-1">
+                <button type="button" onClick={clearAllFilters} className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline ml-1">
                   Reset All
                 </button>
               </div>
             )}
 
-            {/* Product Cards Grid: 2 cols on mobile, 3 cols on PC */}
+            {/* Responsive Grid */}
             {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4.5 min-w-0">
+              <div className={`grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${desktopFilterOpen ? "lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"} gap-3 sm:gap-4.5 min-w-0`}>
                 {filteredProducts.map((item) => {
                   const isFeatured = item.is_featured && item.featured_until && new Date(item.featured_until) > new Date();
+                  const firstImg = resolveFirstImage(item.images);
 
                   return (
                     <div
                       key={item.id}
                       className="relative group bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/90 rounded-2xl overflow-hidden hover:shadow-lg hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all duration-200 flex flex-col justify-between min-w-0 w-full"
                     >
-                      {/* Floating Badges & Save Target */}
+                      {/* Top Badges & Actions */}
                       <div className="absolute top-2 inset-x-2 flex items-start justify-between z-10 pointer-events-none">
                         <div className="flex flex-col gap-1 items-start max-w-[70%]">
                           {isFeatured && (
@@ -711,14 +701,14 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                         </div>
                       </div>
 
-                      {/* Card Content Link */}
+                      {/* Product Card Click Link */}
                       <Link href={`/products/${item.id}`} className="flex-1 flex flex-col min-w-0">
-                        {/* Absolute Protected Image Frame (Prevents all zoom blowouts) */}
+                        {/* Bounded Square Aspect Container */}
                         <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800/80">
-                          {item.images?.[0] ? (
+                          {firstImg ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={item.images[0]}
+                              src={firstImg}
                               alt={item.title}
                               loading="lazy"
                               decoding="async"
@@ -731,7 +721,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                           )}
                         </div>
 
-                        {/* Metadata */}
+                        {/* Card Info Details */}
                         <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2 min-w-0">
                           <div className="space-y-1 min-w-0">
                             <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
@@ -778,7 +768,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                     Try loosening your budget range, changing brands, or clearing active filters.
                   </p>
                 </div>
-                <Button size="sm" onClick={clearAllFilters} variant="outline" className="text-xs font-bold rounded-xl mt-2 border-slate-200 dark:border-slate-700">
+                <Button type="button" size="sm" onClick={clearAllFilters} variant="outline" className="text-xs font-bold rounded-xl mt-2 border-slate-200 dark:border-slate-700">
                   Clear Active Filters
                 </Button>
               </div>
@@ -786,9 +776,66 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           </div>
         </div>
 
-        {/* 4. Portal Filter Drawer for Mobile Devices */}
-        {drawerOpen && mounted ? createPortal(filterDrawerPortal, document.body) : null}
-      </main>
+        {/* 4. Slide-Out Drawer Portal (Mobile & Tablet) */}
+        {drawerOpen && mounted
+          ? createPortal(
+              <div className="fixed inset-0 z-[9999] flex lg:hidden">
+                <div
+                  className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+                  onClick={() => setDrawerOpen(false)}
+                />
+
+                <div className="relative ml-auto w-80 max-w-[85vw] h-dvh bg-white dark:bg-slate-900 z-[10000] shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200">
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                        <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter Catalog
+                      </span>
+                      {activeFilterCount > 0 && (
+                        <Badge className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                          {activeFilterCount}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {activeFilterCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={clearAllFilters}
+                          className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline mr-1"
+                        >
+                          Reset
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setDrawerOpen(false)}
+                        className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin]">
+                    {renderFilterBody()}
+                  </div>
+
+                  <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center gap-2 shrink-0">
+                    <Button variant="outline" size="sm" onClick={clearAllFilters} className="w-1/3 text-xs font-bold rounded-xl h-10 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200">
+                      Reset
+                    </Button>
+                    <Button size="sm" onClick={() => setDrawerOpen(false)} className="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 shadow-xs cursor-pointer">
+                      Show ({filteredProducts.length})
+                    </Button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
+      </div>
     </div>
   );
 }
