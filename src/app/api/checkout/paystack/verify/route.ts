@@ -3,10 +3,21 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !serviceRoleKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+  }
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  })
+}
 
 export async function GET(request: Request) {
   try {
@@ -15,20 +26,29 @@ export async function GET(request: Request) {
     const secretKey = process.env.PAYSTACK_SECRET_KEY
 
     if (!reference || !secretKey) {
-      return NextResponse.json({ message: 'Missing reference or secret key' }, { status: 400 })
+      return NextResponse.json(
+        { message: 'Missing reference or secret key' },
+        { status: 400 }
+      )
     }
+
+    const supabaseAdmin = getSupabaseAdmin()
 
     // 1. Verify directly with Paystack
     const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
       headers: {
         Authorization: `Bearer ${secretKey}`,
       },
+      cache: 'no-store',
     })
 
     const data = await res.json()
 
     if (!data.status || data.data.status !== 'success') {
-      return NextResponse.json({ message: 'Transaction unverified or failed' }, { status: 400 })
+      return NextResponse.json(
+        { message: 'Transaction unverified or failed' },
+        { status: 400 }
+      )
     }
 
     const txData = data.data
@@ -39,7 +59,7 @@ export async function GET(request: Request) {
       const sellerId = metadata.seller_id
 
       if (sellerId) {
-        await supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from('profiles')
           .update({
             seller_plan: 'pro',
@@ -48,11 +68,18 @@ export async function GET(request: Request) {
             promotional_balance: 2500,
           })
           .eq('id', sellerId)
+
+        if (updateError) {
+          throw updateError
+        }
       }
     }
 
     return NextResponse.json({ verified: true, plan: 'pro' }, { status: 200 })
   } catch (err: any) {
-    return NextResponse.json({ message: err.message || 'Verification error' }, { status: 500 })
+    return NextResponse.json(
+      { message: err.message || 'Verification error' },
+      { status: 500 }
+    )
   }
 }
