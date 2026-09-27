@@ -16,6 +16,22 @@ import {
   ArrowRight,
   Flame,
 } from "lucide-react";
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Tech Deals & Clearance Hub Abuja | BenchTech',
+  description:
+    'Curated flash discounts, negotiable clearance stocks, and price drops from verified computer village dealers across Abuja.',
+  alternates: {
+    canonical: 'https://shopbenchtech.com/deals',
+  },
+  openGraph: {
+    title: 'Daily Tech Deals & Gadget Clearance | BenchTech Abuja',
+    description: 'Save up to 30% on inspected laptops, phones, and accessories in Abuja.',
+    url: 'https://shopbenchtech.com/deals',
+    type: 'website',
+  },
+}
 
 export default async function DealsPage() {
   const supabase = await createClient();

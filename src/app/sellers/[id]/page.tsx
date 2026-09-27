@@ -16,6 +16,39 @@ import {
   ShoppingBag,
   ExternalLink 
 } from 'lucide-react'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+
+  const { data: seller } = await supabase
+    .from('profiles')
+    .select('business_name, district, full_name')
+    .eq('id', id)
+    .maybeSingle()
+
+  const name = seller?.business_name || seller?.full_name || 'Verified Vendor'
+  const location = seller?.district ? `${seller.district}, Abuja` : 'Abuja, Nigeria'
+
+  return {
+    title: `${name} - Verified Tech Merchant in ${location} | BenchTech`,
+    description: `Shop inspected gadgets, laptops, and phones from ${name} in ${location}. Verified BenchTech dealer with buyer protection.`,
+    alternates: {
+      canonical: `https://shopbenchtech.com/sellers/${id}`,
+    },
+    openGraph: {
+      title: `${name} | BenchTech Abuja`,
+      description: `View active listings and verified store profile for ${name} in ${location}.`,
+      url: `https://shopbenchtech.com/sellers/${id}`,
+      type: 'profile',
+    },
+  }
+}
 
 export default async function SellerProfilePage({
   params,

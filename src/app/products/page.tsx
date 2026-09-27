@@ -2,14 +2,27 @@ import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/Navbar'
 import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
 import { ProductsCatalogClient } from './ProductsCatalogClient'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = {
-  title: 'Shop Technology by Category | BenchTech Abuja',
-  description: 'Browse verified smartphones, computers, and electronics in Abuja.',
+export const metadata: Metadata = {
+  title: 'Explore Gadgets & Electronics in Abuja | BenchTech',
+  description:
+    'Browse verified laptops, smartphones, gaming consoles, and accessories available for direct pickup or delivery in Abuja. Compare prices from Banex, Emab, and Wuse 2 dealers.',
+  alternates: {
+    canonical: 'https://shopbenchtech.com/products',
+  },
+  openGraph: {
+    title: 'Buy Phones, Laptops & Tech in Abuja | BenchTech',
+    description:
+      'Browse inspected devices from verified Abuja tech merchants. Secure escrow protection and physical inspection available.',
+    url: 'https://shopbenchtech.com/products',
+    siteName: 'BenchTech',
+    locale: 'en_NG',
+    type: 'website',
+  },
 }
-
 export default async function ProductsPage() {
   const supabase = await createClient()
 
