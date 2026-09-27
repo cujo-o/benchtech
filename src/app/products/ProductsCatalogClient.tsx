@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useMemo, useDeferredValue } from "react";
+import { useState, useMemo, useDeferredValue, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { SaveButton } from "@/components/SaveButton";
-import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   SlidersHorizontal,
   X,
@@ -31,6 +29,7 @@ import {
   BatteryCharging,
   Cpu,
   HardDrive,
+  ArrowRight,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -125,22 +124,17 @@ export function ProductsCatalogClient({
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>(
-    searchParams.get("category") || "all",
+    searchParams.get("category") || "all"
   );
-  const [searchQuery, setSearchQuery] = useState<string>(
-    searchParams.get("q") || "",
-  );
+  const [searchQuery] = useState<string>(searchParams.get("q") || "");
 
-  // High-performance deferred search value to prevent keyboard lag on phones
   const deferredSearch = useDeferredValue(searchQuery);
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedRam, setSelectedRam] = useState<string[]>([]);
   const [selectedStorage, setSelectedStorage] = useState<string[]>([]);
   const [selectedProcessors, setSelectedProcessors] = useState<string[]>([]);
-  const [selectedBatteryHealth, setSelectedBatteryHealth] = useState<string[]>(
-    [],
-  );
+  const [selectedBatteryHealth, setSelectedBatteryHealth] = useState<string[]>([]);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [selectedHubs, setSelectedHubs] = useState<string[]>([]);
   const [selectedPriceRange, setSelectedPriceRange] = useState<{
@@ -161,6 +155,18 @@ export function ProductsCatalogClient({
     hub: false,
   });
 
+  // Lock background scroll when mobile filter drawer is open
+  useEffect(() => {
+    if (drawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [drawerOpen]);
+
   const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
@@ -171,7 +177,6 @@ export function ProductsCatalogClient({
     return GENERAL_BRANDS;
   }, [selectedCategory]);
 
-  // Memoized live filtering
   const filteredProducts = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase();
 
@@ -194,7 +199,7 @@ export function ProductsCatalogClient({
         if (
           selectedBrands.length > 0 &&
           !selectedBrands.some(
-            (b) => item.brand?.toLowerCase() === b.toLowerCase(),
+            (b) => item.brand?.toLowerCase() === b.toLowerCase()
           )
         ) {
           return false;
@@ -211,7 +216,7 @@ export function ProductsCatalogClient({
           const district = item.profiles?.district || "";
           if (
             !selectedHubs.some((h) =>
-              district.toLowerCase().includes(h.toLowerCase()),
+              district.toLowerCase().includes(h.toLowerCase())
             )
           ) {
             return false;
@@ -238,7 +243,7 @@ export function ProductsCatalogClient({
             `${item.title} ${item.description} ${itemRam}`.toUpperCase();
           if (
             !selectedRam.some((r) =>
-              content.includes(r.replace("+", "").toUpperCase()),
+              content.includes(r.replace("+", "").toUpperCase())
             )
           ) {
             return false;
@@ -251,7 +256,7 @@ export function ProductsCatalogClient({
             `${item.title} ${item.description} ${itemStorage}`.toUpperCase();
           if (
             !selectedStorage.some((s) =>
-              content.includes(s.replace(" SSD", "").toUpperCase()),
+              content.includes(s.replace(" SSD", "").toUpperCase())
             )
           ) {
             return false;
@@ -264,7 +269,7 @@ export function ProductsCatalogClient({
             `${item.title} ${item.description} ${itemProc}`.toLowerCase();
           if (
             !selectedProcessors.some((p) =>
-              content.includes(p.toLowerCase().replace("apple ", "")),
+              content.includes(p.toLowerCase().replace("apple ", ""))
             )
           ) {
             return false;
@@ -334,7 +339,7 @@ export function ProductsCatalogClient({
   const toggleItem = (
     list: string[],
     setList: (val: string[]) => void,
-    item: string,
+    item: string
   ) => {
     if (list.includes(item)) {
       setList(list.filter((x) => x !== item));
@@ -344,246 +349,212 @@ export function ProductsCatalogClient({
   };
 
   return (
-    <main className="flex-1 min-w-0 p-3 sm:p-5 lg:p-7 space-y-4 max-w-[1550px] mx-auto w-full">
-      {/* 1. Category Bar Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
-        {CATEGORIES.map((cat) => {
-          const Icon = cat.icon;
-          const isSelected = selectedCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => {
-                setSelectedCategory(cat.id);
-                clearAllFilters();
-              }}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition ${
-                isSelected
-                  ? "bg-blue-600 text-white font-bold shadow-xs"
-                  : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300"
-              }`}
-            >
-              <Icon
-                className={`w-3.5 h-3.5 ${isSelected ? "text-white" : "text-slate-500"}`}
-              />
-              <span>{cat.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 2. Top Toolbar */}
-      <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
-            {filteredProducts.length}{" "}
-            {filteredProducts.length === 1 ? "Device" : "Devices"}
-          </span>
-          <span className="text-xs text-slate-400">found in Abuja</span>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+      <main className="p-3 sm:p-5 lg:p-6 space-y-4 max-w-[1550px] mx-auto w-full">
+        {/* 1. Category Bar Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none -mx-1 px-1">
+          {CATEGORIES.map((cat) => {
+            const Icon = cat.icon;
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  setSelectedCategory(cat.id);
+                  clearAllFilters();
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all shadow-2xs ${
+                  isSelected
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                }`}
+              >
+                <Icon
+                  className={`w-3.5 h-3.5 ${
+                    isSelected
+                      ? "text-white"
+                      : "text-slate-500 dark:text-slate-400"
+                  }`}
+                />
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <span className="hidden sm:inline font-bold">Sort:</span>
-            <select
-              value={sortBy}
-              onChange={(e: any) => setSortBy(e.target.value)}
-              className="h-9 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
-            >
-              <option value="featured">Featured First</option>
-              <option value="newest">Newest Listed</option>
-              <option value="price_low">Price: Low to High</option>
-              <option value="price_high">Price: High to Low</option>
-            </select>
+        {/* 2. Top Toolbar */}
+        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
+              {filteredProducts.length}{" "}
+              {filteredProducts.length === 1 ? "Device" : "Devices"}
+            </span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              available in Abuja
+            </span>
           </div>
 
-          <Button
-            size="sm"
-            onClick={() => setDrawerOpen(true)}
-            className="h-9 px-3.5 rounded-xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-950 font-bold text-xs gap-2 shadow-xs cursor-pointer"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Filters</span>
-            {activeFilterCount > 0 && (
-              <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-black flex items-center justify-center">
-                {activeFilterCount}
-              </span>
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <span className="hidden sm:inline font-bold">Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e: any) => setSortBy(e.target.value)}
+                className="h-9 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="featured">Featured First</option>
+                <option value="newest">Newest Listed</option>
+                <option value="price_low">Price: Low to High</option>
+                <option value="price_high">Price: High to Low</option>
+              </select>
+            </div>
+
+            <Button
+              size="sm"
+              onClick={() => setDrawerOpen(true)}
+              className="h-9 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs gap-2 shadow-2xs cursor-pointer border border-transparent dark:border-slate-700"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-black flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* 3. Active Filters Bar */}
+        {activeFilterCount > 0 && (
+          <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
+            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mr-1">
+              Active filters:
+            </span>
+
+            {verifiedOnly && (
+              <Badge className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+                Verified Only
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-emerald-900 dark:hover:text-emerald-100"
+                  onClick={() => setVerifiedOnly(false)}
+                />
+              </Badge>
             )}
-          </Button>
-        </div>
-      </div>
 
-      {/* 3. Active Filters Chips */}
-      {activeFilterCount > 0 && (
-        <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
-          <span className="text-[11px] font-bold text-slate-400 mr-1">
-            Active filters:
-          </span>
+            {selectedPriceRange && (
+              <Badge className="bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
+                {selectedPriceRange.label}
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-blue-900 dark:hover:text-blue-100"
+                  onClick={() => setSelectedPriceRange(null)}
+                />
+              </Badge>
+            )}
 
-          {verifiedOnly && (
-            <Badge className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
-              Verified Only
-              <X
-                className="w-3 h-3 cursor-pointer hover:text-emerald-900"
-                onClick={() => setVerifiedOnly(false)}
-              />
-            </Badge>
-          )}
+            {selectedBrands.map((b) => (
+              <Badge
+                key={b}
+                className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+              >
+                {b}
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
+                  onClick={() =>
+                    toggleItem(selectedBrands, setSelectedBrands, b)
+                  }
+                />
+              </Badge>
+            ))}
 
-          {selectedPriceRange && (
-            <Badge className="bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
-              {selectedPriceRange.label}
-              <X
-                className="w-3 h-3 cursor-pointer hover:text-blue-900"
-                onClick={() => setSelectedPriceRange(null)}
-              />
-            </Badge>
-          )}
+            {selectedRam.map((r) => (
+              <Badge
+                key={r}
+                className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+              >
+                {r} RAM
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
+                  onClick={() => toggleItem(selectedRam, setSelectedRam, r)}
+                />
+              </Badge>
+            ))}
 
-          {selectedBrands.map((b) => (
-            <Badge
-              key={b}
-              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+            {selectedStorage.map((s) => (
+              <Badge
+                key={s}
+                className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
+              >
+                {s}
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
+                  onClick={() =>
+                    toggleItem(selectedStorage, setSelectedStorage, s)
+                  }
+                />
+              </Badge>
+            ))}
+
+            {selectedConditions.map((c) => (
+              <Badge
+                key={c}
+                className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg capitalize"
+              >
+                {c.replace("_", " ")}
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-red-600 dark:hover:text-red-400"
+                  onClick={() =>
+                    toggleItem(selectedConditions, setSelectedConditions, c)
+                  }
+                />
+              </Badge>
+            ))}
+
+            <button
+              onClick={clearAllFilters}
+              className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline ml-1"
             >
-              {b}
-              <X
-                className="w-3 h-3 cursor-pointer hover:text-red-600"
-                onClick={() => toggleItem(selectedBrands, setSelectedBrands, b)}
-              />
-            </Badge>
-          ))}
+              Reset All
+            </button>
+          </div>
+        )}
 
-          {selectedRam.map((r) => (
-            <Badge
-              key={r}
-              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
-            >
-              {r} RAM
-              <X
-                className="w-3 h-3 cursor-pointer hover:text-red-600"
-                onClick={() => toggleItem(selectedRam, setSelectedRam, r)}
-              />
-            </Badge>
-          ))}
+        {/* 4. Product Cards Grid */}
+        {filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4.5">
+            {filteredProducts.map((item) => {
+              const isFeatured =
+                item.is_featured &&
+                item.featured_until &&
+                new Date(item.featured_until) > new Date();
 
-          {selectedStorage.map((s) => (
-            <Badge
-              key={s}
-              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
-            >
-              {s}
-              <X
-                className="w-3 h-3 cursor-pointer hover:text-red-600"
-                onClick={() =>
-                  toggleItem(selectedStorage, setSelectedStorage, s)
-                }
-              />
-            </Badge>
-          ))}
+              return (
+                <div
+                  key={item.id}
+                  className="relative group bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/90 rounded-2xl overflow-hidden hover:shadow-lg hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all duration-200 flex flex-col justify-between"
+                >
+                  {/* Top Floating Overlay: Save Button & Badges */}
+                  <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between z-20 pointer-events-none">
+                    <div className="flex flex-col gap-1 items-start">
+                      {isFeatured && (
+                        <span className="bg-blue-600 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
+                          <Sparkles className="w-2.5 h-2.5" /> Featured
+                        </span>
+                      )}
+                      <span className="bg-slate-900/80 dark:bg-slate-950/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md backdrop-blur-xs">
+                        {item.condition?.replace("_", " ") || "Refurbished"}
+                      </span>
+                    </div>
 
-          {selectedProcessors.map((p) => (
-            <Badge
-              key={p}
-              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
-            >
-              {p}
-              <X
-                className="w-3 h-3 cursor-pointer hover:text-red-600"
-                onClick={() =>
-                  toggleItem(selectedProcessors, setSelectedProcessors, p)
-                }
-              />
-            </Badge>
-          ))}
+                    <div className="pointer-events-auto">
+                      <SaveButton product={item} />
+                    </div>
+                  </div>
 
-          {selectedBatteryHealth.map((bh) => (
-            <Badge
-              key={bh}
-              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
-            >
-              {bh} Battery
-              <X
-                className="w-3 h-3 cursor-pointer hover:text-red-600"
-                onClick={() =>
-                  toggleItem(
-                    selectedBatteryHealth,
-                    setSelectedBatteryHealth,
-                    bh,
-                  )
-                }
-              />
-            </Badge>
-          ))}
-
-          {selectedConditions.map((c) => (
-            <Badge
-              key={c}
-              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg capitalize"
-            >
-              {c.replace("_", " ")}
-              <X
-                className="w-3 h-3 cursor-pointer hover:text-red-600"
-                onClick={() =>
-                  toggleItem(selectedConditions, setSelectedConditions, c)
-                }
-              />
-            </Badge>
-          ))}
-
-          {selectedHubs.map((h) => (
-            <Badge
-              key={h}
-              className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-none text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg"
-            >
-              {h}
-              <X
-                className="w-3 h-3 cursor-pointer hover:text-red-600"
-                onClick={() => toggleItem(selectedHubs, setSelectedHubs, h)}
-              />
-            </Badge>
-          ))}
-
-          <button
-            onClick={clearAllFilters}
-            className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline ml-1"
-          >
-            Reset All
-          </button>
-        </div>
-      )}
-
-      {/* 4. Full-Width Grid with Lazy Images */}
-      {filteredProducts.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3.5">
-          {filteredProducts.map((item) => {
-            const isFeatured =
-              item.is_featured &&
-              item.featured_until &&
-              new Date(item.featured_until) > new Date();
-
-            return (
-              <div key={item.id} className="relative group">
-                <SaveButton product={item} />
-                <Link href={`/products/${item.id}`}>
-                  <Card
-                    className={`h-full rounded-2xl overflow-hidden hover:shadow-md transition bg-white dark:bg-slate-900 flex flex-col justify-between ${
-                      isFeatured
-                        ? "border-2 border-blue-500/80 ring-2 ring-blue-500/10 shadow-2xs"
-                        : "border border-slate-200/90 dark:border-slate-800 shadow-2xs"
-                    }`}
-                  >
-                    <div className="aspect-square bg-slate-50 dark:bg-slate-800/40 relative overflow-hidden p-2 flex items-center justify-center">
-                      <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                        {isFeatured && (
-                          <Badge className="bg-blue-600 text-white border-none text-[8px] font-black uppercase tracking-wider flex items-center gap-0.5 shadow-xs px-1.5 py-0">
-                            <Sparkles className="w-2.5 h-2.5" /> Featured
-                          </Badge>
-                        )}
-                        <Badge className="bg-slate-900/85 backdrop-blur-xs text-white border-none text-[8px] capitalize px-1.5 py-0">
-                          {item.condition?.replace("_", " ") || "Refurbished"}
-                        </Badge>
-                      </div>
-
+                  {/* Card Clickable Target */}
+                  <Link href={`/products/${item.id}`} className="flex-1 flex flex-col">
+                    {/* Consistent Aspect-Ratio Image Container */}
+                    <div className="aspect-[4/3] bg-slate-50 dark:bg-slate-800/40 p-4 flex items-center justify-center border-b border-slate-100 dark:border-slate-800/80 relative">
                       {item.images?.[0] ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -591,502 +562,307 @@ export function ProductsCatalogClient({
                           alt={item.title}
                           loading="lazy"
                           decoding="async"
-                          className="max-h-full object-contain group-hover:scale-105 transition duration-300"
+                          className="max-h-full max-w-full object-contain group-hover:scale-104 transition duration-300"
                         />
                       ) : (
                         <Package className="w-8 h-8 text-slate-300 dark:text-slate-600" />
                       )}
                     </div>
 
-                    <CardContent className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2">
-                      <div>
-                        <h3 className="font-bold text-[11px] sm:text-xs text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition line-clamp-1">
-                          {item.title}
-                        </h3>
-                        <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
-                          <span className="uppercase tracking-wider font-semibold truncate max-w-[80px]">
+                    {/* Metadata Body */}
+                    <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                          <span className="truncate max-w-[100px]">
                             {item.brand || "Device"}
                           </span>
                           {item.profiles?.district && (
-                            <span className="flex items-center gap-0.5 text-[10px] shrink-0">
-                              <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                              {item.profiles.district.split(" ")[0]}
+                            <span className="flex items-center gap-1 text-[10px] normal-case text-slate-500 dark:text-slate-400">
+                              <MapPin className="w-3 h-3 text-slate-400" />
+                              <span className="truncate max-w-[80px]">
+                                {item.profiles.district.split(" ")[0]}
+                              </span>
                             </span>
                           )}
                         </div>
+
+                        <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 leading-snug">
+                          {item.title}
+                        </h3>
                       </div>
 
+                      {/* Price & Action Row */}
                       <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                        <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
+                        <p className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100">
                           ₦{Number(item.price).toLocaleString()}
                         </p>
-                        <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-600 flex items-center gap-0.5 transition">
-                          Inspect &rarr;
+                        <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                          Inspect <ArrowRight className="w-3 h-3" />
                         </span>
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
-            <SlidersHorizontal className="w-6 h-6" />
+                    </div>
+                  </Link>
+                </div>
+              );
+            })}
           </div>
-          <div className="space-y-1">
-            <p className="text-sm font-black text-slate-800 dark:text-slate-200">
-              No hardware found matching active filters
-            </p>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Try adjusting your price budget, storage parameters, or clearing
-              active filters to browse the catalog.
-            </p>
+        ) : (
+          <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+              <SlidersHorizontal className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-black text-slate-800 dark:text-slate-200">
+                No gadgets found matching your filters
+              </p>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Try loosening your budget range, changing storage capacity, or
+                clearing filters.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={clearAllFilters}
+              variant="outline"
+              className="text-xs font-bold rounded-xl mt-2 border-slate-200 dark:border-slate-700"
+            >
+              Clear Active Filters
+            </Button>
           </div>
-          <Button
-            size="sm"
-            onClick={clearAllFilters}
-            variant="outline"
-            className="text-xs font-bold rounded-xl mt-2"
-          >
-            Clear Active Filters
-          </Button>
-        </div>
-      )}
+        )}
 
-      {/* 5. HIDDEN SLIDE-OUT FILTER DRAWER */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in"
-            onClick={() => setDrawerOpen(false)}
-          />
+        {/* 5. SLIDE-OUT FILTER DRAWER */}
+        {drawerOpen && (
+          <div className="fixed inset-0 z-50 flex">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+              onClick={() => setDrawerOpen(false)}
+            />
 
-          <div className="relative ml-auto w-96 max-w-[88vw] h-full bg-white dark:bg-slate-900 z-10 shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:border-slate-800">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter
-                  Catalogue
-                </span>
-                {activeFilterCount > 0 && (
-                  <Badge className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </div>
+            {/* Drawer Container with h-dvh */}
+            <div className="relative ml-auto w-96 max-w-[85vw] h-dvh bg-white dark:bg-slate-900 z-10 shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200">
+              {/* Drawer Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                    <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter
+                    Catalogue
+                  </span>
+                  {activeFilterCount > 0 && (
+                    <Badge className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                      {activeFilterCount}
+                    </Badge>
+                  )}
+                </div>
 
-              <div className="flex items-center gap-2">
-                {activeFilterCount > 0 && (
+                <div className="flex items-center gap-2">
+                  {activeFilterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline mr-1"
+                    >
+                      Reset
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={clearAllFilters}
-                    className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline mr-1"
+                    onClick={() => setDrawerOpen(false)}
+                    className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                   >
-                    Reset
+                    <X className="w-5 h-5" />
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 text-xs text-slate-700 dark:text-slate-300 [scrollbar-width:thin]">
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl flex items-center justify-between">
-                <label className="flex items-center gap-2.5 cursor-pointer font-bold text-emerald-950 dark:text-emerald-200">
-                  <input
-                    type="checkbox"
-                    checked={verifiedOnly}
-                    onChange={(e) => setVerifiedOnly(e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span className="flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    Verified Dealers Only
-                  </span>
-                </label>
-              </div>
-
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
-                <button
-                  onClick={() => toggleSection("price")}
-                  className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
-                >
-                  <span>Price Budget (Naira)</span>
-                  {openSections.price ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                  )}
-                </button>
-                {openSections.price && (
-                  <div className="space-y-1.5 pl-0.5">
-                    {PRICE_BUCKETS.map((b, i) => {
-                      const isSelected =
-                        selectedPriceRange?.min === b.min &&
-                        selectedPriceRange?.max === b.max;
-                      return (
-                        <label
-                          key={i}
-                          className="flex items-center gap-2.5 cursor-pointer py-1 hover:text-blue-600 transition"
-                        >
-                          <input
-                            type="radio"
-                            name="price_bucket"
-                            checked={isSelected}
-                            onChange={() =>
-                              setSelectedPriceRange(isSelected ? null : b)
-                            }
-                            onClick={() => {
-                              if (isSelected) setSelectedPriceRange(null);
-                            }}
-                            className="w-3.5 h-3.5 text-blue-600"
-                          />
-                          <span
-                            className={
-                              isSelected
-                                ? "font-bold text-blue-600 dark:text-blue-400"
-                                : "text-slate-600 dark:text-slate-400"
-                            }
-                          >
-                            {b.label}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
-                <button
-                  onClick={() => toggleSection("brand")}
-                  className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
-                >
-                  <span className="capitalize">
-                    {selectedCategory !== "all"
-                      ? `${selectedCategory} Brands`
-                      : "Brands"}
-                  </span>
-                  {openSections.brand ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                  )}
-                </button>
-                {openSections.brand && (
-                  <div className="grid grid-cols-2 gap-2 pl-0.5">
-                    {activeBrands.map((brand) => (
-                      <label
-                        key={brand}
-                        className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 transition"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedBrands.includes(brand)}
-                          onChange={() =>
-                            toggleItem(selectedBrands, setSelectedBrands, brand)
-                          }
-                          className="w-3.5 h-3.5 rounded text-blue-600"
-                        />
-                        <span
-                          className={
-                            selectedBrands.includes(brand)
-                              ? "font-bold text-blue-600 dark:text-blue-400"
-                              : "text-slate-600 dark:text-slate-400"
-                          }
-                        >
-                          {brand}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {selectedCategory === "phones" && (
-                <div className="border-b border-slate-100 dark:border-slate-800 pb-4 space-y-4">
-                  <div>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
-                      <HardDrive className="w-3.5 h-3.5 text-blue-600" />{" "}
-                      Storage Capacity
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PHONE_STORAGE.map((storage) => {
-                        const isSelected = selectedStorage.includes(storage);
-                        return (
-                          <button
-                            key={storage}
-                            type="button"
-                            onClick={() =>
-                              toggleItem(
-                                selectedStorage,
-                                setSelectedStorage,
-                                storage,
-                              )
-                            }
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
-                              isSelected
-                                ? "bg-blue-600 text-white border-blue-600"
-                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                            }`}
-                          >
-                            {storage}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
-                      <BatteryCharging className="w-3.5 h-3.5 text-emerald-600" />{" "}
-                      Minimum Battery Health
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {BATTERY_HEALTH.map((bh) => {
-                        const isSelected = selectedBatteryHealth.includes(bh);
-                        return (
-                          <button
-                            key={bh}
-                            type="button"
-                            onClick={() =>
-                              toggleItem(
-                                selectedBatteryHealth,
-                                setSelectedBatteryHealth,
-                                bh,
-                              )
-                            }
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
-                              isSelected
-                                ? "bg-emerald-600 text-white border-emerald-600"
-                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                            }`}
-                          >
-                            {bh}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
-              )}
+              </div>
 
-              {selectedCategory === "laptops" && (
-                <div className="border-b border-slate-100 dark:border-slate-800 pb-4 space-y-4">
-                  <div>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
-                      <Cpu className="w-3.5 h-3.5 text-blue-600" /> RAM Memory
+              {/* Drawer Body */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 text-xs text-slate-700 dark:text-slate-300 [scrollbar-width:thin]">
+                {/* Verified Filter */}
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl flex items-center justify-between">
+                  <label className="flex items-center gap-2.5 cursor-pointer font-bold text-emerald-950 dark:text-emerald-200 w-full">
+                    <input
+                      type="checkbox"
+                      checked={verifiedOnly}
+                      onChange={(e) => setVerifiedOnly(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Verified Dealers Only
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {LAPTOP_RAM.map((ram) => {
-                        const isSelected = selectedRam.includes(ram);
+                  </label>
+                </div>
+
+                {/* Price Range */}
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <button
+                    onClick={() => toggleSection("price")}
+                    className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
+                  >
+                    <span>Price Budget (Naira)</span>
+                    {openSections.price ? (
+                      <ChevronUp className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                  {openSections.price && (
+                    <div className="space-y-1.5 pl-0.5">
+                      {PRICE_BUCKETS.map((b, i) => {
+                        const isSelected =
+                          selectedPriceRange?.min === b.min &&
+                          selectedPriceRange?.max === b.max;
                         return (
-                          <button
-                            key={ram}
-                            type="button"
-                            onClick={() =>
-                              toggleItem(selectedRam, setSelectedRam, ram)
-                            }
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
-                              isSelected
-                                ? "bg-blue-600 text-white border-blue-600"
-                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                            }`}
+                          <label
+                            key={i}
+                            className="flex items-center gap-2.5 cursor-pointer py-1 hover:text-blue-600 dark:hover:text-blue-400 transition"
                           >
-                            {ram}
-                          </button>
+                            <input
+                              type="radio"
+                              name="price_bucket"
+                              checked={isSelected}
+                              onChange={() =>
+                                setSelectedPriceRange(isSelected ? null : b)
+                              }
+                              onClick={() => {
+                                if (isSelected) setSelectedPriceRange(null);
+                              }}
+                              className="w-3.5 h-3.5 text-blue-600"
+                            />
+                            <span
+                              className={
+                                isSelected
+                                  ? "font-bold text-blue-600 dark:text-blue-400"
+                                  : "text-slate-600 dark:text-slate-400"
+                              }
+                            >
+                              {b.label}
+                            </span>
+                          </label>
                         );
                       })}
                     </div>
-                  </div>
+                  )}
+                </div>
 
-                  <div>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2">
-                      Processor Family
+                {/* Brands */}
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <button
+                    onClick={() => toggleSection("brand")}
+                    className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
+                  >
+                    <span className="capitalize">
+                      {selectedCategory !== "all"
+                        ? `${selectedCategory} Brands`
+                        : "Brands"}
                     </span>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {PROCESSORS.map((proc) => (
+                    {openSections.brand ? (
+                      <ChevronUp className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                  {openSections.brand && (
+                    <div className="grid grid-cols-2 gap-2 pl-0.5">
+                      {activeBrands.map((brand) => (
                         <label
-                          key={proc}
-                          className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 transition"
+                          key={brand}
+                          className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 dark:hover:text-blue-400 transition"
                         >
                           <input
                             type="checkbox"
-                            checked={selectedProcessors.includes(proc)}
+                            checked={selectedBrands.includes(brand)}
                             onChange={() =>
                               toggleItem(
-                                selectedProcessors,
-                                setSelectedProcessors,
-                                proc,
+                                selectedBrands,
+                                setSelectedBrands,
+                                brand
                               )
                             }
                             className="w-3.5 h-3.5 rounded text-blue-600"
                           />
                           <span
                             className={
-                              selectedProcessors.includes(proc)
+                              selectedBrands.includes(brand)
                                 ? "font-bold text-blue-600 dark:text-blue-400"
                                 : "text-slate-600 dark:text-slate-400"
                             }
                           >
-                            {proc}
+                            {brand}
                           </span>
                         </label>
                       ))}
                     </div>
-                  </div>
-
-                  <div>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 block mb-2 flex items-center gap-1.5">
-                      <HardDrive className="w-3.5 h-3.5 text-blue-600" /> Solid
-                      State Drive (SSD)
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {LAPTOP_STORAGE.map((storage) => {
-                        const isSelected = selectedStorage.includes(storage);
-                        return (
-                          <button
-                            key={storage}
-                            type="button"
-                            onClick={() =>
-                              toggleItem(
-                                selectedStorage,
-                                setSelectedStorage,
-                                storage,
-                              )
-                            }
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
-                              isSelected
-                                ? "bg-blue-600 text-white border-blue-600"
-                                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                            }`}
-                          >
-                            {storage}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  )}
                 </div>
-              )}
 
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
-                <button
-                  onClick={() => toggleSection("condition")}
-                  className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
-                >
-                  <span>Device Condition</span>
-                  {openSections.condition ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                  )}
-                </button>
-                {openSections.condition && (
-                  <div className="space-y-1.5 pl-0.5">
-                    {CONDITIONS.map((c) => (
-                      <label
-                        key={c.id}
-                        className="flex items-center gap-2.5 cursor-pointer py-1 hover:text-blue-600 transition"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedConditions.includes(c.id)}
-                          onChange={() =>
-                            toggleItem(
-                              selectedConditions,
-                              setSelectedConditions,
-                              c.id,
-                            )
-                          }
-                          className="w-3.5 h-3.5 rounded text-blue-600"
-                        />
-                        <span
-                          className={
-                            selectedConditions.includes(c.id)
-                              ? "font-bold text-blue-600 dark:text-blue-400"
-                              : "text-slate-600 dark:text-slate-400"
-                          }
+                {/* Hub Locations */}
+                <div>
+                  <button
+                    onClick={() => toggleSection("hub")}
+                    className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
+                  >
+                    <span>Abuja Hub Location</span>
+                    {openSections.hub ? (
+                      <ChevronUp className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                  {openSections.hub && (
+                    <div className="grid grid-cols-2 gap-1.5 pl-0.5">
+                      {ABUJA_HUBS.map((hub) => (
+                        <label
+                          key={hub}
+                          className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 dark:hover:text-blue-400 transition"
                         >
-                          {c.label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
+                          <input
+                            type="checkbox"
+                            checked={selectedHubs.includes(hub)}
+                            onChange={() =>
+                              toggleItem(selectedHubs, setSelectedHubs, hub)
+                            }
+                            className="w-3.5 h-3.5 rounded text-blue-600"
+                          />
+                          <span
+                            className={
+                              selectedHubs.includes(hub)
+                                ? "font-bold text-blue-600 dark:text-blue-400"
+                                : "text-slate-600 dark:text-slate-400"
+                            }
+                          >
+                            {hub}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <button
-                  onClick={() => toggleSection("hub")}
-                  className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2.5"
+              {/* Drawer Footer */}
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="w-1/3 text-xs font-bold rounded-xl h-10 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                 >
-                  <span>Abuja Hub Location</span>
-                  {openSections.hub ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                  )}
-                </button>
-                {openSections.hub && (
-                  <div className="grid grid-cols-2 gap-1.5 pl-0.5">
-                    {ABUJA_HUBS.map((hub) => (
-                      <label
-                        key={hub}
-                        className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 transition"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedHubs.includes(hub)}
-                          onChange={() =>
-                            toggleItem(selectedHubs, setSelectedHubs, hub)
-                          }
-                          className="w-3.5 h-3.5 rounded text-blue-600"
-                        />
-                        <span
-                          className={
-                            selectedHubs.includes(hub)
-                              ? "font-bold text-blue-600 dark:text-blue-400"
-                              : "text-slate-600 dark:text-slate-400"
-                          }
-                        >
-                          {hub}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
+                  Reset
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setDrawerOpen(false)}
+                  className="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 shadow-xs cursor-pointer"
+                >
+                  Show ({filteredProducts.length})
+                </Button>
               </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearAllFilters}
-                className="w-1/3 text-xs font-bold rounded-xl h-10 border-slate-200 dark:border-slate-700"
-              >
-                Reset
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => setDrawerOpen(false)}
-                className="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 shadow-xs cursor-pointer"
-              >
-                Show ({filteredProducts.length} Results)
-              </Button>
             </div>
           </div>
-        </div>
-      )}
-    </main>
+        )}
+      </main>
+    </div>
   );
 }
