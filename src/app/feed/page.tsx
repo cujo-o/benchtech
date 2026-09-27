@@ -572,7 +572,7 @@ export default async function FeedPage() {
                     TechPass Membership
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Zero delivery fees across Abuja districts, tracked warranty
+                    Abuja districts, tracked warranty
                     cards, and direct vendor WhatsApp lines.
                   </p>
                 </div>
