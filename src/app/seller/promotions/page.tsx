@@ -1,5 +1,7 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AddFundsModal } from '@/components/ads/AddFundsModal'
@@ -7,35 +9,140 @@ import {
   Wallet,
   Sparkles,
   ArrowRight,
+  CheckCircle2,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SellerPromotionsPage() {
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createAdminClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+export default async function SellerPromotionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reference?: string; trxref?: string; wallet_topup?: string }>
+}) {
+  const params = await searchParams
+  const reference = params?.reference || params?.trxref
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
+  if (!user) redirect('/login')
+
+  // 1. Process Paystack Top-Up Verification if returning from Paystack
+  let newlyCreditedAmount: number | null = null
+
+  if (reference) {
+    const secretKey = process.env.PAYSTACK_SECRET_KEY
+    if (secretKey) {
+      try {
+        const paystackRes = await fetch(
+          `https://api.paystack.co/transaction/verify/${reference}`,
+          {
+            headers: { Authorization: `Bearer ${secretKey}` },
+            cache: 'no-store',
+          }
+        )
+        const paystackData = await paystackRes.json()
+
+        if (paystackData.status && paystackData.data?.status === 'success') {
+          const txData = paystackData.data
+          const topupAmount =
+            Number(txData.metadata?.amount) || Number(txData.amount) / 100
+
+          const supabaseAdmin = getSupabaseAdmin()
+
+          // Check if this reference was already credited
+          const { data: existingTx } = await supabaseAdmin
+            .from('ad_wallet_transactions')
+            .select('id')
+            .eq('reference', reference)
+            .maybeSingle()
+
+          if (!existingTx && topupAmount > 0) {
+            // Log transaction
+            await supabaseAdmin.from('ad_wallet_transactions').insert({
+              seller_id: user.id,
+              reference: reference,
+              amount: topupAmount,
+            })
+
+            // Upsert ad_wallets balance
+            const { data: currentWallet } = await supabaseAdmin
+              .from('ad_wallets')
+              .select('balance')
+              .eq('seller_id', user.id)
+              .maybeSingle()
+
+            const updatedBalance = Number(currentWallet?.balance || 0) + topupAmount
+
+            await supabaseAdmin.from('ad_wallets').upsert(
+              {
+                seller_id: user.id,
+                balance: updatedBalance,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'seller_id' }
+            )
+
+            newlyCreditedAmount = topupAmount
+          }
+        }
+      } catch (err) {
+        console.error('Paystack verification error:', err)
+      }
+    }
+  }
+
+  // 2. Fetch fresh wallet, campaigns, and attribution data
   const [{ data: wallet }, { data: campaigns }, { data: attributions }] =
     await Promise.all([
       supabase
         .from('ad_wallets')
         .select('*')
-        .eq('seller_id', user?.id)
+        .eq('seller_id', user.id)
         .maybeSingle(),
       supabase
         .from('ad_campaigns')
         .select('*, ad_campaign_products(product:products(*))')
-        .eq('seller_id', user?.id)
+        .eq('seller_id', user.id)
         .order('created_at', { ascending: false }),
-      supabase.from('ad_attributions').select('*').eq('seller_id', user?.id),
+      supabase.from('ad_attributions').select('*').eq('seller_id', user.id),
     ])
 
   const balance = Number(wallet?.balance || 0).toLocaleString()
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+      {/* Top-up Confirmation Banner */}
+      {(newlyCreditedAmount !== null || params?.wallet_topup === 'credited') && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between text-emerald-400 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-emerald-950 dark:text-emerald-200">
+                Payment Verified &amp; Wallet Credited!
+              </p>
+              <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
+                {newlyCreditedAmount
+                  ? `₦${newlyCreditedAmount.toLocaleString()} has been added to your Promotion Wallet.`
+                  : 'Your promotion funds have been credited and are ready for CPC bidding.'}
+              </p>
+            </div>
+          </div>
+          <Link href="/seller/promotions" className="text-xs font-bold underline text-emerald-600 hover:text-emerald-500">
+            Dismiss
+          </Link>
+        </div>
+      )}
+
       {/* 1. Header with Ad Wallet Balance */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
         <div>

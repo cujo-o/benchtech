@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Plus, Wallet, Loader2, X } from 'lucide-react'
 
@@ -8,6 +9,7 @@ export function AddFundsModal({ currentBalance }: { currentBalance: string }) {
   const [isOpen, setIsOpen] = useState(false)
   const [amount, setAmount] = useState('5000')
   const [loading, setLoading] = useState(false)
+  const pathname = usePathname()
 
   const PRESET_AMOUNTS = ['2000', '5000', '10000', '25000', '50000']
 
@@ -17,7 +19,10 @@ export function AddFundsModal({ currentBalance }: { currentBalance: string }) {
       const res = await fetch('/api/ads/wallet/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: Number(amount) }),
+        body: JSON.stringify({ 
+          amount: Number(amount),
+          redirectPath: pathname || '/seller/wallet'
+        }),
       })
 
       const data = await res.json()
@@ -38,7 +43,7 @@ export function AddFundsModal({ currentBalance }: { currentBalance: string }) {
       <Button
         size="sm"
         onClick={() => setIsOpen(true)}
-        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-11 px-4 rounded-xl gap-1.5 shadow-xs"
+        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-10 px-4 rounded-xl gap-1.5 shadow-xs cursor-pointer"
       >
         <Plus className="w-4 h-4" /> Add Funds
       </Button>
@@ -64,6 +69,7 @@ export function AddFundsModal({ currentBalance }: { currentBalance: string }) {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
               >
