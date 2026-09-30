@@ -9,7 +9,7 @@ import {
   PackagePlus,
   MessageSquare,
   ClipboardList,
-  Sparkles,
+  Megaphone,
   BarChart3,
   Settings,
   HelpCircle,
@@ -98,7 +98,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     }
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // Check conservatively every 60s instead of 5s
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         checkUnread()
@@ -118,15 +117,20 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     { label: 'Add New Listing', href: '/seller/listings/new', icon: PackagePlus },
     { label: 'Orders', href: '/seller/orders', icon: ClipboardList },
     { label: 'Messages', href: '/seller/enquiries', icon: MessageSquare },
-    { label: 'Payouts', href: '/seller/wallet', icon: Wallet },
-    
+    {
+      label: 'Promotions & Ads',
+      href: '/seller/promotions',
+      icon: Megaphone,
+      badge: 'Ads',
+      badgeColor: 'bg-blue-600 text-white',
+    },
+    { label: 'Payouts & Wallet', href: '/seller/wallet', icon: Wallet },
   ]
 
   const PRO_NAV = [
     { label: 'Bulk Upload', href: '/seller/bulk-upload', icon: Upload, pro: true },
     { label: 'Inventory', href: '/seller/inventory', icon: Boxes, pro: true },
     { label: 'Analytics', href: '/seller/analytics', icon: BarChart3, pro: true },
-    { label: 'Promotions', href: '/seller/promotions', icon: Sparkles, pro: true },
     { label: 'Sales Reports', href: '/seller/reports', icon: FileText, pro: true },
     { label: 'Customers', href: '/seller/customers', icon: Users, pro: true },
   ]
@@ -153,7 +157,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                 ShopBenchTech
               </span>
               {isPro && (
-                <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-700 border border-purple-200">
+                <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                   PRO
                 </span>
               )}
@@ -217,6 +221,16 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                   </span>
                 )}
 
+                {!isCollapsed && item.badge && item.label !== 'Messages' && (
+                  <span
+                    className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${
+                      item.badgeColor || 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+
                 {isCollapsed && item.label === 'Messages' && unreadCount > 0 && (
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-600" />
                 )}
@@ -256,7 +270,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                 </div>
 
                 {!isCollapsed && !isPro && (
-                  <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200">
+                  <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                     Pro
                   </span>
                 )}
@@ -298,8 +312,8 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
                   <span
                     className={`text-[8px] font-bold px-1.5 py-0.2 rounded-md ${
                       item.badge === 'Verified'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                        : 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
                     }`}
                   >
                     {item.badge}
@@ -318,7 +332,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
               <Crown className="w-3 h-3 text-blue-600" /> Upgrade to Pro
             </span>
             <Link href="/seller/subscription" onClick={onLinkClick} className="block">
-              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] h-6 rounded-lg">
+              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] h-6 rounded-lg cursor-pointer">
                 Upgrade ₦5k/mo
               </Button>
             </Link>
@@ -326,10 +340,10 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         )}
 
         <Link
-          href="/feed"
+          href="/products"
           onClick={onLinkClick}
           title={isCollapsed ? 'Switch to Buyer View' : undefined}
-          className={`flex items-center rounded-xl transition bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-blue-600 shadow-2xs group ${
+          className={`flex items-center rounded-xl transition bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 shadow-2xs group ${
             isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-2 text-xs font-bold'
           }`}
         >
@@ -342,10 +356,10 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
 
         {isAdmin && (
           <Link
-            href="/admin"
+            href="/admin/advertising"
             onClick={onLinkClick}
             title={isCollapsed ? 'Admin Console' : undefined}
-            className={`flex items-center rounded-xl transition bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 ${
+            className={`flex items-center rounded-xl transition bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/50 ${
               isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-1.5 text-xs font-bold'
             }`}
           >
@@ -363,7 +377,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
             size="sm"
             type="submit"
             title={isCollapsed ? 'Log Out' : undefined}
-            className={`w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 gap-2 h-7 rounded-xl font-bold ${
+            className={`w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 gap-2 h-7 rounded-xl font-bold cursor-pointer ${
               isCollapsed ? 'justify-center p-0' : 'justify-start px-2.5 text-xs'
             }`}
           >
@@ -393,8 +407,8 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
 
         <Link
-          href="/feed"
-          className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+          href="/products"
+          className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
         >
           Buyer View <ExternalLink className="w-3 h-3" />
         </Link>
