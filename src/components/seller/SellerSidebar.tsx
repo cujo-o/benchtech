@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   ArrowRight,
   Menu,
+  Wallet,
   X,
   Users,
   ExternalLink,
