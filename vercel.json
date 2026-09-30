@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/reset-ad-budgets",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
