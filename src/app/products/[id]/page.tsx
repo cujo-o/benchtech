@@ -15,45 +15,47 @@ import { BuyingRequestModal } from "@/components/products/BuyingRequestModal";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { CompareButton } from "@/components/CompareButton";
 import { ProductViewTracker } from "@/components/products/ProductViewTracker";
-import type { Metadata } from 'next';
+import type { Metadata } from "next";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const { id } = await params
-  const supabase = await createClient()
+  const { id } = await params;
+  const supabase = await createClient();
 
   const { data: product } = await supabase
-    .from('products')
-    .select('*, profiles!products_seller_id_fkey(business_name, district)')
-    .eq('id', id)
-    .maybeSingle()
+    .from("products")
+    .select("*, profiles!products_seller_id_fkey(business_name, district)")
+    .eq("id", id)
+    .maybeSingle();
 
   if (!product) {
     return {
-      title: 'Device Not Found',
-    }
+      title: "Device Not Found | BenchTech",
+    };
   }
 
-  const sellerName = product.profiles?.business_name || 'Verified Vendor'
-  const location = product.profiles?.district || 'Abuja'
-  const formattedPrice = `₦${Number(product.price).toLocaleString()}`
-  const title = `${product.title} - ${formattedPrice}`
-  const description = `Buy ${product.condition?.replace('_', ' ') || 'clean'} ${product.title} in ${location}, Abuja for ${formattedPrice} from ${sellerName}. Safe in-person inspection available.`
+  const sellerName = product.profiles?.business_name || "Verified Vendor";
+  const location = product.profiles?.district || "Abuja";
+  const formattedPrice = `₦${Number(product.price).toLocaleString()}`;
+  const title = `${product.title} - ${formattedPrice} | BenchTech`;
+  const description = `Buy ${product.condition?.replace("_", " ") || "inspected"} ${product.title} in ${location}, Abuja for ${formattedPrice} from ${sellerName}. Safe escrow and physical inspection available.`;
 
   return {
     title,
     description,
     alternates: {
-      canonical: `/products/${id}`,
+      canonical: `https://shopbenchtech.com/products/${id}`,
     },
     openGraph: {
-      title: `${title} | BenchTech Abuja`,
+      title,
       description,
       url: `https://shopbenchtech.com/products/${id}`,
-      type: 'article',
+      type: "article",
       images: product.images?.[0]
         ? [
             {
@@ -66,12 +68,12 @@ export async function generateMetadata({
         : [],
     },
     twitter: {
-      card: 'summary_large_image',
+      card: "summary_large_image",
       title,
       description,
       images: product.images?.[0] ? [product.images[0]] : [],
     },
-  }
+  };
 }
 
 export default async function ProductDetailPage({
@@ -86,7 +88,7 @@ export default async function ProductDetailPage({
     .from("products")
     .select("*, profiles!products_seller_id_fkey(*)")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (error || !product) {
     notFound();
@@ -97,13 +99,13 @@ export default async function ProductDetailPage({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      {/* Background Analytics Tracker */}
+      {/* Background Attribution Analytics Tracker */}
       <ProductViewTracker productId={id} />
 
       <Navbar />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
-        {/* Breadcrumb / Back Link */}
+        {/* Breadcrumbs */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
           <Link
             href="/products"
@@ -119,10 +121,10 @@ export default async function ProductDetailPage({
           </span>
         </div>
 
-        {/* Responsive 2-Column Grid */}
+        {/* 2-Column Responsive Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* Left Column: Image Gallery & Specifications (7 Cols) */}
-          <div className="lg:col-span-7 space-y-6">
+          {/* Left Column: Image Gallery & Specs */}
+          <div className="lg:col-span-7 space-y-6 min-w-0">
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-2 sm:p-4 shadow-xs overflow-hidden">
               <ProductImageGallery
                 images={product.images || []}
@@ -130,7 +132,7 @@ export default async function ProductDetailPage({
               />
             </div>
 
-            {/* Specifications Card */}
+            {/* Specifications */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-7 space-y-5 shadow-xs">
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
                 Device Specifications
@@ -151,9 +153,7 @@ export default async function ProductDetailPage({
                 </div>
                 {product.specs?.processor && (
                   <div className="py-3 flex justify-between items-center">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">
-                      Processor
-                    </span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Processor</span>
                     <span className="font-bold text-slate-900 dark:text-slate-100">
                       {product.specs.processor}
                     </span>
@@ -177,9 +177,7 @@ export default async function ProductDetailPage({
                 )}
                 {product.specs?.battery_health && (
                   <div className="py-3 flex justify-between items-center">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">
-                      Battery Health
-                    </span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Battery Health</span>
                     <span className="font-bold text-slate-900 dark:text-slate-100">
                       {product.specs.battery_health}
                     </span>
@@ -200,8 +198,8 @@ export default async function ProductDetailPage({
             </div>
           </div>
 
-          {/* Right Column: Pricing, CTAs & Seller Card (5 Cols) */}
-          <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
+          {/* Right Column: Pricing, Checkout & Merchant Profile */}
+          <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24 min-w-0">
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-7 space-y-6 shadow-xs">
               <div>
                 <Badge className="bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-900/50 text-[10px] font-bold uppercase mb-2.5">
@@ -215,7 +213,7 @@ export default async function ProductDetailPage({
                 </p>
               </div>
 
-              {/* Clickable Seller Profile Card */}
+              {/* Verified Merchant Badge & Profile */}
               {seller && (
                 <Link
                   href={`/sellers/${seller.id}`}
@@ -223,16 +221,12 @@ export default async function ProductDetailPage({
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-blue-600 dark:text-blue-300 shadow-2xs text-sm">
-                      {seller.business_name
-                        ? seller.business_name[0].toUpperCase()
-                        : "S"}
+                      {seller.business_name ? seller.business_name[0].toUpperCase() : "S"}
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
-                          {seller.business_name ||
-                            seller.full_name ||
-                            "BenchTech Seller"}
+                          {seller.business_name || seller.full_name || "BenchTech Seller"}
                         </span>
                         {isVerified && (
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -240,11 +234,7 @@ export default async function ProductDetailPage({
                       </div>
                       <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                         <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                        <span>
-                          {seller.district
-                            ? `${seller.district}, Abuja`
-                            : "Abuja, NG"}
-                        </span>
+                        <span>{seller.district ? `${seller.district}, Abuja` : "Abuja, NG"}</span>
                       </div>
                     </div>
                   </div>
@@ -254,7 +244,7 @@ export default async function ProductDetailPage({
 
               {/* Action Buttons Section */}
               <div className="space-y-3 pt-1">
-                {/* Primary Fulfillment Request Modal */}
+                {/* Fulfillment Modal Request */}
                 <div className="w-full [&>button]:w-full [&>button]:h-12 [&>button]:text-sm [&>button]:font-bold [&>button]:rounded-xl [&>button]:shadow-xs">
                   <BuyingRequestModal
                     product={{
@@ -267,7 +257,7 @@ export default async function ProductDetailPage({
                   />
                 </div>
 
-                {/* Instant Actions Grid: Cart & Compare (Enforcing Theme Contrast) */}
+                {/* Instant Actions Grid: Cart & Compare */}
                 <div className="grid grid-cols-2 gap-2.5 [&>div]:w-full [&_button]:w-full [&_button]:h-11 [&_button]:text-xs [&_button]:font-bold [&_button]:rounded-xl [&_button]:border [&_button]:border-slate-200 dark:[&_button]:border-slate-700 [&_button]:bg-white dark:[&_button]:bg-slate-800 [&_button]:text-slate-800 dark:[&_button]:text-slate-100 hover:[&_button]:bg-slate-100 dark:hover:[&_button]:bg-slate-700 transition">
                   <AddToCartButton product={product} />
                   <CompareButton product={product as any} />
@@ -281,7 +271,7 @@ export default async function ProductDetailPage({
                   TechTrust Buyer Shield
                 </div>
                 <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                  All transactions and payouts are verified by ShopbenchTech[cite: 20]. Inspect your device upon receipt with buyer protection before final payout release[cite: 20, 21].
+                  All transactions and settlements are protected by ShopbenchTech. Inspect your device in person upon pickup or delivery before funds are released to the vendor.
                 </p>
               </div>
             </div>

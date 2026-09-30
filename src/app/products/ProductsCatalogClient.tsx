@@ -7,6 +7,8 @@ import { useSearchParams } from "next/navigation";
 import { SaveButton } from "@/components/SaveButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AdProductCardWrapper } from "@/components/storefront/AdProductCardWrapper";
+import { AdImpressionTracker } from "@/components/storefront/AdImpressionTracker";
 import {
   SlidersHorizontal,
   X,
@@ -220,6 +222,10 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         return true;
       })
       .sort((a, b) => {
+        // Always surface active sponsored items first
+        if (a.isSponsored && !b.isSponsored) return -1;
+        if (!a.isSponsored && b.isSponsored) return 1;
+
         if (sortBy === "price_low") return Number(a.price) - Number(b.price);
         if (sortBy === "price_high") return Number(b.price) - Number(a.price);
         if (sortBy === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -269,7 +275,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     setList(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
   };
 
-  // Render helper function avoiding component unmounting issues
   const renderFilterBody = () => (
     <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
       {/* Verified Dealers Only */}
@@ -681,16 +686,25 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                   return (
                     <div
                       key={item.id}
-                      className="relative group bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/90 rounded-2xl overflow-hidden hover:shadow-lg hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all duration-200 flex flex-col justify-between min-w-0 w-full"
+                      className={`relative group bg-white dark:bg-slate-900 border rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-200 flex flex-col justify-between min-w-0 w-full ${
+                        item.isSponsored
+                          ? "border-emerald-500/70 ring-1 ring-emerald-500/20"
+                          : "border-slate-200/90 dark:border-slate-800/90 hover:border-blue-500/50 dark:hover:border-blue-500/50"
+                      }`}
                     >
                       {/* Top Badges & Actions */}
                       <div className="absolute top-2 inset-x-2 flex items-start justify-between z-10 pointer-events-none">
                         <div className="flex flex-col gap-1 items-start max-w-[70%]">
-                          {isFeatured && (
+                          {item.isSponsored ? (
+                            <span className="bg-emerald-600 text-white text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
+                              Sponsored
+                            </span>
+                          ) : isFeatured ? (
                             <span className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shadow-xs flex items-center gap-0.5">
                               <Sparkles className="w-2 h-2" /> Featured
                             </span>
-                          )}
+                          ) : null}
+
                           <span className="bg-slate-950/80 text-white text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded backdrop-blur-xs truncate max-w-full">
                             {item.condition?.replace("_", " ") || "Refurbished"}
                           </span>
@@ -701,56 +715,71 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                         </div>
                       </div>
 
-                      {/* Product Card Click Link */}
-                      <Link href={`/products/${item.id}`} className="flex-1 flex flex-col min-w-0">
-                        {/* Bounded Square Aspect Container */}
-                        <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800/80">
-                          {firstImg ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={firstImg}
-                              alt={item.title}
-                              loading="lazy"
-                              decoding="async"
-                              className="absolute inset-0 w-full h-full object-contain p-3.5 group-hover:scale-105 transition-transform duration-300 pointer-events-none"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                            </div>
-                          )}
-                        </div>
+                      {/* Click Telemetry Beacon & Viewport Impression Tracker */}
+                      <AdProductCardWrapper
+                        campaignId={item.campaignId}
+                        productId={item.id}
+                        sellerId={item.seller_id}
+                        isSponsored={item.isSponsored}
+                      >
+                        <AdImpressionTracker
+                          campaignId={item.campaignId}
+                          productId={item.id}
+                          sellerId={item.seller_id}
+                          isSponsored={item.isSponsored}
+                        />
 
-                        {/* Card Info Details */}
-                        <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2 min-w-0">
-                          <div className="space-y-1 min-w-0">
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
-                              <span className="truncate max-w-[80px] sm:max-w-[100px]">
-                                {item.brand || "Device"}
-                              </span>
-                              {item.profiles?.district && (
-                                <span className="flex items-center gap-0.5 normal-case font-medium text-slate-500 truncate max-w-[75px]">
-                                  <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                                  {item.profiles.district.split(" ")[0]}
+                        {/* Product Card Click Link */}
+                        <Link href={`/products/${item.id}`} className="flex-1 flex flex-col min-w-0">
+                          {/* Bounded Square Aspect Container */}
+                          <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800/80">
+                            {firstImg ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={firstImg}
+                                alt={item.title}
+                                loading="lazy"
+                                decoding="async"
+                                className="absolute inset-0 w-full h-full object-contain p-3.5 group-hover:scale-105 transition-transform duration-300 pointer-events-none"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Package className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card Info Details */}
+                          <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2 min-w-0">
+                            <div className="space-y-1 min-w-0">
+                              <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                                <span className="truncate max-w-[80px] sm:max-w-[100px]">
+                                  {item.brand || "Device"}
                                 </span>
-                              )}
+                                {item.profiles?.district && (
+                                  <span className="flex items-center gap-0.5 normal-case font-medium text-slate-500 truncate max-w-[75px]">
+                                    <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                    {item.profiles.district.split(" ")[0]}
+                                  </span>
+                                )}
+                              </div>
+
+                              <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 leading-snug">
+                                {item.title}
+                              </h3>
                             </div>
 
-                            <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 leading-snug">
-                              {item.title}
-                            </h3>
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                              <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
+                                ₦{Number(item.price).toLocaleString()}
+                              </p>
+                              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                                Inspect <ArrowRight className="w-3 h-3" />
+                              </span>
+                            </div>
                           </div>
-
-                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                            <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
-                              ₦{Number(item.price).toLocaleString()}
-                            </p>
-                            <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
-                              Inspect <ArrowRight className="w-3 h-3" />
-                            </span>
-                          </div>
-                        </div>
-                      </Link>
+                        </Link>
+                      </AdProductCardWrapper>
                     </div>
                   );
                 })}

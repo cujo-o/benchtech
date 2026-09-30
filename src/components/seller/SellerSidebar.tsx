@@ -117,6 +117,8 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     { label: 'Add New Listing', href: '/seller/listings/new', icon: PackagePlus },
     { label: 'Orders', href: '/seller/orders', icon: ClipboardList },
     { label: 'Messages', href: '/seller/enquiries', icon: MessageSquare },
+    { label: 'Payouts', href: '/seller/wallet', icon: Wallet },
+    
   ]
 
   const PRO_NAV = [

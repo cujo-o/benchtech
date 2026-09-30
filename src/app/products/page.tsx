@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/Navbar'
 import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
 import { ProductsCatalogClient } from './ProductsCatalogClient'
+import { getSponsoredProducts } from '@/lib/ads/getSponsoredProducts'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -43,30 +44,51 @@ function CatalogSkeleton() {
   )
 }
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; category?: string }>
+}) {
+  const { q, category } = await searchParams
   const supabase = await createClient()
 
-  const { data: products } = await supabase
-    .from('products')
-    .select('*, profiles!products_seller_id_fkey(business_name, district, tech_trust_status)')
-    .eq('status', 'published')
-    .order('is_featured', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
+  // 1. Fetch Organic Listings and Top Sponsored Placements in Parallel
+  const [{ data: products }, sponsoredAds] = await Promise.all([
+    supabase
+      .from('products')
+      .select('*, profiles!products_seller_id_fkey(business_name, district, tech_trust_status)')
+      .eq('status', 'published')
+      .order('is_featured', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false }),
+    getSponsoredProducts({ query: q, category, limit: 2 }),
+  ])
+
+  // 2. Interleave Sponsored Products at the top of results
+  const sponsoredProductIds = new Set(sponsoredAds.map((ad) => ad.product.id))
+  const cleanOrganic = (products || []).filter((p) => !sponsoredProductIds.has(p.id))
+
+  const mergedProducts = [
+    ...sponsoredAds.map((ad) => ({
+      ...ad.product,
+      isSponsored: true,
+      campaignId: ad.campaignId,
+      campaignType: ad.campaignType,
+    })),
+    ...cleanOrganic,
+  ]
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       <Navbar />
 
       <div className="max-w-[1700px] w-full mx-auto flex flex-1 min-w-0">
-        {/* Persistent App Navigation Sidebar (Desktop only) */}
         <aside className="hidden lg:block shrink-0 border-r border-slate-200/80 dark:border-slate-800/80">
           <BuyerSidebar />
         </aside>
 
-        {/* Main Catalog View */}
         <main className="flex-1 min-w-0 w-full">
           <Suspense fallback={<CatalogSkeleton />}>
-            <ProductsCatalogClient initialProducts={products || []} />
+            <ProductsCatalogClient initialProducts={mergedProducts} />
           </Suspense>
         </main>
       </div>
