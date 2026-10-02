@@ -10,14 +10,34 @@ import {
   ChevronRight,
   ShieldAlert,
   ArrowLeft,
+  Sparkles,
+  ArrowRight,
+  Package,
 } from "lucide-react";
 import { BuyingRequestModal } from "@/components/products/BuyingRequestModal";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { CompareButton } from "@/components/CompareButton";
 import { ProductViewTracker } from "@/components/products/ProductViewTracker";
+import { getSponsoredProducts } from "@/lib/ads/getSponsoredProducts";
+import { AdProductCardWrapper } from "@/components/storefront/AdProductCardWrapper";
+import { AdImpressionTracker } from "@/components/storefront/AdImpressionTracker";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+function resolveFirstImage(images: any): string | null {
+  if (!images) return null;
+  if (Array.isArray(images)) return images[0] || null;
+  if (typeof images === "string") {
+    try {
+      const parsed = JSON.parse(images);
+      if (Array.isArray(parsed)) return parsed[0] || null;
+    } catch {
+      return images.startsWith("http") ? images : null;
+    }
+  }
+  return null;
+}
 
 export async function generateMetadata({
   params,
@@ -84,11 +104,14 @@ export default async function ProductDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: product, error } = await supabase
-    .from("products")
-    .select("*, profiles!products_seller_id_fkey(*)")
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data: product, error }, sponsoredCandidates] = await Promise.all([
+    supabase
+      .from("products")
+      .select("*, profiles!products_seller_id_fkey(*)")
+      .eq("id", id)
+      .maybeSingle(),
+    getSponsoredProducts({ limit: 6 }),
+  ]);
 
   if (error || !product) {
     notFound();
@@ -97,14 +120,18 @@ export default async function ProductDetailPage({
   const seller = product.profiles;
   const isVerified = seller?.tech_trust_status === "verified";
 
+  // Filter out this product so seller doesn't bid against themselves
+  const sponsoredAlternatives = sponsoredCandidates
+    .filter((ad) => ad.product.id !== id)
+    .slice(0, 4);
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      {/* Background Attribution Analytics Tracker */}
       <ProductViewTracker productId={id} />
 
       <Navbar />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-8 md:space-y-12">
         {/* Breadcrumbs */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
           <Link
@@ -213,7 +240,7 @@ export default async function ProductDetailPage({
                 </p>
               </div>
 
-              {/* Verified Merchant Badge & Profile */}
+              {/* Verified Merchant Profile */}
               {seller && (
                 <Link
                   href={`/sellers/${seller.id}`}
@@ -242,9 +269,8 @@ export default async function ProductDetailPage({
                 </Link>
               )}
 
-              {/* Action Buttons Section */}
+              {/* Actions */}
               <div className="space-y-3 pt-1">
-                {/* Fulfillment Modal Request */}
                 <div className="w-full [&>button]:w-full [&>button]:h-12 [&>button]:text-sm [&>button]:font-bold [&>button]:rounded-xl [&>button]:shadow-xs">
                   <BuyingRequestModal
                     product={{
@@ -257,14 +283,13 @@ export default async function ProductDetailPage({
                   />
                 </div>
 
-                {/* Instant Actions Grid: Cart & Compare */}
                 <div className="grid grid-cols-2 gap-2.5 [&>div]:w-full [&_button]:w-full [&_button]:h-11 [&_button]:text-xs [&_button]:font-bold [&_button]:rounded-xl [&_button]:border [&_button]:border-slate-200 dark:[&_button]:border-slate-700 [&_button]:bg-white dark:[&_button]:bg-slate-800 [&_button]:text-slate-800 dark:[&_button]:text-slate-100 hover:[&_button]:bg-slate-100 dark:hover:[&_button]:bg-slate-700 transition">
                   <AddToCartButton product={product} />
                   <CompareButton product={product as any} />
                 </div>
               </div>
 
-              {/* Trust & Safe Delivery Guarantee */}
+              {/* TechTrust Shield */}
               <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-800 space-y-2 text-xs">
                 <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
                   <ShieldAlert className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
@@ -277,6 +302,96 @@ export default async function ProductDetailPage({
             </div>
           </div>
         </div>
+
+        {/* Sponsored Alternatives Shelf */}
+        {sponsoredAlternatives.length > 0 && (
+          <section className="space-y-4 pt-6 border-t border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <h2 className="text-base font-black text-slate-900 dark:text-slate-100">
+                    Sponsored Alternatives in Abuja
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Promoted listings from verified tech dealers in Banex, Emab, and Wuse 2.
+                </p>
+              </div>
+              <Link
+                href="/products"
+                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                View Catalog <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+              {sponsoredAlternatives.map((ad) => {
+                const item = ad.product;
+                const firstImg = resolveFirstImage(item.images);
+
+                return (
+                  <div
+                    key={item.id}
+                    className="relative group bg-white dark:bg-slate-900 border border-emerald-500/50 dark:border-emerald-500/40 rounded-2xl overflow-hidden hover:shadow-lg transition-all flex flex-col justify-between"
+                  >
+                    <div className="absolute top-2 left-2 z-10">
+                      <span className="bg-emerald-600 text-white text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow-xs">
+                        Sponsored
+                      </span>
+                    </div>
+
+                    <AdProductCardWrapper
+                      campaignId={ad.campaignId}
+                      productId={item.id}
+                      sellerId={ad.sellerId}
+                      isSponsored={true}
+                    >
+                      <AdImpressionTracker
+                        campaignId={ad.campaignId}
+                        productId={item.id}
+                        sellerId={ad.sellerId}
+                        isSponsored={true}
+                      />
+                      <Link href={`/products/${item.id}`} className="flex-1 flex flex-col min-w-0">
+                        <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800">
+                          {firstImg ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={firstImg}
+                              alt={item.title}
+                              loading="lazy"
+                              className="absolute inset-0 w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-6 h-6 text-slate-300" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="p-3 flex-1 flex flex-col justify-between space-y-1.5">
+                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {item.title}
+                          </p>
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-black text-slate-900 dark:text-slate-100">
+                              ₦{Number(item.price).toLocaleString()}
+                            </span>
+                            <span className="text-[10px] text-slate-400 capitalize">
+                              {item.condition?.replace("_", " ") || "Refurbished"}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    </AdProductCardWrapper>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );

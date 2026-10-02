@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
+import { getSponsoredProducts } from '@/lib/ads/getSponsoredProducts'
+import { AdProductCardWrapper } from '@/components/storefront/AdProductCardWrapper'
+import { AdImpressionTracker } from '@/components/storefront/AdImpressionTracker'
 import { 
   ShoppingCart, 
   Store, 
@@ -12,8 +15,7 @@ import {
   Headphones, 
   Star, 
   Sparkles,
-  GitCompare,
-  CheckCircle2
+  Package,
 } from 'lucide-react'
 
 export const metadata = {
@@ -21,11 +23,24 @@ export const metadata = {
   description: 'Buy or sell genuine gadgets, laptops, and consoles with verified specs in Abuja.',
 }
 
+function resolveFirstImage(images: any): string | null {
+  if (!images) return null
+  if (Array.isArray(images)) return images[0] || null
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images)
+      if (Array.isArray(parsed)) return parsed[0] || null
+    } catch {
+      return images.startsWith('http') ? images : null
+    }
+  }
+  return null
+}
+
 export default async function LandingGatewayPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // If user is already authenticated, bypass landing
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -39,6 +54,9 @@ export default async function LandingGatewayPage() {
       redirect('/feed')
     }
   }
+
+  // Fetch top active sponsored gadgets for Abuja showcase
+  const sponsoredProducts = await getSponsoredProducts({ limit: 4 })
 
   return (
     <div className="min-h-screen bg-slate-950 text-white selection:bg-blue-600 selection:text-white flex flex-col">
@@ -58,6 +76,9 @@ export default async function LandingGatewayPage() {
           <div className="flex items-center gap-6 text-xs text-slate-300 font-medium">
             <Link href="#how-it-works" className="hover:text-white transition hidden sm:inline-block">How it works</Link>
             <Link href="#guarantees" className="hover:text-white transition hidden sm:inline-block">Safety</Link>
+            <Link href="/products" className="hover:text-white transition hidden sm:inline-block text-blue-400 font-bold">
+              Explore Catalog
+            </Link>
             <Link href="/login">
               <Button size="sm" variant="ghost" className="text-xs text-slate-300 hover:text-white hover:bg-white/10">
                 Log in
@@ -73,7 +94,7 @@ export default async function LandingGatewayPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 px-6">
+      <section className="relative overflow-hidden pt-12 pb-16 px-6">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-blue-600/20 blur-[120px] pointer-events-none rounded-full" />
 
         <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
@@ -89,12 +110,11 @@ export default async function LandingGatewayPage() {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto leading-relaxed">
-            Buy or sell genuine tech products. Great deals. Trusted people. A smarter way to shop gadgets in Abuja &amp; nationwide.
+            Buy or sell genuine tech products. Great deals. Trusted dealers. Safe physical inspection in Abuja.
           </p>
 
           {/* Interactive Role Selector Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto pt-6 text-left">
-            {/* Buyer Path */}
             <Link
               href="/register?role=buyer"
               className="group relative bg-gradient-to-b from-blue-600/20 to-slate-900/60 border border-blue-500/30 hover:border-blue-500 rounded-3xl p-6 transition duration-300 flex flex-col justify-between hover:shadow-2xl hover:shadow-blue-500/10"
@@ -106,7 +126,7 @@ export default async function LandingGatewayPage() {
                 <div>
                   <h3 className="text-xl font-bold text-white">I&apos;m a Buyer</h3>
                   <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                    Find genuine tech products with real specs from verified sellers.
+                    Find genuine smartphones, laptops, and gear with verified specs.
                   </p>
                 </div>
               </div>
@@ -119,7 +139,6 @@ export default async function LandingGatewayPage() {
               </div>
             </Link>
 
-            {/* Seller Path */}
             <Link
               href="/register?role=seller"
               className="group relative bg-gradient-to-b from-purple-600/10 to-slate-900/60 border border-purple-500/20 hover:border-purple-500 rounded-3xl p-6 transition duration-300 flex flex-col justify-between hover:shadow-2xl hover:shadow-purple-500/10"
@@ -131,7 +150,7 @@ export default async function LandingGatewayPage() {
                 <div>
                   <h3 className="text-xl font-bold text-white">I&apos;m a Seller</h3>
                   <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                    Reach thousands of tech buyers, manage inventory, and grow your revenue.
+                    Reach thousands of tech buyers in Abuja and grow your store.
                   </p>
                 </div>
               </div>
@@ -144,27 +163,97 @@ export default async function LandingGatewayPage() {
               </div>
             </Link>
           </div>
-
-          {/* Social Proof */}
-          <div className="pt-10 flex flex-col sm:flex-row items-center justify-center gap-3 text-xs text-slate-400">
-            <div className="flex -space-x-2">
-              <div className="w-7 h-7 rounded-full bg-blue-500 border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white">B</div>
-              <div className="w-7 h-7 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white">T</div>
-              <div className="w-7 h-7 rounded-full bg-purple-500 border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-white">A</div>
-              <div className="w-7 h-7 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center text-[9px] font-bold text-white">+10k</div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="flex text-amber-400">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
-                ))}
-              </div>
-              <span className="font-bold text-white">4.9/5</span>
-              <span>from tech buyers across Abuja</span>
-            </div>
-          </div>
         </div>
       </section>
+
+      {/* Live Sponsored Showcase */}
+      {sponsoredProducts.length > 0 && (
+        <section className="py-10 px-6 border-t border-white/10 bg-slate-900/30">
+          <div className="max-w-5xl mx-auto space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-emerald-400 text-[10px] font-black uppercase tracking-wider block">
+                  Live Deals in Abuja
+                </span>
+                <h2 className="text-lg sm:text-xl font-black text-white">
+                  Trending &amp; Sponsored Listings
+                </h2>
+              </div>
+              <Link
+                href="/products"
+                className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition"
+              >
+                Browse All ({sponsoredProducts.length}+) <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {sponsoredProducts.map((ad) => {
+                const item = ad.product
+                const firstImg = resolveFirstImage(item.images)
+
+                return (
+                  <div
+                    key={item.id}
+                    className="relative bg-slate-900/80 border border-emerald-500/40 rounded-2xl overflow-hidden hover:border-emerald-500 transition group flex flex-col justify-between"
+                  >
+                    <div className="absolute top-2 left-2 z-10">
+                      <span className="bg-emerald-600 text-white text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow-xs">
+                        Sponsored
+                      </span>
+                    </div>
+
+                    <AdProductCardWrapper
+                      campaignId={ad.campaignId}
+                      productId={item.id}
+                      sellerId={ad.sellerId}
+                      isSponsored={true}
+                    >
+                      <AdImpressionTracker
+                        campaignId={ad.campaignId}
+                        productId={item.id}
+                        sellerId={ad.sellerId}
+                        isSponsored={true}
+                      />
+                      <Link href={`/products/${item.id}`} className="flex-1 flex flex-col">
+                        <div className="relative w-full aspect-square bg-slate-800/40 overflow-hidden border-b border-white/5">
+                          {firstImg ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={firstImg}
+                              alt={item.title}
+                              loading="lazy"
+                              className="absolute inset-0 w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-6 h-6 text-slate-500" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="p-3.5 flex-1 flex flex-col justify-between space-y-1">
+                          <p className="text-xs font-bold text-white truncate group-hover:text-blue-400 transition">
+                            {item.title}
+                          </p>
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-black text-white">
+                              ₦{Number(item.price).toLocaleString()}
+                            </span>
+                            <span className="text-[10px] text-slate-400 capitalize">
+                              {item.condition?.replace('_', ' ') || 'Device'}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    </AdProductCardWrapper>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Trust Badges */}
       <section id="guarantees" className="border-y border-white/10 bg-slate-900/40 py-8 px-6">
@@ -184,8 +273,8 @@ export default async function LandingGatewayPage() {
               <Lock className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-white">Secure Inquiries</p>
-              <p className="text-[11px] text-slate-400">Direct on-platform chat</p>
+              <p className="text-xs font-bold text-white">Secure Escrow</p>
+              <p className="text-[11px] text-slate-400">Pay only upon inspection</p>
             </div>
           </div>
 
@@ -260,21 +349,6 @@ export default async function LandingGatewayPage() {
               </p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Bottom Conversion Banner (Mockup #2) */}
-      <section className="pb-20 px-6 bg-slate-950">
-        <div className="max-w-5xl mx-auto rounded-3xl bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-purple-900/40 border border-white/10 p-8 sm:p-10 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-2xl">
-          <div className="space-y-2 text-center sm:text-left relative z-10">
-            <h3 className="text-xl sm:text-2xl font-black text-white">A smarter way to experience technology</h3>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-md">Great products. Real people. A growing community in Abuja.</p>
-          </div>
-          <Link href="/register" className="relative z-10 shrink-0">
-            <Button className="h-11 px-6 rounded-xl bg-white text-slate-950 hover:bg-slate-100 font-black text-xs gap-2 shadow-lg">
-              Get Started <ArrowRight className="w-3.5 h-3.5" />
-            </Button>
-          </Link>
         </div>
       </section>
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/(auth)/actions";
 import { MobileSidebarDrawer } from "@/components/storefront/MobileSidebarDrawer";
+import { CartDrawer } from "@/components/cart/CartDrawer";
 import { Button } from "@/components/ui/button";
 import { BenchTechLogo } from "@/components/BenchTechLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -78,14 +79,19 @@ export async function Navbar() {
           </button>
         </form>
 
-        {/* Right: Actions, Theme Toggle & Account Controls */}
+        {/* Right: Actions, Cart Drawer & Account Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* 1. Theme Toggle */}
           <div className="shrink-0">
             <ThemeToggle />
           </div>
 
-          {/* 2. Saved Items */}
+          {/* 2. Cart Drawer */}
+          <div className="shrink-0">
+            <CartDrawer />
+          </div>
+
+          {/* 3. Saved Items */}
           <Link
             href="/saved"
             className="p-2 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-xl transition"
@@ -95,11 +101,11 @@ export async function Navbar() {
             <Bookmark className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
           </Link>
 
-          {/* 3. Authenticated vs Guest Actions */}
+          {/* 4. Authenticated vs Guest Actions */}
           {user ? (
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200 dark:border-slate-800">
               {isAdmin && (
-                <Link href="/admin" className="hidden sm:block">
+                <Link href="/admin/advertising" className="hidden sm:block">
                   <Button
                     size="sm"
                     className="bg-slate-900 hover:bg-black text-white dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 dark:border dark:border-slate-700 text-xs h-8 px-2.5 gap-1.5 font-bold shadow-2xs rounded-xl transition"
@@ -110,7 +116,6 @@ export async function Navbar() {
                 </Link>
               )}
 
-              {/* Seller Hub Switch */}
               <Link href={sellerDestination}>
                 <Button
                   size="sm"
@@ -125,7 +130,6 @@ export async function Navbar() {
                 </Button>
               </Link>
 
-              {/* Sign Out */}
               <form action={signOut}>
                 <button
                   type="submit"
