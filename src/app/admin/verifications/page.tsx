@@ -1,29 +1,23 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { setSellerTrustStatus } from '../actions'
-import { Card, CardContent } from '@/components/ui/card'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { setSellerTrustStatus } from '@/app/admin/actions'
 import {
   ShieldCheck,
+  Building2,
+  Phone,
+  FileText,
+  ArrowLeft,
+  ExternalLink,
+  MapPin,
   Check,
   X,
-  FileText,
-  ExternalLink,
-  UserCheck,
-  MapPin,
-  Phone,
-  MessageCircle,
   Store,
-  AlertCircle,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
-
-export const metadata = {
-  title: 'TechTrust Verifications | BenchTech Admin',
-}
 
 export default async function AdminVerificationsPage() {
   const supabase = await createClient()
@@ -31,251 +25,216 @@ export default async function AdminVerificationsPage() {
 
   if (!user) redirect('/login?next=/admin/verifications')
 
-  // 1. Fetch pending submissions
-  const { data: pendingVendors } = await supabase
+  // Fetch pending and reviewed vendor applications
+  const { data: sellers } = await supabase
     .from('profiles')
     .select('*')
-    .eq('tech_trust_status', 'pending')
-    .order('updated_at', { ascending: false })
+    .or('role.eq.seller,seller_plan.eq.pro')
+    .order('created_at', { ascending: false })
 
-  // 2. Fetch recently verified vendors for historical context
-  const { data: verifiedVendors } = await supabase
-    .from('profiles')
-    .select('id, business_name, full_name, phone, district, updated_at')
-    .eq('tech_trust_status', 'verified')
-    .order('updated_at', { ascending: false })
-    .limit(4)
-
-  // Generate signed view URLs for private bucket files
-  const vendorsWithDocUrls = await Promise.all(
-    (pendingVendors || []).map(async (vendor) => {
-      let idSignedUrl = null
-      let cacSignedUrl = null
-
-      if (vendor.id_document_url) {
-        try {
-          const { data } = await supabase.storage
-            .from('vendor-documents')
-            .createSignedUrl(vendor.id_document_url, 3600)
-          idSignedUrl = data?.signedUrl || null
-        } catch {}
-      }
-
-      if (vendor.cac_document_url) {
-        try {
-          const { data } = await supabase.storage
-            .from('vendor-documents')
-            .createSignedUrl(vendor.cac_document_url, 3600)
-          cacSignedUrl = data?.signedUrl || null
-        } catch {}
-      }
-
-      return {
-        ...vendor,
-        idSignedUrl,
-        cacSignedUrl,
-      }
-    })
-  )
+  const sellerList = sellers || []
+  const pendingList = sellerList.filter((s) => s.tech_trust_status === 'pending')
+  const verifiedList = sellerList.filter((s) => s.tech_trust_status === 'verified')
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-      {/* Page Title */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-              TechTrust Verification Queue
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full text-slate-900 dark:text-slate-100">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/overview"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+              TechTrust Merchant Verification Desk
             </h1>
-            <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 text-[10px] font-black uppercase">
-              {vendorsWithDocUrls.length} Pending
-            </Badge>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Review physical shop locations, CAC documents, and identity proofs for Abuja tech dealers.
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Review government identification, plaza booth numbers, and CAC business filings for Abuja electronics vendors.
-          </p>
         </div>
 
-        <Link href="/admin/overview">
-          <Button variant="outline" size="sm" className="text-xs font-bold rounded-xl h-10 border-slate-200">
-            &larr; Back to Control Centre
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Badge className="bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 text-xs py-1.5 px-3 rounded-xl font-bold">
+            {pendingList.length} Pending KYC
+          </Badge>
+          <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 text-xs py-1.5 px-3 rounded-xl font-bold">
+            {verifiedList.length} Verified Dealers
+          </Badge>
+        </div>
       </div>
 
-      {/* Main Review Section */}
-      {vendorsWithDocUrls.length > 0 ? (
-        <div className="space-y-4">
-          {vendorsWithDocUrls.map((vendor) => {
-            const cleanPhone = vendor.phone
-              ? vendor.phone.replace(/[^0-9]/g, '').replace(/^0/, '234')
-              : null
+      {/* Verification Queue Table */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xs space-y-4">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
+                <th className="pb-3">Dealer / Store</th>
+                <th className="pb-3">Abuja Hub / District</th>
+                <th className="pb-3">Contact</th>
+                <th className="pb-3">Documents</th>
+                <th className="pb-3">Status</th>
+                <th className="pb-3 text-right">Verification Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {sellerList.length > 0 ? (
+                sellerList.map((seller) => {
+                  const cleanPhone = seller.phone
+                    ? seller.phone.replace(/[^0-9]/g, '').replace(/^0/, '234')
+                    : null
 
-            return (
-              <Card
-                key={vendor.id}
-                className="border border-slate-200/90 dark:border-slate-800 shadow-2xs bg-white dark:bg-slate-900 rounded-3xl overflow-hidden"
-              >
-                <CardContent className="p-5 sm:p-6 space-y-5">
-                  {/* Vendor Identity Row */}
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 font-black text-sm flex items-center justify-center">
-                          {(vendor.business_name || vendor.full_name || 'V')[0]?.toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-slate-100">
-                              {vendor.business_name || vendor.full_name}
-                            </h3>
-                            <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-bold">
-                              Awaiting Approval
-                            </Badge>
+                  return (
+                    <tr key={seller.id} className="text-slate-700 dark:text-slate-300">
+                      {/* Store info */}
+                      <td className="py-3.5 font-bold text-slate-900 dark:text-slate-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-xs shrink-0">
+                            {(seller.business_name || seller.full_name || 'V')[0].toUpperCase()}
                           </div>
-                          <p className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" /> {vendor.district || 'Banex Plaza, Wuse 2'}
+                          <div>
+                            <span className="block truncate max-w-[160px]">
+                              {seller.business_name || seller.full_name || 'Unnamed Vendor'}
                             </span>
-                            <span>•</span>
-                            <span>Applied: {new Date(vendor.updated_at || Date.now()).toLocaleDateString('en-NG')}</span>
-                          </p>
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              Plan: {seller.seller_plan || 'free'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      </td>
 
-                    {/* Actions & WhatsApp Contact */}
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                      {cleanPhone && (
-                        <a
-                          href={`https://wa.me/${cleanPhone}?text=Hello%20${encodeURIComponent(vendor.business_name || 'Vendor')},%20this%20is%20BenchTech%20Admin%20regarding%20your%20verification%20documents.`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 md:flex-none"
-                        >
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full md:w-auto text-xs h-9 border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold gap-1 rounded-xl"
+                      {/* District location */}
+                      <td className="py-3.5">
+                        <span className="flex items-center gap-1 font-medium text-slate-900 dark:text-slate-100">
+                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                          {seller.district || 'Abuja, NG'}
+                        </span>
+                        {seller.shop_address && (
+                          <span className="text-[10px] text-slate-400 block truncate max-w-[180px]">
+                            {seller.shop_address}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Phone & Chat */}
+                      <td className="py-3.5">
+                        <span className="block font-mono text-[11px]">{seller.phone || 'No phone'}</span>
+                        {cleanPhone && (
+                          <a
+                            href={`https://wa.me/${cleanPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-600 hover:underline text-[10px] font-bold inline-flex items-center gap-0.5 mt-0.5"
                           >
-                            <MessageCircle className="w-3.5 h-3.5" /> Chat Vendor
-                          </Button>
-                        </a>
-                      )}
+                            <Phone className="w-2.5 h-2.5" /> WhatsApp
+                          </a>
+                        )}
+                      </td>
 
-                      <form action={setSellerTrustStatus.bind(null, vendor.id, 'rejected')} className="flex-1 md:flex-none">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full md:w-auto text-xs h-9 border-rose-200 text-rose-600 hover:bg-rose-50 font-bold gap-1 rounded-xl"
+                      {/* Attached Documents */}
+                      <td className="py-3.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {seller.cac_document_url ? (
+                            <a
+                              href={seller.cac_document_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-bold flex items-center gap-1 hover:underline"
+                            >
+                              <FileText className="w-3 h-3" /> CAC
+                            </a>
+                          ) : null}
+
+                          {seller.id_card_url ? (
+                            <a
+                              href={seller.id_card_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-0.5 rounded-lg bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-bold flex items-center gap-1 hover:underline"
+                            >
+                              <FileText className="w-3 h-3" /> ID
+                            </a>
+                          ) : null}
+
+                          {!seller.cac_document_url && !seller.id_card_url && (
+                            <span className="text-[10px] text-slate-400">None uploaded</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Trust Status Badge */}
+                      <td className="py-3.5">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                            seller.tech_trust_status === 'verified'
+                              ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300'
+                              : seller.tech_trust_status === 'rejected'
+                              ? 'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-300'
+                              : 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300'
+                          }`}
                         >
-                          <X className="w-3.5 h-3.5" /> Reject
-                        </Button>
-                      </form>
+                          {seller.tech_trust_status || 'unverified'}
+                        </span>
+                      </td>
 
-                      <form action={setSellerTrustStatus.bind(null, vendor.id, 'verified')} className="flex-1 md:flex-none">
-                        <Button
-                          size="sm"
-                          className="w-full md:w-auto text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shadow-xs rounded-xl"
-                        >
-                          <Check className="w-3.5 h-3.5" /> Approve &amp; Verify
-                        </Button>
-                      </form>
-                    </div>
-                  </div>
+                      {/* Actions */}
+                      <td className="py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {seller.tech_trust_status !== 'verified' && (
+                            <form
+                              action={async () => {
+                                'use server'
+                                await setSellerTrustStatus(seller.id, 'verified')
+                              }}
+                            >
+                              <Button
+                                size="sm"
+                                type="submit"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] h-8 px-2.5 rounded-lg cursor-pointer"
+                              >
+                                <Check className="w-3 h-3 mr-0.5" /> Approve
+                              </Button>
+                            </form>
+                          )}
 
-                  {/* Documents Tray */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {/* Government ID Preview */}
-                    <div className="p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center">
-                          <FileText className="w-4 h-4" />
+                          {seller.tech_trust_status !== 'rejected' && (
+                            <form
+                              action={async () => {
+                                'use server'
+                                await setSellerTrustStatus(seller.id, 'rejected')
+                              }}
+                            >
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                type="submit"
+                                className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-[11px] h-8 px-2 rounded-lg cursor-pointer"
+                              >
+                                <X className="w-3 h-3 mr-0.5" /> Reject
+                              </Button>
+                            </form>
+                          )}
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100 capitalize">
-                            {vendor.id_type ? `${vendor.id_type.replace('_', ' ')}` : 'Government ID Proof'}
-                          </p>
-                          <p className="text-[10px] text-slate-400">National ID / Drivers License / Voter Card</p>
-                        </div>
-                      </div>
-
-                      {vendor.idSignedUrl ? (
-                        <a href={vendor.idSignedUrl} target="_blank" rel="noopener noreferrer">
-                          <Button size="sm" variant="outline" className="h-8 text-xs font-bold gap-1 bg-white dark:bg-slate-900 rounded-xl">
-                            Inspect ID <ExternalLink className="w-3 h-3" />
-                          </Button>
-                        </a>
-                      ) : (
-                        <span className="text-[11px] font-bold text-slate-400 italic">No file attached</span>
-                      )}
-                    </div>
-
-                    {/* CAC Business Certificate */}
-                    <div className="p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
-                          <ShieldCheck className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                            CAC Registration Proof
-                          </p>
-                          <p className="text-[10px] text-slate-400">BN or RC Corporate Affairs Filing</p>
-                        </div>
-                      </div>
-
-                      {vendor.cacSignedUrl ? (
-                        <a href={vendor.cacSignedUrl} target="_blank" rel="noopener noreferrer">
-                          <Button size="sm" variant="outline" className="h-8 text-xs font-bold gap-1 bg-white dark:bg-slate-900 rounded-xl">
-                            Inspect CAC <ExternalLink className="w-3 h-3" />
-                          </Button>
-                        </a>
-                      ) : (
-                        <span className="text-[11px] font-bold text-slate-400 italic">Optional / Not provided</span>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                    No merchant verification applications submitted yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : (
-        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 space-y-3 shadow-2xs">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto">
-            <UserCheck className="w-6 h-6" />
-          </div>
-          <h3 className="font-black text-sm text-slate-900 dark:text-slate-100">Verification Queue Clear</h3>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            There are currently no Abuja electronics vendors awaiting manual document inspection.
-          </p>
-        </div>
-      )}
-
-      {/* Audit Trail: Recently Verified Vendors */}
-      {verifiedVendors && verifiedVendors.length > 0 && (
-        <Card className="rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Recently Verified Merchants
-            </h4>
-            <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" /> Badge Active
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {verifiedVendors.map((v) => (
-              <div key={v.id} className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-1">
-                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{v.business_name || v.full_name}</p>
-                <p className="text-[10px] text-slate-400">{v.district || 'Abuja'}</p>
-                <p className="text-[10px] text-slate-400">{v.phone || 'No phone'}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+      </div>
     </div>
   )
 }
