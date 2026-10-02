@@ -10,6 +10,10 @@ import {
   Sparkles,
   ArrowRight,
   CheckCircle2,
+  TrendingUp,
+  Search,
+  Crown,
+  Layers,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -59,7 +63,6 @@ export default async function SellerPromotionsPage({
 
           const supabaseAdmin = getSupabaseAdmin()
 
-          // Check if this reference was already credited
           const { data: existingTx } = await supabaseAdmin
             .from('ad_wallet_transactions')
             .select('id')
@@ -67,14 +70,12 @@ export default async function SellerPromotionsPage({
             .maybeSingle()
 
           if (!existingTx && topupAmount > 0) {
-            // Log transaction
             await supabaseAdmin.from('ad_wallet_transactions').insert({
               seller_id: user.id,
               reference: reference,
               amount: topupAmount,
             })
 
-            // Upsert ad_wallets balance
             const { data: currentWallet } = await supabaseAdmin
               .from('ad_wallets')
               .select('balance')
@@ -101,7 +102,7 @@ export default async function SellerPromotionsPage({
     }
   }
 
-  // 2. Fetch fresh wallet, campaigns, and attribution data
+  // 2. Fetch fresh data
   const [{ data: wallet }, { data: campaigns }, { data: attributions }] =
     await Promise.all([
       supabase
@@ -143,7 +144,7 @@ export default async function SellerPromotionsPage({
         </div>
       )}
 
-      {/* 1. Header with Ad Wallet Balance */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
@@ -155,7 +156,7 @@ export default async function SellerPromotionsPage({
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Reach more tech shoppers across Abuja. Grow your sales with performance-backed visibility.
+            Reach tech buyers across Abuja. Choose a performance model to increase your sales velocity.
           </p>
         </div>
 
@@ -171,42 +172,53 @@ export default async function SellerPromotionsPage({
         </div>
       </div>
 
-      {/* 2. Hero Marketing Banner */}
+      {/* Hero Banner */}
       <div className="bg-linear-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-6 sm:p-8 rounded-3xl relative overflow-hidden shadow-md">
         <div className="relative z-10 max-w-xl space-y-2">
           <span className="text-[10px] uppercase font-black tracking-widest text-blue-300">
-            More Visibility. More Sales.
+            Performance Advertising
           </span>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
             Turn Your Listings Into Bigger Opportunities
           </h2>
           <p className="text-xs sm:text-sm text-slate-300">
-            Choose the right promotion model for your inventory. Pay only when a buyer places an order, or bid on top search keywords.
+            Pay only when an item sells, or bid on top search keywords across Abuja gadget shoppers.
           </p>
         </div>
       </div>
 
-      {/* 3. The 4 Product Cards */}
+      {/* The 4 Promotion Options */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Promote a Product (PPS) */}
-        <div className="bg-white dark:bg-slate-900 border-2 border-blue-500/40 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-2xs">
+        {/* Model 1: Pay When You Sell */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500/60 dark:hover:border-blue-500/60 transition-all rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-2xs group">
           <div className="space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/70 text-blue-600 flex items-center justify-center font-black">
-              1
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/70 text-blue-600 flex items-center justify-center">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-[10px] font-bold">
+                Zero Upfront Risk
+              </Badge>
             </div>
+
             <div>
-              <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Shopbench Ads</h3>
-              <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">(Pay When You Sell)</p>
+              <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 transition">
+                Promote a Product
+              </h3>
+              <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">Pay When You Sell</p>
             </div>
+
             <p className="text-xs text-slate-500 leading-relaxed">
-              Get targeted discovery in category pages and search results. Zero upfront costs—you only pay a 2.5% advertising fee when a verified sale occurs.
+              Targeted placement across discovery feeds and category results. You only pay a 2.5% ad fee when an attributed order is completed.
             </p>
+
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
-              <p className="flex items-center gap-1.5">✓ 2.5% fee per attributed sale</p>
-              <p className="flex items-center gap-1.5">✓ 7-day buyer attribution window</p>
-              <p className="flex items-center gap-1.5 font-bold text-emerald-600">✓ ₦0 risk if it doesn&apos;t sell</p>
+              <p className="flex items-center gap-1.5">✓ 2.5% fee charged on sale only</p>
+              <p className="flex items-center gap-1.5">✓ 7-day buyer attribution tracking</p>
+              <p className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">✓ ₦0 charged if no sale occurs</p>
             </div>
           </div>
+
           <Link href="/seller/promotions/promote-product">
             <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 shadow-xs cursor-pointer">
               Promote a Product <ArrowRight className="w-3.5 h-3.5 ml-1" />
@@ -214,72 +226,99 @@ export default async function SellerPromotionsPage({
           </Link>
         </div>
 
-        {/* Card 2: Sponsored Search (CPC) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-2xs">
+        {/* Model 2: Sponsored Search */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500/60 dark:hover:border-emerald-500/60 transition-all rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-2xs group">
           <div className="space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 flex items-center justify-center font-black">
-              2
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 flex items-center justify-center">
+                <Search className="w-5 h-5" />
+              </div>
+              <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-bold">
+                Cost Per Click
+              </Badge>
             </div>
+
             <div>
-              <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Sponsored Search</h3>
-              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">(Pay Per Click)</p>
+              <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 transition">
+                Sponsored Search
+              </h3>
+              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">Target Keywords</p>
             </div>
+
             <p className="text-xs text-slate-500 leading-relaxed">
-              Place your products at the top position when shoppers search for high-intent terms like &quot;Gaming Laptop&quot; or &quot;iPhone 15&quot;.
+              Place your listings at the top of search results when buyers search for high-intent queries like &quot;iPhone 14&quot; or &quot;HP Spectre&quot;.
             </p>
+
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
               <p className="flex items-center gap-1.5">✓ ₦50 – ₦500 CPC bids</p>
               <p className="flex items-center gap-1.5">✓ ₦2,000 min daily budget</p>
-              <p className="flex items-center gap-1.5">✓ Invalid click anti-fraud shield</p>
+              <p className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">✓ Deducted from promo wallet</p>
             </div>
           </div>
+
           <Link href="/seller/promotions/sponsored-search">
-            <Button variant="outline" className="w-full border-slate-200 dark:border-slate-700 font-bold text-xs rounded-xl h-10 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer">
+            <Button variant="outline" className="w-full border-slate-200 dark:border-slate-700 hover:border-emerald-500 font-bold text-xs rounded-xl h-10 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer">
               Create Search Ad <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
         </div>
 
-        {/* Card 3: Premium Placement (Fixed Price) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-2xs opacity-85">
+        {/* Model 3: Premium Placement */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-2xs opacity-80">
           <div className="space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/70 text-purple-600 flex items-center justify-center font-black">
-              3
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/70 text-purple-600 flex items-center justify-center">
+                <Crown className="w-5 h-5" />
+              </div>
+              <Badge variant="outline" className="text-[10px] font-bold text-slate-400">
+                Fixed Slot
+              </Badge>
             </div>
+
             <div>
               <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Premium Placement</h3>
-              <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">(Fixed Price)</p>
+              <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">Homepage Showcase</p>
             </div>
+
             <p className="text-xs text-slate-500 leading-relaxed">
               Guaranteed top hero carousel placement on the Abuja marketplace homepage and deal drops for 7 to 30 days.
             </p>
           </div>
+
           <Button variant="ghost" disabled className="w-full text-xs font-bold rounded-xl h-10">
             Coming Soon
           </Button>
         </div>
 
-        {/* Card 4: Seller Campaign */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-2xs opacity-85">
+        {/* Model 4: Full Campaign Plan */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-2xs opacity-80">
           <div className="space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/70 text-amber-600 flex items-center justify-center font-black">
-              4
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/70 text-amber-600 flex items-center justify-center">
+                <Layers className="w-5 h-5" />
+              </div>
+              <Badge variant="outline" className="text-[10px] font-bold text-slate-400">
+                Managed
+              </Badge>
             </div>
+
             <div>
               <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">Full Campaign Plan</h3>
-              <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">(Multi-Channel)</p>
+              <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Multi-Channel</p>
             </div>
+
             <p className="text-xs text-slate-500 leading-relaxed">
-              Custom marketing bundles combining social blasts, Push notifications, and storefront hero takeovers.
+              Custom marketing bundles combining broadcast pushes, email highlights, and storefront brand takeovers.
             </p>
           </div>
+
           <Button variant="ghost" disabled className="w-full text-xs font-bold rounded-xl h-10">
             Enterprise Tier
           </Button>
         </div>
       </div>
 
-      {/* 4. Active Campaigns Performance Table */}
+      {/* Active Campaigns Performance Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xs">
         <div>
           <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-slate-100">
