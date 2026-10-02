@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { toggleProductStatus } from '../actions'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,7 +17,11 @@ import {
   Store,
   DollarSign,
   Package,
-  Sparkles,
+  TrendingUp,
+  CreditCard,
+  Clock,
+  Megaphone,
+  ShieldAlert,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -45,45 +49,65 @@ export default async function AdminOverviewPage() {
     redirect('/feed')
   }
 
-  // 1. Metric Counts & Inventory Stats
-  const { count: listingsCount } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
+  // Parallel Database Telemetry Fetch
+  const [
+    { data: orders },
+    { data: payoutRequests },
+    { data: verificationQueue },
+    { data: adWallets },
+    { data: products },
+    { count: usersCount },
+    { count: verifiedSellersCount },
+  ] = await Promise.all([
+    supabase.from('orders').select('*').order('created_at', { ascending: false }),
+    supabase.from('payout_requests').select('id, amount, status').eq('status', 'pending'),
+    supabase.from('profiles').select('id').eq('tech_trust_status', 'pending'),
+    supabase.from('ad_wallets').select('balance'),
+    supabase
+      .from('products')
+      .select('*, profiles!products_seller_id_fkey(business_name, full_name, phone, district)')
+      .order('created_at', { ascending: false }),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('tech_trust_status', 'verified'),
+  ])
 
-  const { count: usersCount } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-
-  const { count: pendingCount } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('tech_trust_status', 'pending')
-
-  const { count: verifiedSellersCount } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('tech_trust_status', 'verified')
-
-  // 2. Fetch products for moderation
-  const { data: products } = await supabase
-    .from('products')
-    .select('*, profiles!products_seller_id_fkey(business_name, full_name, phone, district)')
-    .order('created_at', { ascending: false })
-
+  const allOrders = orders || []
   const allProducts = products || []
   const publishedProducts = allProducts.filter((p) => p.status === 'published')
+  const pendingPayouts = payoutRequests || []
+  const pendingVerifications = verificationQueue || []
+  const activeDisputes = allOrders.filter((o) => o.status === 'disputed')
+
+  // Financial Computations
+  const totalGMV = allOrders.reduce(
+    (acc, curr) => acc + (Number(curr.amount || curr.total_amount) || 0),
+    0
+  )
+  const totalPlatformRevenue = allOrders
+    .filter((o) => o.status === 'completed')
+    .reduce((acc, curr) => acc + (Number(curr.marketplace_fee || 0) + Number(curr.ad_fee || 0)), 0)
+
+  const escrowFloat = allOrders
+    .filter((o) => o.status === 'paid' || o.status === 'in_escrow')
+    .reduce((acc, curr) => acc + (Number(curr.seller_payout || curr.amount) || 0), 0)
+
+  const adLiabilityFloat = (adWallets || []).reduce(
+    (acc, curr) => acc + (Number(curr.balance) || 0),
+    0
+  )
+
   const totalCatalogValue = publishedProducts.reduce(
     (acc, curr) => acc + (Number(curr.price) || 0),
     0
   )
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-      {/* Header with Exit to Storefront Shortcut */}
+    <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 text-slate-900 dark:text-slate-100">
+      {/* 1. Header with Storefront Shortcuts */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">
               Admin Control Centre
             </h1>
             <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-black uppercase">
@@ -91,93 +115,130 @@ export default async function AdminOverviewPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Real-time Abuja marketplace telemetry, live listing moderation, and TechTrust verification queue.
+            Real-time Abuja marketplace telemetry, escrow settlement queues, and listing moderation.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/feed" target="_blank">
+          <Link href="/products" target="_blank">
             <Button
               variant="outline"
               size="sm"
-              className="text-xs font-bold rounded-xl h-10 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 gap-1.5"
+              className="text-xs font-bold rounded-xl h-10 border-slate-200 dark:border-slate-700 gap-1.5 cursor-pointer"
             >
-              <span>View Live Marketplace</span>
+              <span>Live Catalog</span>
               <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
             </Button>
           </Link>
-          <Link href="/admin/verifications">
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-4 gap-1.5 shadow-xs">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Verifications ({pendingCount || 0})</span>
+          <Link href="/admin/advertising">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-4 gap-1.5 shadow-xs cursor-pointer">
+              <Megaphone className="w-3.5 h-3.5" />
+              <span>Ad Engine &amp; Rates</span>
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* KPI Metrics */}
+      {/* 2. Real-Time Telemetry Pulse Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border border-slate-200/90 dark:border-slate-800 shadow-2xs rounded-2xl bg-white dark:bg-slate-900 p-4 sm:p-5">
+        <Card className="border border-slate-200/90 dark:border-slate-800 shadow-2xs rounded-2xl bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Listings</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gross Merchandise (GMV)</span>
             <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 flex items-center justify-center">
-              <Layers className="w-4 h-4" />
+              <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">{listingsCount || 0}</h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">{publishedProducts.length} published &amp; active</p>
+          <h2 className="text-2xl font-black mt-1">₦{totalGMV.toLocaleString()}</h2>
+          <p className="text-[10px] text-slate-400 mt-0.5">{allOrders.length} total orders recorded</p>
         </Card>
 
-        <Card className="border border-slate-200/90 dark:border-slate-800 shadow-2xs rounded-2xl bg-white dark:bg-slate-900 p-4 sm:p-5">
+        <Card className="border border-slate-200/90 dark:border-slate-800 shadow-2xs rounded-2xl bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Live Inventory Value</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Retained Revenue</span>
             <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
+              <CreditCard className="w-4 h-4" />
             </div>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-emerald-600 mt-2">
-            ₦{totalCatalogValue.toLocaleString()}
+          <h2 className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+            ₦{totalPlatformRevenue.toLocaleString()}
           </h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">Across active Abuja listings</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">7% commission + ad revenues</p>
         </Card>
 
-        <Card className="border border-slate-200/90 dark:border-slate-800 shadow-2xs rounded-2xl bg-white dark:bg-slate-900 p-4 sm:p-5">
+        <Card className="border border-slate-200/90 dark:border-slate-800 shadow-2xs rounded-2xl bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Platform Users</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-2">{usersCount || 0}</h2>
-          <p className="text-[10px] text-purple-600 font-semibold mt-0.5">{verifiedSellersCount || 0} verified merchants</p>
-        </Card>
-
-        <Card
-          className={`border shadow-2xs rounded-2xl bg-white dark:bg-slate-900 p-4 sm:p-5 flex flex-col justify-between ${
-            (pendingCount || 0) > 0
-              ? 'border-amber-300 bg-amber-50/20 dark:bg-amber-950/20'
-              : 'border-slate-200/90 dark:border-slate-800'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Verification Queue</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Inspection Escrow Float</span>
             <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-600 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+              <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{pendingCount || 0}</h2>
-            <Link
-              href="/admin/verifications"
-              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 mt-1"
-            >
-              Review Submissions <ArrowRight className="w-3 h-3" />
-            </Link>
+          <h2 className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+            ₦{escrowFloat.toLocaleString()}
+          </h2>
+          <p className="text-[10px] text-slate-400 mt-0.5">Protected pending inspection</p>
+        </Card>
+
+        <Card className="border border-slate-200/90 dark:border-slate-800 shadow-2xs rounded-2xl bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ad Wallet Liabilities</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
+              <Megaphone className="w-4 h-4" />
+            </div>
           </div>
+          <h2 className="text-2xl font-black mt-1">₦{adLiabilityFloat.toLocaleString()}</h2>
+          <p className="text-[10px] text-purple-600 font-semibold mt-0.5">Prepaid seller float for CPC</p>
         </Card>
       </div>
 
-      {/* Moderation Queue Table */}
+      {/* 3. Operational Action Dispatch Queue */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link href="/admin/payouts">
+          <Card className="p-4 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500/50 transition shadow-2xs flex items-center justify-between group cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 flex items-center justify-center font-black">
+                {pendingPayouts.length}
+              </div>
+              <div>
+                <h4 className="text-xs font-black group-hover:text-blue-600 transition">Pending Bank Payouts</h4>
+                <p className="text-[11px] text-slate-400">Withdrawals waiting for disbursement</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition" />
+          </Card>
+        </Link>
+
+        <Link href="/admin/disputes">
+          <Card className="p-4 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-red-500/50 transition shadow-2xs flex items-center justify-between group cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-950 text-red-600 flex items-center justify-center font-black">
+                {activeDisputes.length}
+              </div>
+              <div>
+                <h4 className="text-xs font-black group-hover:text-red-600 transition">Inspection Disputes</h4>
+                <p className="text-[11px] text-slate-400">Escrow cases needing arbitration</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition" />
+          </Card>
+        </Link>
+
+        <Link href="/admin/verifications">
+          <Card className="p-4 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500/50 transition shadow-2xs flex items-center justify-between group cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-black">
+                {pendingVerifications.length}
+              </div>
+              <div>
+                <h4 className="text-xs font-black group-hover:text-emerald-600 transition">TechTrust Merchant KYC</h4>
+                <p className="text-[11px] text-slate-400">Abuja computer village dealers</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition" />
+          </Card>
+        </Link>
+      </div>
+
+      {/* 4. Live Listing Moderation Desk */}
       <Card className="border border-slate-200/90 dark:border-slate-800 shadow-2xs rounded-3xl bg-white dark:bg-slate-900 overflow-hidden">
         <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -189,7 +250,7 @@ export default async function AdminOverviewPage() {
             </p>
           </div>
           <span className="text-xs font-bold text-slate-500">
-            {allProducts.length} Total Registered SKUs
+            {allProducts.length} Total SKUs • ₦{totalCatalogValue.toLocaleString()} Catalog Value
           </span>
         </div>
 
@@ -292,14 +353,14 @@ export default async function AdminOverviewPage() {
                         </Badge>
                       </td>
 
-                      {/* Actions */}
+                      {/* Moderation Action Button */}
                       <td className="px-5 py-3.5 text-right">
                         {item.status === 'published' ? (
                           <form action={toggleProductStatus.bind(null, item.id, 'hidden')}>
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-8 text-[11px] text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold gap-1 rounded-xl"
+                              className="h-8 text-[11px] text-rose-600 border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold gap-1 rounded-xl cursor-pointer"
                             >
                               <EyeOff className="w-3 h-3" /> Take Down
                             </Button>
@@ -309,7 +370,7 @@ export default async function AdminOverviewPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-8 text-[11px] text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-bold gap-1 rounded-xl"
+                              className="h-8 text-[11px] text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-bold gap-1 rounded-xl cursor-pointer"
                             >
                               <CheckCircle className="w-3 h-3" /> Restore
                             </Button>

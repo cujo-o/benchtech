@@ -13,11 +13,13 @@ import {
   ShieldCheck,
   Crown,
   Headphones,
-  FileBarChart,
   Settings,
   ExternalLink,
   LogOut,
   ChevronRight,
+  Building2,
+  Megaphone,
+  CreditCard,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -51,46 +53,65 @@ export default async function AdminLayout({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*')
+    .select('role, is_admin, roles, full_name')
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'admin') {
+  const userRoles: string[] = profile?.roles || (profile?.role ? [profile.role] : [])
+  const isAdmin = profile?.is_admin === true || profile?.role === 'admin' || userRoles.includes('admin')
+
+  if (!isAdmin) {
     redirect('/feed')
   }
 
-  // Fetch counts safely
-  const { count: buyersCount } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'buyer')
-
-  const { count: sellersCount } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'seller')
-
-  const { count: productsCount } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-
-  const { count: pendingVerificationsCount } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('tech_trust_status', 'pending')
-
-  let reportedCount = 0
-  const { count: reports } = await supabase
-    .from('product_reports')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'pending')
-  if (reports) reportedCount = reports
+  // Fetch real-time count badges in parallel
+  const [
+    { count: buyersCount },
+    { count: sellersCount },
+    { count: productsCount },
+    { count: pendingVerificationsCount },
+    { count: pendingPayoutsCount },
+    { count: activeDisputesCount },
+    { count: reportedListingsCount },
+  ] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'buyer'),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).or('role.eq.seller,seller_plan.eq.pro'),
+    supabase.from('products').select('*', { count: 'exact', head: true }),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('tech_trust_status', 'pending'),
+    supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'disputed'),
+    supabase.from('product_reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+  ])
 
   const SIDEBAR_NAV: NavSection[] = [
     {
       group: null,
       items: [
         { label: 'Overview', href: '/admin/overview', icon: LayoutDashboard },
+      ],
+    },
+    {
+      group: 'FINANCIALS & ESCROW',
+      items: [
+        {
+          label: 'Bank Payouts',
+          href: '/admin/payouts',
+          icon: Building2,
+          count: pendingPayoutsCount ?? 0,
+          highlight: (pendingPayoutsCount ?? 0) > 0,
+        },
+        {
+          label: 'Escrow Disputes',
+          href: '/admin/disputes',
+          icon: ShieldAlert,
+          count: activeDisputesCount ?? 0,
+          danger: (activeDisputesCount ?? 0) > 0,
+        },
+        {
+          label: 'Ad Engine & Rates',
+          href: '/admin/advertising',
+          icon: Megaphone,
+        },
       ],
     },
     {
@@ -111,7 +132,7 @@ export default async function AdminLayout({
         {
           label: 'Admins',
           href: '/admin/users?role=admin',
-          icon: ShieldAlert,
+          icon: ShieldCheck,
         },
       ],
     },
@@ -133,8 +154,8 @@ export default async function AdminLayout({
           label: 'Reported Listings',
           href: '/admin/reports',
           icon: AlertOctagon,
-          count: reportedCount,
-          danger: reportedCount > 0,
+          count: reportedListingsCount ?? 0,
+          danger: (reportedListingsCount ?? 0) > 0,
         },
       ],
     },
@@ -156,16 +177,6 @@ export default async function AdminLayout({
       ],
     },
     {
-      group: 'REPORTS & ANALYTICS',
-      items: [
-        {
-          label: 'Sales & Inquiries',
-          href: '/admin/overview',
-          icon: FileBarChart,
-        },
-      ],
-    },
-    {
       group: 'SUPPORT & TRUST',
       items: [
         {
@@ -174,7 +185,7 @@ export default async function AdminLayout({
           icon: Headphones,
         },
         {
-          label: 'Settings',
+          label: 'Platform Settings',
           href: '/admin/settings',
           icon: Settings,
         },
@@ -183,13 +194,13 @@ export default async function AdminLayout({
   ]
 
   function getBadgeClass(item: NavItem) {
-    if (item.danger) return 'bg-rose-500 text-white'
-    if (item.highlight) return 'bg-amber-500 text-slate-950 font-black'
+    if (item.danger) return 'bg-rose-500 text-white font-bold'
+    if (item.highlight) return 'bg-amber-400 text-slate-950 font-black'
     return 'bg-white/10 text-slate-300'
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex text-slate-900 font-sans">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex text-slate-900 dark:text-slate-100 font-sans transition-colors">
       {/* Deep Navy Left Sidebar */}
       <aside className="w-64 bg-[#0A1128] text-slate-300 hidden xl:flex flex-col justify-between shrink-0 border-r border-slate-800/80 select-none">
         <div className="flex flex-col h-full">
@@ -211,7 +222,7 @@ export default async function AdminLayout({
           </div>
 
           {/* Navigation Items */}
-          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-800">
+          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 [scrollbar-width:thin] [scrollbar-color:#334155_transparent]">
             {SIDEBAR_NAV.map((section, idx) => (
               <div key={idx} className="space-y-1">
                 {section.group && (
@@ -234,8 +245,8 @@ export default async function AdminLayout({
                         <span>{item.label}</span>
                       </div>
 
-                      {typeof item.count === 'number' && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>
+                      {typeof item.count === 'number' && item.count > 0 && (
+                        <span className={`text-[10px] px-2 py-0.2 rounded-full ${badgeClass}`}>
                           {item.count}
                         </span>
                       )}
@@ -249,7 +260,7 @@ export default async function AdminLayout({
           {/* Sidebar Footer */}
           <div className="p-3 border-t border-white/10 space-y-1">
             <Link
-              href="/feed"
+              href="/products"
               className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
             >
               <span className="flex items-center gap-2">
@@ -261,7 +272,7 @@ export default async function AdminLayout({
             <form action={signOut}>
               <button
                 type="submit"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" /> Sign Out
               </button>
@@ -272,28 +283,28 @@ export default async function AdminLayout({
 
       {/* Main Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between gap-4 sticky top-0 z-40">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 flex items-center justify-between gap-4 sticky top-0 z-40 transition-colors">
           <div className="flex items-center gap-3">
             <form action="/admin/products" method="GET">
               <input
                 type="text"
                 name="q"
                 placeholder="Search users, orders, hardware listings..."
-                className="w-72 sm:w-96 text-xs bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                className="w-72 sm:w-96 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3.5 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
               />
             </form>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2.5 pl-3 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+            <div className="flex items-center gap-2.5 pl-3 border-l border-slate-200 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-xs border border-slate-200 dark:border-slate-700">
                 {profile?.full_name?.[0] || 'A'}
               </div>
               <div className="text-left hidden sm:block">
-                <p className="text-xs font-bold text-slate-900 leading-tight">
+                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
                   {profile?.full_name || 'Admin'}
                 </p>
-                <p className="text-[10px] text-blue-600 font-semibold uppercase tracking-wider">
+                <p className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wider">
                   Super Admin
                 </p>
               </div>
@@ -301,7 +312,7 @@ export default async function AdminLayout({
           </div>
         </header>
 
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto">
           {children}
         </main>
       </div>
