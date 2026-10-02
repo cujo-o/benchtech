@@ -160,3 +160,35 @@ export async function resolveEscrowDispute(orderId: string, resolution: 'refund_
   revalidatePath('/admin/overview')
   return { success: true }
 }
+
+// 5. Upgrade or Downgrade Merchant Subscription Plan
+export async function updateSellerSubscription(
+  sellerId: string,
+  plan: 'free' | 'pro',
+  customCredits?: number
+) {
+  const supabase = await createClient()
+  await checkAdmin(supabase)
+  const adminClient = getAdminClient()
+
+  const defaultCredits = plan === 'pro' ? 25 : 5
+  const listingCredits = typeof customCredits === 'number' ? customCredits : defaultCredits
+
+  const { error } = await adminClient
+    .from('profiles')
+    .update({
+      seller_plan: plan,
+      subscription_tier: plan,
+      listing_credits: listingCredits,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sellerId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/techpass')
+  revalidatePath('/admin/overview')
+  revalidatePath('/seller')
+  revalidatePath('/seller/subscription')
+  return { success: true }
+}
