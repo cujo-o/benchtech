@@ -92,6 +92,11 @@ function resolveFirstImage(images: any): string | null {
   return null;
 }
 
+function cleanProductTitle(rawTitle: string): string {
+  if (!rawTitle) return "Tech Device";
+  return rawTitle.replace(/^(sponsored|promoted|ad)\s*[:-]?\s*/i, "").trim();
+}
+
 export function ProductsCatalogClient({ initialProducts }: { initialProducts: any[] }) {
   const searchParams = useSearchParams();
 
@@ -128,13 +133,11 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     setMounted(true);
   }, []);
 
-  // Synchronize state whenever URL query params change from Navbar or direct links
   useEffect(() => {
     setSelectedCategory(searchParams.get("category") || "all");
     setSearchQuery(searchParams.get("q") || "");
   }, [searchParams]);
 
-  // Lock mobile body scroll during drawer view
   useEffect(() => {
     if (drawerOpen) {
       document.body.style.overflow = "hidden";
@@ -156,16 +159,44 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
     return GENERAL_BRANDS;
   }, [selectedCategory]);
 
+  // 1. Strict Deduplication: Merge identical products into a single unique row
+  const uniqueInitialProducts = useMemo(() => {
+    const productMap = new Map<string, any>();
+
+    for (const item of initialProducts || []) {
+      if (!item?.id) continue;
+
+      if (!productMap.has(item.id)) {
+        productMap.set(item.id, {
+          ...item,
+          cleanTitle: cleanProductTitle(item.title),
+        });
+      } else {
+        const existing = productMap.get(item.id);
+        // If the current entry has sponsored attributes, prefer it over the organic entry
+        if (!existing.isSponsored && item.isSponsored) {
+          productMap.set(item.id, {
+            ...item,
+            cleanTitle: cleanProductTitle(item.title),
+          });
+        }
+      }
+    }
+
+    return Array.from(productMap.values());
+  }, [initialProducts]);
+
+  // 2. Filter & Sort
   const filteredProducts = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase();
 
-    return initialProducts
+    return uniqueInitialProducts
       .filter((item) => {
         if (selectedCategory !== "all" && item.category?.toLowerCase() !== selectedCategory.toLowerCase()) {
           return false;
         }
         if (q) {
-          const matchTitle = item.title?.toLowerCase().includes(q);
+          const matchTitle = item.cleanTitle?.toLowerCase().includes(q);
           const matchBrand = item.brand?.toLowerCase().includes(q);
           const matchDesc = item.description?.toLowerCase().includes(q);
           if (!matchTitle && !matchBrand && !matchDesc) return false;
@@ -194,21 +225,21 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
 
         if (selectedRam.length > 0) {
           const itemRam = item.specs?.ram || "";
-          const content = `${item.title} ${item.description} ${itemRam}`.toUpperCase();
+          const content = `${item.cleanTitle} ${item.description} ${itemRam}`.toUpperCase();
           if (!selectedRam.some((r) => content.includes(r.replace("+", "").toUpperCase()))) {
             return false;
           }
         }
         if (selectedStorage.length > 0) {
           const itemStorage = item.specs?.storage || "";
-          const content = `${item.title} ${item.description} ${itemStorage}`.toUpperCase();
+          const content = `${item.cleanTitle} ${item.description} ${itemStorage}`.toUpperCase();
           if (!selectedStorage.some((s) => content.includes(s.replace(" SSD", "").toUpperCase()))) {
             return false;
           }
         }
         if (selectedProcessors.length > 0) {
           const itemProc = item.specs?.processor || "";
-          const content = `${item.title} ${item.description} ${itemProc}`.toLowerCase();
+          const content = `${item.cleanTitle} ${item.description} ${itemProc}`.toLowerCase();
           if (!selectedProcessors.some((p) => content.includes(p.toLowerCase().replace("apple ", "")))) {
             return false;
           }
@@ -222,7 +253,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         return true;
       })
       .sort((a, b) => {
-        // Always surface active sponsored items first
+        // Sponsored items rank at the top
         if (a.isSponsored && !b.isSponsored) return -1;
         if (!a.isSponsored && b.isSponsored) return 1;
 
@@ -232,7 +263,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0);
       });
   }, [
-    initialProducts,
+    uniqueInitialProducts,
     selectedCategory,
     deferredSearch,
     selectedBrands,
@@ -277,7 +308,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
 
   const renderFilterBody = () => (
     <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
-      {/* Verified Dealers Only */}
       <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl">
         <label className="flex items-center gap-2.5 cursor-pointer font-bold text-emerald-950 dark:text-emerald-200 w-full">
           <input
@@ -293,7 +323,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         </label>
       </div>
 
-      {/* Price Budget */}
       <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
         <button
           type="button"
@@ -329,7 +358,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         )}
       </div>
 
-      {/* Brands */}
       <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
         <button
           type="button"
@@ -358,7 +386,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         )}
       </div>
 
-      {/* Dynamic Hardware Specs */}
       {selectedCategory === "phones" && (
         <div className="border-b border-slate-100 dark:border-slate-800 pb-3 space-y-3">
           <div>
@@ -467,7 +494,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         </div>
       )}
 
-      {/* Condition */}
       <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
         <button
           type="button"
@@ -496,7 +522,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
         )}
       </div>
 
-      {/* Abuja Hub Locations */}
       <div>
         <button
           type="button"
@@ -530,8 +555,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       <div className="p-3 sm:p-5 lg:p-6 space-y-4 max-w-[1600px] mx-auto w-full">
-        
-        {/* 1. Category Bar Pills */}
+        {/* Category Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon;
@@ -557,7 +581,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           })}
         </div>
 
-        {/* 2. Top Toolbar */}
+        {/* Top Toolbar */}
         <div className="bg-white dark:bg-slate-900 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
@@ -569,7 +593,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           </div>
 
           <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Desktop Filter Toggle Button */}
             <Button
               type="button"
               variant="outline"
@@ -596,7 +619,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
               </select>
             </div>
 
-            {/* Mobile Filter Button */}
             <Button
               type="button"
               size="sm"
@@ -614,10 +636,8 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           </div>
         </div>
 
-        {/* 3. Catalog Split Layout */}
+        {/* Catalog Split Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          
-          {/* PC Desktop Filter Sidebar */}
           {desktopFilterOpen && (
             <aside className="hidden lg:block lg:col-span-4 xl:col-span-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-2xs space-y-4 sticky top-20">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -634,49 +654,40 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                   </button>
                 )}
               </div>
-
               {renderFilterBody()}
             </aside>
           )}
 
-          {/* Product Cards Grid Area */}
           <div className={`${desktopFilterOpen ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12"} space-y-4 min-w-0 w-full`}>
-            
-            {/* Active Filters Badges */}
             {activeFilterCount > 0 && (
               <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
                 <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mr-1">
                   Active filters:
                 </span>
-
                 {verifiedOnly && (
                   <Badge className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
                     Verified Only
                     <X className="w-3 h-3 cursor-pointer hover:text-emerald-900" onClick={() => setVerifiedOnly(false)} />
                   </Badge>
                 )}
-
                 {selectedPriceRange && (
                   <Badge className="bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
                     {selectedPriceRange.label}
                     <X className="w-3 h-3 cursor-pointer hover:text-blue-900" onClick={() => setSelectedPriceRange(null)} />
                   </Badge>
                 )}
-
                 {selectedBrands.map((b) => (
                   <Badge key={b} className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
                     {b}
                     <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleItem(selectedBrands, setSelectedBrands, b)} />
                   </Badge>
                 ))}
-
                 <button type="button" onClick={clearAllFilters} className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline ml-1">
                   Reset All
                 </button>
               </div>
             )}
 
-            {/* Responsive Grid */}
             {filteredProducts.length > 0 ? (
               <div className={`grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${desktopFilterOpen ? "lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"} gap-3 sm:gap-4.5 min-w-0`}>
                 {filteredProducts.map((item) => {
@@ -731,13 +742,12 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
 
                         {/* Product Card Click Link */}
                         <Link href={`/products/${item.id}`} className="flex-1 flex flex-col min-w-0">
-                          {/* Bounded Square Aspect Container */}
                           <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800/80">
                             {firstImg ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={firstImg}
-                                alt={item.title}
+                                alt={item.cleanTitle}
                                 loading="lazy"
                                 decoding="async"
                                 className="absolute inset-0 w-full h-full object-contain p-3.5 group-hover:scale-105 transition-transform duration-300 pointer-events-none"
@@ -749,7 +759,6 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                             )}
                           </div>
 
-                          {/* Card Info Details */}
                           <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2 min-w-0">
                             <div className="space-y-1 min-w-0">
                               <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
@@ -764,8 +773,9 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
                                 )}
                               </div>
 
+                              {/* Clean Hardware Title strictly without 'Sponsored' in text */}
                               <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 leading-snug">
-                                {item.title}
+                                {item.cleanTitle}
                               </h3>
                             </div>
 
@@ -805,7 +815,7 @@ export function ProductsCatalogClient({ initialProducts }: { initialProducts: an
           </div>
         </div>
 
-        {/* 4. Slide-Out Drawer Portal (Mobile & Tablet) */}
+        {/* Slide-Out Drawer Portal (Mobile & Tablet) */}
         {drawerOpen && mounted
           ? createPortal(
               <div className="fixed inset-0 z-[9999] flex lg:hidden">
