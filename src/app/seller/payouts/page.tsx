@@ -13,6 +13,7 @@ import {
   Building2,
   Zap,
 } from 'lucide-react'
+import { EarlyPayoutModal } from './EarlyPayoutModal'
 
 export const dynamic = 'force-dynamic'
 
@@ -133,6 +134,15 @@ export default async function SellerPayoutSchedulePage() {
                     <td className="py-3.5 text-right text-slate-400 font-medium">
                       {o.protection_ends_at ? 'Post-Protection' : '—'}
                     </td>
+                    <td className="py-3.5 text-right">
+  {o.payout_status === 'on_hold' && o.delivery_status === 'verified' && !o.early_payout_claimed ? (
+    <EarlyPayoutModal order={o} />
+  ) : (
+    <span className="text-[11px] text-slate-400 font-medium">
+      {o.early_payout_claimed ? 'Early Claimed' : o.protection_ends_at ? 'Post-Protection' : '—'}
+    </span>
+  )}
+</td>
                   </tr>
                 ))
               ) : (
@@ -140,8 +150,10 @@ export default async function SellerPayoutSchedulePage() {
                   <td colSpan={6} className="py-12 text-center text-slate-400">
                     No orders recorded for settlement yet.
                   </td>
+                  
                 </tr>
               )}
+              
             </tbody>
           </table>
         </div>

@@ -1,7 +1,7 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import { signOut } from '@/app/(auth)/actions'
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { signOut } from "@/app/(auth)/actions";
 import {
   LayoutDashboard,
   Users,
@@ -21,47 +21,51 @@ import {
   Megaphone,
   CreditCard,
   type LucideIcon,
-} from 'lucide-react'
+} from "lucide-react";
 
 interface NavItem {
-  label: string
-  href: string
-  icon: LucideIcon
-  count?: number
-  danger?: boolean
-  highlight?: boolean
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  count?: number;
+  danger?: boolean;
+  highlight?: boolean;
 }
 
 interface NavSection {
-  group: string | null
-  items: NavItem[]
+  group: string | null;
+  items: NavItem[];
 }
 
 export default async function AdminLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const supabase = await createClient()
+  const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login?next=/admin/overview')
+    redirect("/login?next=/admin/overview");
   }
 
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, is_admin, roles, full_name')
-    .eq('id', user.id)
-    .single()
+    .from("profiles")
+    .select("role, is_admin, roles, full_name")
+    .eq("id", user.id)
+    .single();
 
-  const userRoles: string[] = profile?.roles || (profile?.role ? [profile.role] : [])
-  const isAdmin = profile?.is_admin === true || profile?.role === 'admin' || userRoles.includes('admin')
+  const userRoles: string[] =
+    profile?.roles || (profile?.role ? [profile.role] : []);
+  const isAdmin =
+    profile?.is_admin === true ||
+    profile?.role === "admin" ||
+    userRoles.includes("admin");
 
   if (!isAdmin) {
-    redirect('/feed')
+    redirect("/feed");
   }
 
   // Fetch real-time count badges in parallel
@@ -74,85 +78,103 @@ export default async function AdminLayout({
     { count: activeDisputesCount },
     { count: reportedListingsCount },
   ] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'buyer'),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }).or('role.eq.seller,seller_plan.eq.pro'),
-    supabase.from('products').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('tech_trust_status', 'pending'),
-    supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'disputed'),
-    supabase.from('product_reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-  ])
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "buyer"),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .or("role.eq.seller,seller_plan.eq.pro"),
+    supabase.from("products").select("*", { count: "exact", head: true }),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("tech_trust_status", "pending"),
+    supabase
+      .from("payout_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "disputed"),
+    supabase
+      .from("product_reports")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending"),
+  ]);
 
   const SIDEBAR_NAV: NavSection[] = [
     {
       group: null,
       items: [
-        { label: 'Overview', href: '/admin/overview', icon: LayoutDashboard },
+        { label: "Overview", href: "/admin/overview", icon: LayoutDashboard },
       ],
     },
     {
-      group: 'FINANCIALS & ESCROW',
+      group: "FINANCIALS & ESCROW",
       items: [
         {
-          label: 'Bank Payouts',
-          href: '/admin/payouts',
+          label: "Bank Payouts",
+          href: "/admin/payouts",
           icon: Building2,
           count: pendingPayoutsCount ?? 0,
           highlight: (pendingPayoutsCount ?? 0) > 0,
         },
         {
-          label: 'Escrow Disputes',
-          href: '/admin/disputes',
+          label: "Escrow Disputes",
+          href: "/admin/disputes",
           icon: ShieldAlert,
           count: activeDisputesCount ?? 0,
           danger: (activeDisputesCount ?? 0) > 0,
         },
         {
-          label: 'Ad Engine & Rates',
-          href: '/admin/advertising',
+          label: "Ad Engine & Rates",
+          href: "/admin/advertising",
           icon: Megaphone,
         },
       ],
     },
     {
-      group: 'USERS',
+      group: "USERS",
       items: [
         {
-          label: 'Buyers',
-          href: '/admin/users?role=buyer',
+          label: "Buyers",
+          href: "/admin/users?role=buyer",
           icon: Users,
           count: buyersCount ?? 0,
         },
         {
-          label: 'Sellers',
-          href: '/admin/users?role=seller',
+          label: "Sellers",
+          href: "/admin/users?role=seller",
           icon: Store,
           count: sellersCount ?? 0,
         },
         {
-          label: 'Admins',
-          href: '/admin/users?role=admin',
+          label: "Admins",
+          href: "/admin/users?role=admin",
           icon: ShieldCheck,
         },
       ],
     },
     {
-      group: 'MARKETPLACE',
+      group: "MARKETPLACE",
       items: [
         {
-          label: 'All Products',
-          href: '/admin/products',
+          label: "All Products",
+          href: "/admin/products",
           icon: Package,
           count: productsCount ?? 0,
         },
         {
-          label: 'Pending Approval',
-          href: '/admin/products?status=hidden',
+          label: "Pending Approval",
+          href: "/admin/products?status=hidden",
           icon: Clock,
         },
         {
-          label: 'Reported Listings',
-          href: '/admin/reports',
+          label: "Reported Listings",
+          href: "/admin/reports",
           icon: AlertOctagon,
           count: reportedListingsCount ?? 0,
           danger: (reportedListingsCount ?? 0) > 0,
@@ -160,43 +182,72 @@ export default async function AdminLayout({
       ],
     },
     {
-      group: 'SELLER MANAGEMENT',
+      group: "SELLER MANAGEMENT",
       items: [
         {
-          label: 'Verifications',
-          href: '/admin/verifications',
+          label: "Verifications",
+          href: "/admin/verifications",
           icon: ShieldCheck,
           count: pendingVerificationsCount ?? 0,
           highlight: (pendingVerificationsCount ?? 0) > 0,
         },
         {
-          label: 'Subscriptions',
-          href: '/admin/techpass',
+          label: "Subscriptions",
+          href: "/admin/techpass",
           icon: Crown,
         },
       ],
     },
     {
-      group: 'SUPPORT & TRUST',
+      group: "SUPPORT & TRUST",
       items: [
         {
-          label: 'Support Tickets',
-          href: '/admin/support',
+          label: "Support Tickets",
+          href: "/admin/support",
           icon: Headphones,
         },
         {
-          label: 'Platform Settings',
-          href: '/admin/settings',
+          label: "Platform Settings",
+          href: "/admin/settings",
           icon: Settings,
         },
       ],
     },
-  ]
+    {
+      group: "FINANCIALS & ESCROW",
+      items: [
+        {
+          label: "Bank Payouts",
+          href: "/admin/payouts",
+          icon: Building2,
+          count: pendingPayoutsCount ?? 0,
+          highlight: (pendingPayoutsCount ?? 0) > 0,
+        },
+        {
+          label: "Escrow Disputes",
+          href: "/admin/disputes",
+          icon: ShieldAlert,
+          count: activeDisputesCount ?? 0,
+          danger: (activeDisputesCount ?? 0) > 0,
+        },
+        {
+          label: "Support Operations",
+          href: "/admin/support-desk",
+          icon: Headphones,
+        },
+        {
+          label: "Ad Engine & Rates",
+          href: "/admin/advertising",
+          icon: Megaphone,
+        },
+      ],
+    },
+  ];
 
   function getBadgeClass(item: NavItem) {
-    if (item.danger) return 'bg-rose-500 text-white font-bold'
-    if (item.highlight) return 'bg-amber-400 text-slate-950 font-black'
-    return 'bg-white/10 text-slate-300'
+    if (item.danger) return "bg-rose-500 text-white font-bold";
+    if (item.highlight) return "bg-amber-400 text-slate-950 font-black";
+    return "bg-white/10 text-slate-300";
   }
 
   return (
@@ -231,8 +282,8 @@ export default async function AdminLayout({
                   </p>
                 )}
                 {section.items.map((item) => {
-                  const Icon = item.icon
-                  const badgeClass = getBadgeClass(item)
+                  const Icon = item.icon;
+                  const badgeClass = getBadgeClass(item);
 
                   return (
                     <Link
@@ -245,13 +296,15 @@ export default async function AdminLayout({
                         <span>{item.label}</span>
                       </div>
 
-                      {typeof item.count === 'number' && item.count > 0 && (
-                        <span className={`text-[10px] px-2 py-0.2 rounded-full ${badgeClass}`}>
+                      {typeof item.count === "number" && item.count > 0 && (
+                        <span
+                          className={`text-[10px] px-2 py-0.2 rounded-full ${badgeClass}`}
+                        >
                           {item.count}
                         </span>
                       )}
                     </Link>
-                  )
+                  );
                 })}
               </div>
             ))}
@@ -298,11 +351,11 @@ export default async function AdminLayout({
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2.5 pl-3 border-l border-slate-200 dark:border-slate-800">
               <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-xs border border-slate-200 dark:border-slate-700">
-                {profile?.full_name?.[0] || 'A'}
+                {profile?.full_name?.[0] || "A"}
               </div>
               <div className="text-left hidden sm:block">
                 <p className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                  {profile?.full_name || 'Admin'}
+                  {profile?.full_name || "Admin"}
                 </p>
                 <p className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wider">
                   Super Admin
@@ -312,10 +365,8 @@ export default async function AdminLayout({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
-  )
+  );
 }

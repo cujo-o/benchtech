@@ -13,7 +13,9 @@ function getAdminClient() {
 }
 
 async function checkAdmin(supabase: any) {
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
   const { data: profile } = await supabase
@@ -30,17 +32,20 @@ async function checkAdmin(supabase: any) {
 }
 
 // 1. Seller Trust Status
-export async function setSellerTrustStatus(sellerId: string, status: 'verified' | 'rejected' | 'unverified') {
+export async function setSellerTrustStatus(
+  sellerId: string,
+  status: 'verified' | 'rejected' | 'unverified'
+) {
   const supabase = await createClient()
   await checkAdmin(supabase)
 
   const adminClient = getAdminClient()
   const { error } = await adminClient
     .from('profiles')
-    .update({ 
+    .update({
       tech_trust_status: status,
       verified_at: status === 'verified' ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
     .eq('id', sellerId)
 
@@ -72,7 +77,11 @@ export async function toggleProductStatus(productId: string, newStatus: 'publish
 }
 
 // 3. Process or Decline Seller Bank Payout
-export async function updatePayoutStatus(payoutId: string, status: 'processed' | 'declined', reason?: string) {
+export async function updatePayoutStatus(
+  payoutId: string,
+  status: 'processed' | 'declined',
+  reason?: string
+) {
   const supabase = await createClient()
   await checkAdmin(supabase)
 
@@ -103,10 +112,10 @@ export async function updatePayoutStatus(payoutId: string, status: 'processed' |
 
   const { error } = await adminClient
     .from('payout_requests')
-    .update({ 
+    .update({
       status,
       admin_notes: reason || null,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
     .eq('id', payoutId)
 
@@ -118,12 +127,17 @@ export async function updatePayoutStatus(payoutId: string, status: 'processed' |
 }
 
 // 4. Resolve Escrow Dispute (Refund Buyer or Release to Seller)
-export async function resolveEscrowDispute(orderId: string, resolution: 'refund_buyer' | 'release_seller', notes?: string) {
+export async function resolveEscrowDispute(
+  orderId: string,
+  resolution: 'refund_buyer' | 'release_seller',
+  notes?: string
+) {
   const supabase = await createClient()
   await checkAdmin(supabase)
 
   const adminClient = getAdminClient()
-  const newStatus = resolution === 'refund_buyer' ? 'refunded' : 'completed'
+  const newOrderStatus = resolution === 'refund_buyer' ? 'refunded' : 'completed'
+  const newDisputeStatus = 'resolved'
 
   const { data: order } = await adminClient
     .from('orders')
@@ -133,31 +147,102 @@ export async function resolveEscrowDispute(orderId: string, resolution: 'refund_
 
   if (!order) return { success: false, error: 'Order not found' }
 
-  // If released to seller, add net payout to seller's available_payout
+  // A. If released to seller: transfer net payout into seller available balance
   if (resolution === 'release_seller') {
-    const netPayout = Number(order.seller_payout || (order.amount * 0.93))
+    const netPayout = Number(order.seller_payout || order.amount * 0.93)
     const currentAvailable = Number(order.profiles?.available_payout || 0)
 
     await adminClient
       .from('profiles')
       .update({ available_payout: currentAvailable + netPayout })
       .eq('id', order.seller_id)
+
+    await adminClient
+      .from('orders')
+      .update({
+        order_status: 'completed',
+        payout_status: 'eligible',
+        dispute_status: newDisputeStatus,
+        dispute_resolution: resolution,
+        dispute_notes: notes || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
   }
 
-  const { error } = await adminClient
-    .from('orders')
-    .update({
-      status: newStatus,
-      dispute_resolution: resolution,
-      dispute_notes: notes || null,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', orderId)
+  // B. If refund approved: write to refunds pipeline and post compensating ledger entries
+  if (resolution === 'refund_buyer') {
+    const refundNumber = `RF-${Math.floor(1000 + Math.random() * 9000)}`
+    const refundAmount = Number(order.total_amount || order.amount)
 
-  if (error) return { success: false, error: error.message }
+    // Log to refunds pipeline
+    await adminClient.from('refunds').insert({
+      refund_number: refundNumber,
+      order_id: order.id,
+      buyer_id: order.buyer_id,
+      seller_id: order.seller_id,
+      amount: refundAmount,
+      reason: notes || 'Failed device physical inspection',
+      status: 'approved',
+      approved_at: new Date().toISOString(),
+    })
+
+    // Update order status
+    await adminClient
+      .from('orders')
+      .update({
+        order_status: 'refunded',
+        refund_status: 'approved',
+        payout_status: 'cancelled',
+        dispute_status: newDisputeStatus,
+        dispute_resolution: resolution,
+        dispute_notes: notes || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
+
+    // Post compensating ledger journal entries
+    await adminClient.from('financial_ledger').insert([
+      {
+        order_id: order.id,
+        buyer_id: order.buyer_id,
+        seller_id: order.seller_id,
+        transaction_type: 'refund_buyer',
+        account: 'escrow_holding',
+        entry_type: 'credit',
+        amount: refundAmount,
+        idempotency_key: `refund_escrow_credit_${order.id}_${Date.now()}`,
+        reference: refundNumber,
+      },
+      {
+        order_id: order.id,
+        buyer_id: order.buyer_id,
+        seller_id: order.seller_id,
+        transaction_type: 'refund_buyer',
+        account: 'buyer_refund_pool',
+        entry_type: 'debit',
+        amount: refundAmount,
+        idempotency_key: `refund_buyer_pool_debit_${order.id}_${Date.now()}`,
+        reference: refundNumber,
+      },
+    ])
+  }
+
+  // Update dispute record
+  await adminClient
+    .from('disputes')
+    .update({
+      status: 'resolved',
+      resolution: resolution === 'refund_buyer' ? 'refund_buyer_full' : 'release_seller',
+      resolution_notes: notes || null,
+      resolved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('order_id', orderId)
 
   revalidatePath('/admin/disputes')
   revalidatePath('/admin/overview')
+  revalidatePath(`/orders/${orderId}`)
   return { success: true }
 }
 
