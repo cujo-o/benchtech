@@ -29,6 +29,7 @@ import {
   ExternalLink,
   ChevronLeft,
   ChevronRight,
+  CalendarClock,
 } from 'lucide-react'
 import { signOut } from '@/app/(auth)/actions'
 import { Button } from '@/components/ui/button'
@@ -125,6 +126,13 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
       badgeColor: 'bg-blue-600 text-white',
     },
     { label: 'Payouts & Wallet', href: '/seller/wallet', icon: Wallet },
+    {
+      label: 'Payout Schedule',
+      href: '/seller/payouts',
+      icon: CalendarClock,
+      badge: 'Runs',
+      badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+    },
   ]
 
   const PRO_NAV = [
@@ -183,7 +191,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-3 py-3 space-y-4 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-3 py-3 space-y-4 [scrollbar-width:thin] [scrollbar-color:#94a3b8_transparent] dark:[scrollbar-color:#475569_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
         <div className="space-y-0.5">
           {!isCollapsed && (
             <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1">
