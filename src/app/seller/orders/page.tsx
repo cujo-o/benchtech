@@ -1,172 +1,452 @@
-import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { OrderStatusTracker } from '@/components/orders/OrderStatusTracker'
-import { updateOrderStatus, OrderStatus } from '@/app/actions/orders'
+import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
-import { MapPin, User, Calendar, Check, Truck, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { EarlyPayoutModal } from '@/app/seller/payouts/EarlyPayoutModal'
+import {
+  Package,
+  Clock,
+  Truck,
+  CheckCircle2,
+  ShieldCheck,
+  ShieldAlert,
+  ArrowRight,
+  MapPin,
+  User,
+  Phone,
+  ExternalLink,
+  Store,
+  Wallet,
+  ShoppingBag,
+  Zap,
+} from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Order Requests | BenchTech Seller',
+  title: 'Merchant Orders & Escrow | BenchTech Seller',
 }
 
-export default async function SellerOrdersPage() {
-  const supabase = await createClient()
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createAdminClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
 
+function resolveFirstImage(images: any): string | null {
+  if (!images) return null
+  if (Array.isArray(images)) return images[0] || null
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images)
+      if (Array.isArray(parsed)) return parsed[0] || null
+    } catch {
+      return images.startsWith('http') ? images : null
+    }
+  }
+  return null
+}
+
+export default async function SellerOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const params = await searchParams
+  const activeTab = params?.tab || 'all'
+
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login?next=/seller/orders')
+  if (!user) redirect('/login?next=/seller/orders')
+
+  // Parallel fetch: Verified paid orders and offline buying inquiries
+  const [{ data: paidOrders }, { data: inquiries }] = await Promise.all([
+    supabase
+      .from('orders')
+      .select(`
+        *,
+        product:products(*),
+        buyer:profiles!orders_buyer_id_fkey(full_name, phone, district),
+        dispute:disputes(id, case_number, status)
+      `)
+      .eq('seller_id', user.id)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('buying_requests')
+      .select(`
+        *,
+        products(id, title, price, images),
+        profiles!buying_requests_buyer_id_fkey(full_name, phone)
+      `)
+      .eq('seller_id', user.id)
+      .order('created_at', { ascending: false }),
+  ])
+
+  const allOrders = paidOrders || []
+  const allInquiries = inquiries || []
+
+  // Metrics
+  const pendingDispatchCount = allOrders.filter(
+    (o) => o.delivery_status !== 'verified' && o.order_status !== 'cancelled' && o.order_status !== 'refunded'
+  ).length
+
+  const escrowBalanceHeld = allOrders
+    .filter((o) => o.payout_status === 'on_hold')
+    .reduce((acc, curr) => acc + Number(curr.seller_payout || 0), 0)
+
+  // Server Action: Mark Order Dispatched
+  async function markDispatched(orderId: string) {
+    'use server'
+    const adminClient = getAdminClient()
+    await adminClient
+      .from('orders')
+      .update({
+        order_status: 'dispatched',
+        delivery_status: 'dispatched',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
+
+    revalidatePath('/seller/orders')
+    revalidatePath('/seller/payouts')
+    revalidatePath(`/orders/${orderId}`)
   }
 
-  // Fetch incoming buying requests with product and buyer details
-  const { data: requests } = await supabase
-    .from('buying_requests')
-    .select(`
-      *,
-      products (id, title, price, images),
-      profiles!buying_requests_buyer_id_fkey (full_name, phone)
-    `)
-    .eq('seller_id', user.id)
-    .order('created_at', { ascending: false })
+  // Filter orders according to active tab
+  const filteredOrders = allOrders.filter((o) => {
+    if (activeTab === 'to_dispatch') {
+      return o.delivery_status === 'not_delivered' || o.order_status === 'paid'
+    }
+    if (activeTab === 'in_protection') {
+      return o.delivery_status === 'verified' && o.order_status !== 'completed' && o.dispute_status === 'none'
+    }
+    if (activeTab === 'disputes') {
+      return o.dispute_status && o.dispute_status !== 'none'
+    }
+    if (activeTab === 'completed') {
+      return o.order_status === 'completed'
+    }
+    return true
+  })
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-          Orders & Buying Requests
-        </h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Coordinate gadget availability, pickup inspection, and delivery fulfillment with buyers in Abuja.
-        </p>
-      </div>
-
-      {!requests || requests.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-2">
-          <p className="text-sm font-bold text-slate-800">No buying requests yet.</p>
-          <p className="text-xs text-slate-400">
-            Incoming purchase expressions for your published items will appear here.
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 text-slate-900 dark:text-slate-100">
+      {/* 1. Header & Quick Escrow Telemetry */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">Orders &amp; Escrow</h1>
+            <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-bold">
+              Merchant Fulfilment
+            </Badge>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Fulfil paid orders, coordinate Abuja meetups, track buyer inspection protection, and manage payouts.
           </p>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {requests.map((order: any) => (
-            <div
-              key={order.id}
-              className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-6"
+
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-2xl text-left">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">Pending Dispatch</span>
+            <span className="text-sm font-black text-blue-600 dark:text-blue-400">{pendingDispatchCount} Orders</span>
+          </div>
+
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-2xl text-left">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">Escrow Float Held</span>
+            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">₦{escrowBalanceHeld.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Navigation Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+        {[
+          { id: 'all', label: `Paid Orders (${allOrders.length})` },
+          { id: 'to_dispatch', label: `To Dispatch (${pendingDispatchCount})` },
+          { id: 'in_protection', label: 'In 7-Day Protection' },
+          { id: 'disputes', label: 'Disputed' },
+          { id: 'completed', label: 'Completed' },
+          { id: 'inquiries', label: `Offline Inquiries (${allInquiries.length})` },
+        ].map((tab) => (
+          <Link key={tab.id} href={`/seller/orders?tab=${tab.id}`}>
+            <button
+              type="button"
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                activeTab === tab.id
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
             >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-slate-100 rounded-2xl overflow-hidden shrink-0">
-                    {order.products?.images?.[0] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={order.products.images[0]}
-                        alt={order.products.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400 font-bold">
-                        Gadget
-                      </div>
-                    )}
+              {tab.label}
+            </button>
+          </Link>
+        ))}
+      </div>
+
+      {/* 3. Tab: Offline Inquiries (Legacy Requests) */}
+      {activeTab === 'inquiries' ? (
+        <div className="space-y-4">
+          {allInquiries.length > 0 ? (
+            allInquiries.map((req: any) => (
+              <div
+                key={req.id}
+                className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xs space-y-4"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400">Offline Request</span>
+                    <Badge variant="outline" className="text-[10px] capitalize">
+                      {req.status?.replace('_', ' ')}
+                    </Badge>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900">{order.products?.title}</h3>
-                    <p className="text-xs font-black text-blue-600 mt-0.5">
-                      ₦{Number(order.agreed_price).toLocaleString()}
+                  <span className="text-xs text-slate-400">
+                    {new Date(req.created_at).toLocaleDateString('en-NG')}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h3 className="font-bold text-sm">{req.products?.title || 'Gadget'}</h3>
+                    <p className="text-xs font-black text-blue-600 dark:text-blue-400">
+                      Agreed: ₦{Number(req.agreed_price).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Buyer: {req.profiles?.full_name || 'Buyer'} • Area: {req.delivery_area || 'Abuja'}
                     </p>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-4 text-xs text-slate-500">
-                  <div className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{order.profiles?.full_name || 'Buyer'}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{order.delivery_area || 'Abuja'}</span>
-                  </div>
+                  <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {req.delivery_method}
+                  </Badge>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center text-slate-400 text-xs">
+              No offline buyer expressions submitted.
+            </div>
+          )}
+        </div>
+      ) : (
+        /* 4. Tab: Verified Paid Orders */
+        <div className="space-y-4">
+          {filteredOrders.length > 0 ? (
+            filteredOrders.map((order) => {
+              const firstImg = resolveFirstImage(order.product?.images)
+              const cleanPhone = order.buyer?.phone
+                ? order.buyer.phone.replace(/[^0-9]/g, '').replace(/^0/, '234')
+                : null
 
-              {/* Status Stepper */}
-              <OrderStatusTracker currentStatus={order.status} />
+              const isDelivered = order.delivery_status === 'verified' || order.order_status === 'delivered'
+              const isDispatched = order.delivery_status === 'dispatched' || isDelivered
 
-              {/* Action Controls for Seller */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <span className="text-xs text-slate-400 font-medium capitalize">
-                  Fulfillment: {order.delivery_method.replace('_', ' ')}
-                </span>
+              // Protection countdown
+              let daysLeft = 0
+              if (order.protection_ends_at) {
+                const diff = new Date(order.protection_ends_at).getTime() - Date.now()
+                if (diff > 0) daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24))
+              }
 
-                <div className="flex items-center gap-2">
-                  {order.status === 'new_request' && (
-                    <form
-                      action={async () => {
-                        'use server'
-                        await updateOrderStatus(order.id, 'confirmed')
-                      }}
-                    >
-                      <Button size="sm" className="h-9 rounded-xl bg-blue-600 text-xs font-bold gap-1.5">
-                        <Check className="w-3.5 h-3.5" /> Confirm Availability
-                      </Button>
-                    </form>
-                  )}
+              const dispute = Array.isArray(order.dispute) ? order.dispute[0] : order.dispute
 
-                  {order.status === 'confirmed' && (
-                    <form
-                      action={async () => {
-                        'use server'
-                        await updateOrderStatus(
-                          order.id,
-                          order.delivery_method === 'pickup' ? 'ready_for_pickup' : 'dispatched'
-                        )
-                      }}
-                    >
-                      <Button size="sm" className="h-9 rounded-xl bg-indigo-600 text-xs font-bold gap-1.5">
-                        <Truck className="w-3.5 h-3.5" />
-                        {order.delivery_method === 'pickup'
-                          ? 'Mark Ready for Pickup'
-                          : 'Mark Dispatched'}
-                      </Button>
-                    </form>
-                  )}
+              return (
+                <div
+                  key={order.id}
+                  className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xs space-y-5 hover:border-slate-300 dark:hover:border-slate-700 transition"
+                >
+                  {/* Top Bar: Order Identifier & Status Badges */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-xs sm:text-sm text-slate-900 dark:text-slate-100">
+                        {order.order_number || order.payment_reference || order.id.slice(0, 10)}
+                      </span>
+                      <span className="text-slate-400 text-xs">•</span>
+                      <span className="text-xs text-slate-400">
+                        {new Date(order.created_at).toLocaleDateString('en-NG', { dateStyle: 'medium' })}
+                      </span>
+                    </div>
 
-                  {(order.status === 'ready_for_pickup' || order.status === 'dispatched') && (
-                    <form
-                      action={async () => {
-                        'use server'
-                        await updateOrderStatus(order.id, 'completed')
-                      }}
-                    >
-                      <Button size="sm" className="h-9 rounded-xl bg-emerald-600 text-xs font-bold gap-1.5">
-                        <Check className="w-3.5 h-3.5" /> Complete Order
-                      </Button>
-                    </form>
-                  )}
+                    <div className="flex items-center gap-2">
+                      {/* Protection Badge */}
+                      {daysLeft > 0 && order.dispute_status === 'none' && (
+                        <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 text-[10px] font-black">
+                          <ShieldCheck className="w-3 h-3 mr-1" /> {daysLeft} Days Protection Remaining
+                        </Badge>
+                      )}
 
-                  {order.status !== 'completed' && order.status !== 'cancelled' && (
-                    <form
-                      action={async () => {
-                        'use server'
-                        await updateOrderStatus(order.id, 'cancelled')
-                      }}
-                    >
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-9 rounded-xl text-xs text-red-600 hover:bg-red-50 font-bold"
+                      {/* Dispute Badge */}
+                      {order.dispute_status && order.dispute_status !== 'none' && (
+                        <Badge className="bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300 border border-red-200 text-[10px] font-bold">
+                          <ShieldAlert className="w-3 h-3 mr-1" /> Disputed
+                        </Badge>
+                      )}
+
+                      {/* Fulfillment Badge */}
+                      <Badge
+                        className={`text-[10px] font-bold capitalize ${
+                          isDelivered
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                            : isDispatched
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                        }`}
                       >
-                        Cancel
-                      </Button>
-                    </form>
-                  )}
+                        {isDelivered ? 'Delivered' : isDispatched ? 'Dispatched' : 'Awaiting Dispatch'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Middle Section: Device, Buyer & Financial Ledger Strip */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                    {/* Device Thumbnail & Name (5 cols) */}
+                    <div className="md:col-span-5 flex items-center gap-3.5 min-w-0">
+                      <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+                        {firstImg ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={firstImg}
+                            alt={order.product?.title || 'Gadget'}
+                            className="w-full h-full object-contain p-1"
+                          />
+                        ) : (
+                          <Package className="w-6 h-6 text-slate-400" />
+                        )}
+                      </div>
+
+                      <div className="min-w-0 space-y-0.5">
+                        <h3 className="font-bold text-xs sm:text-sm truncate">
+                          {order.product?.title || 'Hardware Device'}
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          {order.product?.condition?.replace('_', ' ') || 'Refurbished'} • {order.delivery_method || 'Pickup'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Buyer Contact Details (4 cols) */}
+                    <div className="md:col-span-4 space-y-1 text-xs text-slate-500 dark:text-slate-400 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 md:pl-4">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                        <User className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{order.buyer?.full_name || 'Abuja Tech Buyer'}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        <MapPin className="w-3 h-3 text-slate-400" />
+                        <span>{order.delivery_area || order.buyer?.district || 'Abuja'}</span>
+                      </div>
+                      {cleanPhone && (
+                        <a
+                          href={`https://wa.me/${cleanPhone}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] hover:underline pt-0.5"
+                        >
+                          <Phone className="w-3 h-3" /> WhatsApp Buyer
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Payout Financial Summary (3 cols) */}
+                    <div className="md:col-span-3 text-left md:text-right border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 md:pl-4 space-y-0.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Net Payout to You</span>
+                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                        ₦{Number(order.seller_payout || 0).toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        Gross: ₦{Number(order.total_amount || order.amount).toLocaleString()} (-₦{Number((order.marketplace_fee || 0) + (order.ad_fee || 0)).toLocaleString()} fee)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Bottom Action Strip: Fulfilment Dispatch & Early Payouts */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-xs text-slate-400 flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5" />
+                      <span>
+                        Status:{' '}
+                        <strong className="text-slate-700 dark:text-slate-300 capitalize">
+                          {order.delivery_status?.replace('_', ' ')}
+                        </strong>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* 1. If not yet dispatched, show Dispatch action */}
+                      {!isDispatched && (
+                        <form action={markDispatched.bind(null, order.id)}>
+                          <Button
+                            size="sm"
+                            type="submit"
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-9 px-3.5 gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>Mark Dispatched / Ready</span>
+                          </Button>
+                        </form>
+                      )}
+
+                      {/* 2. If delivery verified & in protection, offer Early Payout Modal */}
+                      {isDelivered && (
+                        <EarlyPayoutModal
+                          order={{
+                            id: order.id,
+                            order_number: order.order_number,
+                            seller_payout: Number(order.seller_payout || 0),
+                            delivery_status: order.delivery_status,
+                            dispute_status: order.dispute_status,
+                            early_payout_claimed: order.early_payout_claimed,
+                          }}
+                        />
+                      )}
+
+                      {/* 3. If disputed, link directly to arbitration case thread */}
+                      {dispute && (
+                        <Link href={`/disputes/${dispute.id}`}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-bold rounded-xl h-9 px-3"
+                          >
+                            Respond to Dispute
+                          </Button>
+                        </Link>
+                      )}
+
+                      <Link href={`/orders/${order.id}`} target="_blank">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs font-bold rounded-xl h-9 px-2 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
                 </div>
+              )
+            })
+          ) : (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                <Package className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  No orders found in this view
+                </p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  When customers purchase your published gadgets in Abuja, paid escrow orders will appear here for dispatch and settlement.
+                </p>
               </div>
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>
