@@ -6,6 +6,8 @@ import {
   GeneratedBuild,
   BuildComponent,
   ProductItem,
+  SetupCategoryKey,
+  BenchmarkEstimate,
 } from './types'
 
 function getAdminClient() {
@@ -43,7 +45,7 @@ export async function generateCompleteSetup(
       console.error('Error fetching inventory in generateCompleteSetup:', dbError)
     }
 
-    const catalog: ProductItem[] = rawProducts || []
+    const catalog: ProductItem[] = (rawProducts as any) || []
     const budget = Math.max(100000, Number(survey.budget) || 750000)
 
     // Build slot templates based on the selected category
@@ -86,6 +88,15 @@ Respond ONLY with valid JSON:
   ]
 }`
 
+        let timeoutSignal: any = undefined
+        try {
+          if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+            timeoutSignal = (AbortSignal as any).timeout(8500)
+          }
+        } catch {
+          // Fallback if environment doesn't support timeout
+        }
+
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
           {
@@ -95,7 +106,7 @@ Respond ONLY with valid JSON:
               contents: [{ parts: [{ text: prompt }] }],
               generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
             }),
-            signal: AbortSignal.timeout(8500),
+            signal: timeoutSignal,
           }
         )
 
@@ -174,7 +185,7 @@ Respond ONLY with valid JSON:
         `Balanced across hardware capabilities, thermal reliability, and Abuja power resilience within your ₦${budget.toLocaleString()} allocation.`,
     }
 
-    // Generate Option 1 (Max Performance: +15-20% budget) and Option 3 (Budget Friendly: -15-20% budget)
+    // Generate Option 1 (Max Performance: +18%) and Option 3 (Budget Friendly: -18%)
     const maxPerformance = generateVariantBuild(recommendedBuild, 1.18, 'Maximum Performance Rig', 'max')
     const budgetFriendly = generateVariantBuild(recommendedBuild, 0.82, 'Budget-Friendly Setup', 'budget')
 
@@ -226,6 +237,15 @@ User Question: "${userQuestion}"
 
 Provide a concise, expert, friendly answer in 2-3 sentences. Reference specific parts from the user's build. If asked about upgrading, gaming (e.g. GTA 6), or alternatives, explain clearly.`
 
+        let timeoutSignal: any = undefined
+        try {
+          if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+            timeoutSignal = (AbortSignal as any).timeout(6000)
+          }
+        } catch {
+          // Fallback
+        }
+
         const res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
           {
@@ -235,7 +255,7 @@ Provide a concise, expert, friendly answer in 2-3 sentences. Reference specific 
               contents: [{ parts: [{ text: prompt }] }],
               generationConfig: { temperature: 0.3 },
             }),
-            signal: AbortSignal.timeout(6000),
+            signal: timeoutSignal,
           }
         )
 
@@ -249,7 +269,6 @@ Provide a concise, expert, friendly answer in 2-3 sentences. Reference specific 
       }
     }
 
-    // Heuristic contextual response
     const q = userQuestion.toLowerCase()
     if (q.includes('gta') || q.includes('game') || q.includes('fps')) {
       return {
@@ -282,7 +301,7 @@ Provide a concise, expert, friendly answer in 2-3 sentences. Reference specific 
   }
 }
 
-// Helper: Category-aware Slot Configurations
+// Helpers
 function getSlotConfigsForCategory(category: SetupCategoryKey) {
   switch (category) {
     case 'gaming':

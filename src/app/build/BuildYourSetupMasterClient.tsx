@@ -24,7 +24,6 @@ import {
   Code2,
   Cpu,
   Radio,
-  Sliders,
   Sparkles,
   ArrowRight,
   ArrowLeft,
@@ -279,7 +278,7 @@ export function BuildYourSetupMasterClient({
       case 'Code2': return <Code2 className="w-5 h-5" />
       case 'Cpu': return <Cpu className="w-5 h-5" />
       case 'Radio': return <Radio className="w-5 h-5" />
-      default: return <Sliders className="w-5 h-5" />
+      default: return <SlidersHorizontal className="w-5 h-5" />
     }
   }
 
