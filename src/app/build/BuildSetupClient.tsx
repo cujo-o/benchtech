@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AIBuildAssistantModal } from "./AIBuildAssistantModal";
 import {
   Laptop,
   Monitor,
@@ -27,6 +28,7 @@ import {
   ArrowRight,
   Package,
   X,
+  Bot,
 } from "lucide-react";
 
 interface Product {
@@ -185,13 +187,45 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
     power: null,
   });
 
+  const [aiRationale, setAiRationale] = useState<{ title: string; text: string } | null>(null);
   const [pickingSlotKey, setPickingSlotKey] = useState<string | null>(null);
   const [addedBundle, setAddedBundle] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Auto-seed setup based on chosen archetype & budget when archetype changes
+  // Apply AI Recommended Setup from Modal
+  const handleApplyAIRecommendation = (result: {
+    archetypeTitle: string;
+    rationale: string;
+    allocatedBudget: number;
+    selections: Record<string, string | null>;
+  }) => {
+    setTargetBudget(result.allocatedBudget);
+    setAiRationale({
+      title: result.archetypeTitle,
+      text: result.rationale,
+    });
+
+    const newSelections: Record<string, Product | null> = {
+      machine: null,
+      display: null,
+      peripherals: null,
+      power: null,
+    };
+
+    SETUP_SLOTS.forEach((slot) => {
+      const selectedId = result.selections[slot.key];
+      if (selectedId) {
+        const found = initialProducts.find((p) => p.id === selectedId);
+        newSelections[slot.key] = found || null;
+      }
+    });
+
+    setSelectedItems(newSelections);
+  };
+
   const autoAssignArchetype = (archetypeId: string) => {
     setActiveArchetype(archetypeId);
+    setAiRationale(null);
     const arch = PRESET_ARCHETYPES.find((a) => a.id === archetypeId)!;
     setTargetBudget(arch.recommendedBudget);
 
@@ -214,7 +248,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
     setSelectedItems(newSelections);
   };
 
-  // Lazy seed first slot on mount if empty
   useMemo(() => {
     if (!selectedItems.machine && initialProducts.length > 0) {
       const firstMachine = initialProducts.find((p) =>
@@ -226,7 +259,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
     }
   }, [initialProducts, selectedItems.machine]);
 
-  // Compute Total Bundle Price
   const totalBundlePrice = useMemo(() => {
     return Object.values(selectedItems).reduce((sum, item) => {
       return sum + (item ? Number(item.price) || 0 : 0);
@@ -236,7 +268,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
   const budgetUsagePercent = Math.min(100, Math.round((totalBundlePrice / (targetBudget || 1)) * 100));
   const isOverBudget = totalBundlePrice > targetBudget;
 
-  // Add all selected products to global Cart
   const handleAddBundleToCart = () => {
     const itemsToAdd = Object.values(selectedItems).filter(Boolean) as Product[];
     if (itemsToAdd.length === 0) return;
@@ -264,7 +295,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
     }
   };
 
-  // Filter products for the active slot replacement modal
   const activeSlotConfig = SETUP_SLOTS.find((s) => s.key === pickingSlotKey);
   const slotCandidates = useMemo(() => {
     if (!activeSlotConfig) return [];
@@ -279,7 +309,7 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
 
   return (
     <div className="space-y-8 sm:space-y-10">
-      {/* 1. Feature Hero Header */}
+      {/* 1. Feature Hero Header with AI Assistant Action */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
         <div className="space-y-2 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 text-xs font-bold">
@@ -294,7 +324,10 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {/* AI Trigger Modal */}
+          <AIBuildAssistantModal onApplyRecommendation={handleApplyAIRecommendation} />
+
           <Button
             variant="outline"
             size="sm"
@@ -302,7 +335,7 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
             className="text-xs font-bold rounded-xl h-10 border-slate-200 dark:border-slate-700 gap-1.5 cursor-pointer"
           >
             {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
-            <span>{copiedLink ? "Link Copied" : "Share Rig"}</span>
+            <span>{copiedLink ? "Link Copied" : "Share"}</span>
           </Button>
 
           <Button
@@ -317,12 +350,36 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
               </>
             ) : (
               <>
-                <ShoppingCart className="w-4 h-4" /> Add Complete Rig to Cart
+                <ShoppingCart className="w-4 h-4" /> Add Bundle to Cart
               </>
             )}
           </Button>
         </div>
       </div>
+
+      {/* AI Recommendation Explanation Banner */}
+      {aiRationale && (
+        <div className="bg-gradient-to-r from-purple-900/40 via-indigo-900/30 to-blue-900/40 border border-purple-500/40 rounded-3xl p-5 sm:p-6 space-y-2 animate-in fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="w-4 h-4 text-purple-400" />
+              <span className="text-[10px] uppercase font-black tracking-wider text-purple-400">
+                BenchTech AI Rig Architect Recommendation
+              </span>
+            </div>
+            <button
+              onClick={() => setAiRationale(null)}
+              className="text-xs text-slate-400 hover:text-white"
+            >
+              Clear
+            </button>
+          </div>
+          <h3 className="text-base font-black text-white">{aiRationale.title}</h3>
+          <p className="text-xs text-purple-100/90 leading-relaxed max-w-4xl">
+            {aiRationale.text}
+          </p>
+        </div>
+      )}
 
       {/* 2. Archetype / Persona Selector Strip */}
       <div className="space-y-3">
@@ -391,7 +448,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
             </div>
           </div>
 
-          {/* Quick Target Presets */}
           <div className="flex flex-wrap gap-1.5">
             {BUDGET_PRESETS.map((preset) => (
               <button
@@ -410,7 +466,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
           </div>
         </div>
 
-        {/* Progress Meter */}
         <div className="space-y-1.5">
           <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
             <div
@@ -451,7 +506,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
                 key={slot.key}
                 className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-2xs flex flex-col justify-between space-y-4 hover:border-blue-500/50 transition group"
               >
-                {/* Slot Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -477,7 +531,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
                   )}
                 </div>
 
-                {/* Slot Content: Empty vs Assigned Product */}
                 {currentItem ? (
                   <div className="space-y-3 flex-1 flex flex-col justify-between">
                     <div className="relative w-full aspect-4/3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 flex items-center justify-center p-2">
@@ -545,7 +598,7 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
       </div>
 
       {/* 5. Bottom Bundle Guarantee Strip */}
-      <div className="bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl border border-indigo-900/60 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl border border-indigo-900/60 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-1.5 max-w-xl">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
@@ -582,7 +635,7 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
         </div>
       </div>
 
-      {/* 6. Hardware Swap Modal / Drawer */}
+      {/* 6. Hardware Swap Modal */}
       {pickingSlotKey && activeSlotConfig && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -591,7 +644,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
           />
 
           <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl z-10 space-y-4 max-h-[85vh] flex flex-col text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-150">
-            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="font-black text-base">Select {activeSlotConfig.name}</h3>
@@ -608,7 +660,6 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
               </button>
             </div>
 
-            {/* Product Candidates List */}
             <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 [scrollbar-width:thin]">
               {slotCandidates.length > 0 ? (
                 slotCandidates.map((product) => {
