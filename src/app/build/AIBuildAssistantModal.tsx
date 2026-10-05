@@ -6,13 +6,6 @@ import {
   Sparkles,
   X,
   Loader2,
-  Cpu,
-  Laptop,
-  Monitor,
-  Zap,
-  Check,
-  ChevronRight,
-  Layers,
 } from 'lucide-react'
 
 interface AIBuildAssistantModalProps {
@@ -46,12 +39,17 @@ export function AIBuildAssistantModal({ onApplyRecommendation }: AIBuildAssistan
 
   // Questionnaire state
   const [useCase, setUseCase] = useState(USE_CASES[0].id)
-  const [budget, setBudget] = useState(750000)
-  const [devicePref, setDevicePref] = useState('Laptop-first Workstation')
+  const [budget, setBudget] = useState<number>(750000)
+  const [devicePref, setDevicePref] = useState('Laptop-first Setup')
   const [powerPriority, setPowerPriority] = useState('High (Include UPS / Inverter Power)')
   const [customNotes, setCustomNotes] = useState('')
 
   async function handleGenerate() {
+    if (!budget || budget < 50000) {
+      alert('Please enter a valid budget of at least ₦50,000.')
+      return
+    }
+
     setLoading(true)
     try {
       const res = await fetch('/api/build/ai-recommend', {
@@ -66,20 +64,29 @@ export function AIBuildAssistantModal({ onApplyRecommendation }: AIBuildAssistan
         }),
       })
 
-      const data = await res.json()
-      if (data.success) {
-        onApplyRecommendation({
-          archetypeTitle: data.archetypeTitle,
-          rationale: data.rationale,
-          allocatedBudget: data.allocatedBudget || budget,
-          selections: data.selections || {},
-        })
-        setIsOpen(false)
-      } else {
-        alert(data.error || 'Failed to generate recommendations.')
+      const rawText = await res.text()
+      let data: any
+      try {
+        data = JSON.parse(rawText)
+      } catch {
+        throw new Error(`Server returned non-JSON response (${res.status}).`)
       }
-    } catch {
-      alert('Network error connecting to AI Setup Architect.')
+
+      if (!res.ok || !data.success) {
+        alert(data?.error || `Recommendation failed (${res.status}).`)
+        return
+      }
+
+      onApplyRecommendation({
+        archetypeTitle: data.archetypeTitle,
+        rationale: data.rationale,
+        allocatedBudget: Number(data.allocatedBudget) || budget,
+        selections: data.selections || {},
+      })
+      setIsOpen(false)
+    } catch (err: any) {
+      console.error('AI assistant error:', err)
+      alert(err.message || 'Error connecting to AI Setup Architect.')
     } finally {
       setLoading(false)
     }
@@ -103,7 +110,7 @@ export function AIBuildAssistantModal({ onApplyRecommendation }: AIBuildAssistan
           />
 
           <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl z-10 space-y-5 max-h-[90vh] overflow-y-auto text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-150">
-            {/* Modal Header */}
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3.5">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-300 flex items-center justify-center font-black">
@@ -112,7 +119,7 @@ export function AIBuildAssistantModal({ onApplyRecommendation }: AIBuildAssistan
                 <div>
                   <h3 className="font-black text-base">BenchTech AI Setup Architect</h3>
                   <p className="text-[11px] text-slate-400">
-                    Matches your workflow &amp; budget to verified Abuja listings
+                    Matches your workflow &amp; custom budget to verified Abuja listings
                   </p>
                 </div>
               </div>
@@ -123,11 +130,11 @@ export function AIBuildAssistantModal({ onApplyRecommendation }: AIBuildAssistan
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Step 1: Use Case */}
+            {/* 1. Primary Use Case */}
             <div className="space-y-2">
               <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
                 1. What is your primary work or use case?
@@ -151,18 +158,30 @@ export function AIBuildAssistantModal({ onApplyRecommendation }: AIBuildAssistan
               </div>
             </div>
 
-            {/* Step 2: Target Budget in Naira */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+            {/* 2. Target Budget with Direct Number Input */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
                 <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
                   2. Total Budget Target
                 </label>
-                <span className="text-sm font-black text-blue-600 dark:text-blue-400">
-                  ₦{budget.toLocaleString()}
-                </span>
+
+                {/* Editable Currency Input Box */}
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-xs font-black text-slate-400">₦</span>
+                  <input
+                    type="number"
+                    min="50000"
+                    step="10000"
+                    value={budget || ''}
+                    onChange={(e) => setBudget(Math.max(0, Number(e.target.value)))}
+                    placeholder="Enter amount..."
+                    className="w-36 sm:w-44 pl-7 pr-3 py-1.5 text-xs font-black rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              {/* Quick Chip Presets */}
+              <div className="flex flex-wrap gap-1.5">
                 {BUDGET_CHIPS.map((chip) => (
                   <button
                     key={chip.value}
@@ -179,18 +198,19 @@ export function AIBuildAssistantModal({ onApplyRecommendation }: AIBuildAssistan
                 ))}
               </div>
 
+              {/* Dynamic Range Slider */}
               <input
                 type="range"
-                min="300000"
+                min="200000"
                 max="3000000"
                 step="50000"
-                value={budget}
+                value={Math.min(3000000, Math.max(200000, budget))}
                 onChange={(e) => setBudget(Number(e.target.value))}
                 className="w-full accent-purple-600 cursor-pointer mt-1"
               />
             </div>
 
-            {/* Step 3: Form Factor & Abuja Power Priority */}
+            {/* 3. Form Factor & Abuja Power Priority */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -201,8 +221,8 @@ export function AIBuildAssistantModal({ onApplyRecommendation }: AIBuildAssistan
                   onChange={(e) => setDevicePref(e.target.value)}
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold focus:outline-none"
                 >
-                  <option value="Laptop-first Workstation">Laptop-first Setup</option>
-                  <option value="Desktop Rig">Desktop Workstation / Rig</option>
+                  <option value="Laptop-first Setup">Laptop-first Setup</option>
+                  <option value="Desktop Workstation">Desktop Workstation / Rig</option>
                   <option value="Mac Ecosystem (Apple Silicon)">Mac Ecosystem</option>
                   <option value="Console & TV Setup">Console &amp; Gaming</option>
                 </select>
@@ -224,7 +244,7 @@ export function AIBuildAssistantModal({ onApplyRecommendation }: AIBuildAssistan
               </div>
             </div>
 
-            {/* Step 4: Specific Hardware Notes */}
+            {/* 4. Optional Specs Note */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 Specific Specifications or Preferences (Optional)

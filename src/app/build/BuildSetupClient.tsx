@@ -432,59 +432,75 @@ export function BuildSetupClient({ initialProducts }: { initialProducts: Product
       </div>
 
       {/* 3. Budget Allocation & Real-time Gauge */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <span className="text-xs font-black uppercase tracking-wider text-slate-400 block">
-              2. Budget Allocation
-            </span>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                ₦{totalBundlePrice.toLocaleString()}
-              </span>
-              <span className="text-xs text-slate-400">
-                of ₦{targetBudget.toLocaleString()} target
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {BUDGET_PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                type="button"
-                onClick={() => setTargetBudget(preset.value)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                  targetBudget === preset.value
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent"
-                    : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-            <div
-              className={`h-full transition-all duration-300 ${
-                isOverBudget ? "bg-amber-500" : "bg-emerald-500"
-              }`}
-              style={{ width: `${budgetUsagePercent}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-[11px] text-slate-400 font-medium">
-            <span>{budgetUsagePercent}% of budget assigned</span>
-            <span className={isOverBudget ? "text-amber-600 font-bold" : "text-emerald-600 font-bold"}>
-              {isOverBudget
-                ? `₦${(totalBundlePrice - targetBudget).toLocaleString()} over budget`
-                : `₦${(targetBudget - totalBundlePrice).toLocaleString()} remaining`}
-            </span>
-          </div>
-        </div>
+<div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xs space-y-4">
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <span className="text-xs font-black uppercase tracking-wider text-slate-400 block">
+        2. Budget Allocation
+      </span>
+      <div className="flex items-baseline gap-2 mt-1">
+        <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
+          ₦{totalBundlePrice.toLocaleString()}
+        </span>
+        <span className="text-xs text-slate-400">
+          of ₦{targetBudget.toLocaleString()} target
+        </span>
       </div>
+    </div>
+
+    {/* Direct Custom Budget Input & Quick Presets */}
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative">
+        <span className="absolute left-3 top-2 text-xs font-black text-slate-400">₦</span>
+        <input
+          type="number"
+          min="50000"
+          step="25000"
+          value={targetBudget || ''}
+          onChange={(e) => setTargetBudget(Math.max(0, Number(e.target.value)))}
+          placeholder="Target budget..."
+          className="w-36 sm:w-44 pl-7 pr-3 py-1.5 text-xs font-black rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {BUDGET_PRESETS.map((preset) => (
+          <button
+            key={preset.value}
+            type="button"
+            onClick={() => setTargetBudget(preset.value)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+              targetBudget === preset.value
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent"
+                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
+            }`}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <div className="space-y-1.5">
+    <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+      <div
+        className={`h-full transition-all duration-300 ${
+          isOverBudget ? "bg-amber-500" : "bg-emerald-500"
+        }`}
+        style={{ width: `${budgetUsagePercent}%` }}
+      />
+    </div>
+    <div className="flex justify-between text-[11px] text-slate-400 font-medium">
+      <span>{budgetUsagePercent}% of budget assigned</span>
+      <span className={isOverBudget ? "text-amber-600 font-bold" : "text-emerald-600 font-bold"}>
+        {isOverBudget
+          ? `₦${(totalBundlePrice - targetBudget).toLocaleString()} over budget`
+          : `₦${(targetBudget - totalBundlePrice).toLocaleString()} remaining`}
+      </span>
+    </div>
+  </div>
+</div>
 
       {/* 4. The 4 Workbench Setup Slots */}
       <div className="space-y-4">

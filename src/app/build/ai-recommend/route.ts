@@ -1,28 +1,46 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+export const dynamic = 'force-dynamic'
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createAdminClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
 
 interface RequestPayload {
-  useCase: string
-  budget: number
-  devicePreference: string
-  powerPriority: string
+  useCase?: string
+  budget?: number | string
+  devicePreference?: string
+  powerPriority?: string
   customNotes?: string
 }
 
 export async function POST(request: Request) {
   try {
     const payload: RequestPayload = await request.json()
-    const { useCase, budget, devicePreference, powerPriority, customNotes } = payload
+    const useCase = payload.useCase || 'General Productivity'
+    const budget = Math.max(50000, Number(payload.budget) || 750000)
+    const devicePreference = payload.devicePreference || 'Laptop-first Setup'
+    const powerPriority = payload.powerPriority || 'Standard'
+    const customNotes = payload.customNotes || ''
 
-    const supabase = await createClient()
+    const supabase = getAdminClient()
 
-    // 1. Fetch available Abuja hardware inventory
-    const { data: products } = await supabase
+    // 1. Fetch live Abuja hardware listings
+    const { data: products, error: dbError } = await supabase
       .from('products')
-      .select('id, title, price, category, brand, condition, specs, profiles(business_name, district)')
+      .select('id, title, price, category, brand, condition')
       .eq('status', 'published')
       .order('price', { ascending: true })
       .limit(100)
+
+    if (dbError) {
+      console.error('Database query error in ai-recommend:', dbError)
+    }
 
     const catalog = products || []
 
@@ -31,53 +49,45 @@ export async function POST(request: Request) {
       process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
       process.env.GOOGLE_AI_API_KEY
 
-    // If Gemini API Key exists, query Gemini Flash for structured setup selection
+    let aiResult: any = null
+
+    // 2. Query Gemini 1.5 Flash if API Key is configured
     if (apiKey && catalog.length > 0) {
       try {
-        const prompt = `
-You are an expert PC and tech hardware architect in Abuja, Nigeria for "ShopbenchTech".
-A customer wants a custom hardware bundle based on this questionnaire:
-- Primary Use Case: ${useCase}
-- Total Target Budget: ₦${budget.toLocaleString()}
-- Form Factor Preference: ${devicePreference}
-- Abuja Power/NEPA Resilience: ${powerPriority} (If high, prioritize UPS/Inverter/Power bank in power slot)
-- Specific Buyer Notes: ${customNotes || 'None'}
+        const prompt = `You are an expert PC and workstation architect in Abuja, Nigeria for BenchTech.
+A user wants a custom hardware bundle matching:
+- Use Case: ${useCase}
+- Exact Target Budget: ₦${budget.toLocaleString()}
+- Form Factor: ${devicePreference}
+- Abuja Power (NEPA) Priority: ${powerPriority}
+- Custom Notes: ${customNotes || 'None'}
 
-Here is the current live Abuja catalog (JSON list of products with id, title, price, category):
-${JSON.stringify(
-  catalog.map((p) => ({
-    id: p.id,
-    title: p.title,
-    price: p.price,
-    category: p.category,
-    brand: p.brand,
-  }))
-)}
+Live Abuja catalog:
+${JSON.stringify(catalog.map((p) => ({ id: p.id, title: p.title, price: p.price, category: p.category })))}
 
-Select the optimal 4 components from this catalog matching the 4 slots:
-1. "machine" (Laptops, Desktops, Consoles, Phones)
-2. "display" (Monitors, Screens, Tablets)
-3. "peripherals" (Keyboards, Mice, Audio, Headsets)
-4. "power" (UPS, Power station, Inverter, Docks, MiFi)
+Select exactly ONE product ID for each slot:
+1. "machine" (laptops, phones, gaming)
+2. "display" (monitors, tablets)
+3. "peripherals" (accessories, headphones, mice, keyboards)
+4. "power" (networking, smarthome, power accessories, docks)
 
-Make sure the sum of prices stays close to or under ₦${budget.toLocaleString()}.
+Ensure total bundle price is close to or under ₦${budget.toLocaleString()}.
 
-Respond ONLY with valid raw JSON (no markdown formatting, no code fences):
+Respond ONLY with raw JSON:
 {
-  "archetypeTitle": "<Catchy name for this custom rig>",
-  "rationale": "<2-3 sentence explanation addressing their workflow, Abuja power reality, and value>",
+  "archetypeTitle": "<Short creative rig name>",
+  "rationale": "<2 sentences explaining why this setup fits ${useCase} in Abuja within ₦${budget.toLocaleString()}>",
   "allocatedBudget": ${budget},
   "selections": {
-    "machine": "<id of chosen product or null>",
-    "display": "<id of chosen product or null>",
-    "peripherals": "<id of chosen product or null>",
-    "power": "<id of chosen product or null>"
+    "machine": "<product id or null>",
+    "display": "<product id or null>",
+    "peripherals": "<product id or null>",
+    "power": "<product id or null>"
   }
-}
-`
+}`
 
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -85,22 +95,27 @@ Respond ONLY with valid raw JSON (no markdown formatting, no code fences):
               contents: [{ parts: [{ text: prompt }] }],
               generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
             }),
+            signal: AbortSignal.timeout(8000), // 8-second safety timeout
           }
         )
 
-        const geminiData = await geminiRes.json()
-        const rawJsonText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
-
-        if (rawJsonText) {
-          const parsed = JSON.parse(rawJsonText)
-          return NextResponse.json({ success: true, ...parsed })
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json()
+          const rawJsonText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+          if (rawJsonText) {
+            aiResult = JSON.parse(rawJsonText)
+          }
         }
-      } catch (err) {
-        console.warn('Gemini recommendation fallback to heuristic engine:', err)
+      } catch (geminiErr) {
+        console.warn('Gemini request bypassed, applying heuristic engine:', geminiErr)
       }
     }
 
-    // 2. Intelligent Heuristic Matcher (Fallback if Gemini is offline or unkeyed)
+    if (aiResult && aiResult.selections) {
+      return NextResponse.json({ success: true, ...aiResult })
+    }
+
+    // 3. Fallback Heuristic Matcher
     const machineCandidates = catalog.filter((p) =>
       ['laptops', 'gaming', 'phones'].includes(p.category?.toLowerCase() || '')
     )
@@ -114,7 +129,7 @@ Respond ONLY with valid raw JSON (no markdown formatting, no code fences):
       ['networking', 'smarthome', 'accessories'].includes(p.category?.toLowerCase() || '')
     )
 
-    // Allocate rough percentages: 60% machine, 20% display, 10% peripherals, 10% power
+    // Budget distribution: 60% machine, 20% display, 10% peripherals, 10% power
     const machineTarget = budget * 0.6
     const chosenMachine =
       machineCandidates.find((p) => p.price <= machineTarget) || machineCandidates[0] || null
@@ -128,8 +143,8 @@ Respond ONLY with valid raw JSON (no markdown formatting, no code fences):
 
     return NextResponse.json({
       success: true,
-      archetypeTitle: `${useCase.toUpperCase()} Workstation Rig`,
-      rationale: `Selected matching verified Abuja stock optimized for ${useCase} within your ₦${budget.toLocaleString()} target. Balances compute performance with peripheral usability.`,
+      archetypeTitle: `${useCase} Custom Rig`,
+      rationale: `Selected matching verified Abuja listings optimized for ${useCase} within your exact ₦${budget.toLocaleString()} budget. Balanced for compute performance and peripheral utility.`,
       allocatedBudget: budget,
       selections: {
         machine: chosenMachine?.id || null,
@@ -139,6 +154,7 @@ Respond ONLY with valid raw JSON (no markdown formatting, no code fences):
       },
     })
   } catch (error: any) {
+    console.error('Fatal in ai-recommend route:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to generate recommendation' },
       { status: 500 }
