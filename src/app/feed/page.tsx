@@ -121,7 +121,7 @@ const FEATURE_TILES = [
     title: "Build My Setup",
     desc: "Create your perfect setup (gaming, school, work, editing).",
     cta: "Start Building",
-    href: "/requests/new",
+    href: "/build",
     icon: Wrench,
     color: "from-emerald-600 to-teal-700",
     iconBg:
@@ -332,12 +332,6 @@ export default async function FeedPage() {
                 <p className="text-xs font-black text-slate-100">
                   Abuja Verified Tech
                 </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Banex • Emab • Wuse 2
-                </p>
-                <div className="mt-3 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
-                  ● 100% Inspected Hardware
-                </div>
               </div>
             </div>
           )}
