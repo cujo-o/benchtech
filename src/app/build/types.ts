@@ -44,7 +44,9 @@ export interface BuildComponent {
   slotName: string
   slotDescription: string
   category: string
-  product: ProductItem
+  product: ProductItem | null
+  isDualRole?: boolean // True if covered by primary machine (₦0 charge)
+  dualRoleNote?: string
   reasonWhy: string
   alternatives: ProductItem[]
 }
@@ -52,7 +54,7 @@ export interface BuildComponent {
 export interface BenchmarkEstimate {
   label: string
   target: string
-  rating: string // e.g. "120+ FPS", "Fast 4K Playback", "Instant compile"
+  rating: string
   icon: string
 }
 
@@ -64,8 +66,8 @@ export interface GeneratedBuild {
   totalPrice: number
   targetBudget: number
   savings: number
-  score: number // e.g. 92/100
-  compatibilityScore: number // 100%
+  score: number
+  compatibilityScore: number
   badges: string[]
   components: BuildComponent[]
   performanceRatings: {
@@ -82,8 +84,8 @@ export interface GeneratedBuild {
 export interface QuestionnaireState {
   category: SetupCategoryKey
   budget: number
-  useCaseDescription?: string // For Custom Setup
-  selectedApps: string[] // Games or software
+  useCaseDescription?: string
+  selectedApps: string[]
   performancePriority: 'maximum' | 'balanced' | 'value'
   formFactor: string
   powerPriority: string

@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { useCartStore } from '@/lib/store/useCartStore'
-import { generateCompleteSetup, askBuildAssistant } from './actions'
+import { useState } from "react";
+import Link from "next/link";
+import { useCartStore } from "@/lib/store/useCartStore";
+import { generateCompleteSetup, askBuildAssistant } from "./actions";
 import {
   SetupCategoryKey,
   SetupCategory,
@@ -11,9 +11,9 @@ import {
   GeneratedBuild,
   BuildComponent,
   ChatMessage,
-} from './types'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+} from "./types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Gamepad2,
   Laptop,
@@ -45,105 +45,255 @@ import {
   Eye,
   SlidersHorizontal,
   X,
-} from 'lucide-react'
+} from "lucide-react";
 
 const SETUP_CATEGORIES: SetupCategory[] = [
-  { id: 'gaming', title: 'Gaming Setup', subtitle: 'Battle station', tagline: 'High FPS, low-latency audio & mechanicals', iconName: 'Gamepad2', defaultBudget: 850000, primaryFocus: 'GPU & Display' },
-  { id: 'laptop', title: 'Build a Laptop Setup', subtitle: 'Mobile workstation', tagline: 'Find the right laptop, dock & desk gear', iconName: 'Laptop', defaultBudget: 650000, primaryFocus: 'Portability' },
-  { id: 'creator', title: 'Content Creation Setup', subtitle: 'Studio suite', tagline: 'Cameras, microphones, lighting & high storage', iconName: 'Video', defaultBudget: 1400000, primaryFocus: 'Color & Video' },
-  { id: 'student', title: 'Student Setup', subtitle: 'School & study', tagline: 'Affordable, reliable tech for university', iconName: 'GraduationCap', defaultBudget: 450000, primaryFocus: 'Battery & Value' },
-  { id: 'work', title: 'Work / Business Setup', subtitle: 'Productivity desk', tagline: 'Multitasking, office apps & conference audio', iconName: 'Briefcase', defaultBudget: 700000, primaryFocus: 'Reliability' },
-  { id: 'design_3d', title: 'Design & 3D Setup', subtitle: 'Modeling & CAD', tagline: 'Blender, 3D rendering, animation & CAD', iconName: 'Box', defaultBudget: 1500000, primaryFocus: 'Compute & RAM' },
-  { id: 'video_editing', title: 'Video Editing Setup', subtitle: 'Timeline suite', tagline: '4K Premiere, DaVinci, fast NVMe playback', iconName: 'Video', defaultBudget: 1300000, primaryFocus: 'Fast Storage' },
-  { id: 'programming', title: 'Programming Setup', subtitle: 'Dev environment', tagline: 'Dual monitors, Linux/macOS, compiling speed', iconName: 'Code2', defaultBudget: 950000, primaryFocus: 'CPU & RAM' },
-  { id: 'ai_ml', title: 'AI / Machine Learning', subtitle: 'Data science rig', tagline: 'Local tensor operations, deep learning, PyTorch', iconName: 'Cpu', defaultBudget: 1800000, primaryFocus: 'VRAM & Tensor' },
-  { id: 'streaming', title: 'Gaming + Streaming', subtitle: 'Broadcast setup', tagline: 'Game and stream simultaneously with zero lag', iconName: 'Radio', defaultBudget: 1200000, primaryFocus: 'Multitasking' },
-  { id: 'custom', title: 'Custom / Other Setup', subtitle: 'Bespoke requirements', tagline: 'Tell us your exact workflow in your own words', iconName: 'Sliders', defaultBudget: 800000, primaryFocus: 'Custom' },
-]
+  {
+    id: "gaming",
+    title: "Gaming Setup",
+    subtitle: "Battle station",
+    tagline: "High FPS, low-latency audio & mechanicals",
+    iconName: "Gamepad2",
+    defaultBudget: 850000,
+    primaryFocus: "GPU & Display",
+  },
+  {
+    id: "laptop",
+    title: "Build a Laptop Setup",
+    subtitle: "Mobile workstation",
+    tagline: "Find the right laptop, dock & desk gear",
+    iconName: "Laptop",
+    defaultBudget: 650000,
+    primaryFocus: "Portability",
+  },
+  {
+    id: "creator",
+    title: "Content Creation Setup",
+    subtitle: "Studio suite",
+    tagline: "Cameras, microphones, lighting & high storage",
+    iconName: "Video",
+    defaultBudget: 1400000,
+    primaryFocus: "Color & Video",
+  },
+  {
+    id: "student",
+    title: "Student Setup",
+    subtitle: "School & study",
+    tagline: "Affordable, reliable tech for university",
+    iconName: "GraduationCap",
+    defaultBudget: 450000,
+    primaryFocus: "Battery & Value",
+  },
+  {
+    id: "work",
+    title: "Work / Business Setup",
+    subtitle: "Productivity desk",
+    tagline: "Multitasking, office apps & conference audio",
+    iconName: "Briefcase",
+    defaultBudget: 700000,
+    primaryFocus: "Reliability",
+  },
+  {
+    id: "design_3d",
+    title: "Design & 3D Setup",
+    subtitle: "Modeling & CAD",
+    tagline: "Blender, 3D rendering, animation & CAD",
+    iconName: "Box",
+    defaultBudget: 1500000,
+    primaryFocus: "Compute & RAM",
+  },
+  {
+    id: "video_editing",
+    title: "Video Editing Setup",
+    subtitle: "Timeline suite",
+    tagline: "4K Premiere, DaVinci, fast NVMe playback",
+    iconName: "Video",
+    defaultBudget: 1300000,
+    primaryFocus: "Fast Storage",
+  },
+  {
+    id: "programming",
+    title: "Programming Setup",
+    subtitle: "Dev environment",
+    tagline: "Dual monitors, Linux/macOS, compiling speed",
+    iconName: "Code2",
+    defaultBudget: 950000,
+    primaryFocus: "CPU & RAM",
+  },
+  {
+    id: "ai_ml",
+    title: "AI / Machine Learning",
+    subtitle: "Data science rig",
+    tagline: "Local tensor operations, deep learning, PyTorch",
+    iconName: "Cpu",
+    defaultBudget: 1800000,
+    primaryFocus: "VRAM & Tensor",
+  },
+  {
+    id: "streaming",
+    title: "Gaming + Streaming",
+    subtitle: "Broadcast setup",
+    tagline: "Game and stream simultaneously with zero lag",
+    iconName: "Radio",
+    defaultBudget: 1200000,
+    primaryFocus: "Multitasking",
+  },
+  {
+    id: "custom",
+    title: "Custom / Other Setup",
+    subtitle: "Bespoke requirements",
+    tagline: "Tell us your exact workflow in your own words",
+    iconName: "Sliders",
+    defaultBudget: 800000,
+    primaryFocus: "Custom",
+  },
+];
 
 const POPULAR_SETUPS = [
-  { category: 'student', title: 'Student Essentials', price: 450000, budget: 450000, badge: 'Popular in Minna & Abuja' },
-  { category: 'programming', title: 'Programming Pro Rig', price: 1200000, budget: 1200000, badge: 'High RAM' },
-  { category: 'creator', title: 'Content Creator Pro', price: 2400000, budget: 2400000, badge: '4K Studio' },
-  { category: 'gaming', title: 'Casual 1440p Gaming', price: 850000, budget: 850000, badge: 'Best Value' },
-]
+  {
+    category: "student",
+    title: "Student Essentials",
+    price: 450000,
+    budget: 450000,
+    badge: "Popular in Minna & Abuja",
+  },
+  {
+    category: "programming",
+    title: "Programming Pro Rig",
+    price: 1200000,
+    budget: 1200000,
+    badge: "High RAM",
+  },
+  {
+    category: "creator",
+    title: "Content Creator Pro",
+    price: 2400000,
+    budget: 2400000,
+    badge: "4K Studio",
+  },
+  {
+    category: "gaming",
+    title: "Casual 1440p Gaming",
+    price: 850000,
+    budget: 850000,
+    badge: "Best Value",
+  },
+];
 
-const BUDGET_PRESETS = [500000, 750000, 1000000, 1500000, 2000000]
+const BUDGET_PRESETS = [500000, 750000, 1000000, 1500000, 2000000];
 
-const GAME_SUGGESTIONS = ['GTA V / GTA 6', 'Fortnite', 'Call of Duty', 'Cyberpunk 2077', 'Minecraft', 'Apex Legends', 'Valorant', 'FIFA / EA FC']
-const DEV_SUGGESTIONS = ['VS Code', 'Docker', 'Next.js / Node', 'PyTorch / AI', 'PostgreSQL', 'Android Studio']
-const CREATOR_SUGGESTIONS = ['Premiere Pro', 'After Effects', 'DaVinci Resolve', 'Blender 3D', 'Photoshop', 'OBS Studio']
+const GAME_SUGGESTIONS = [
+  "GTA V / GTA 6",
+  "Fortnite",
+  "Call of Duty",
+  "Cyberpunk 2077",
+  "Minecraft",
+  "Apex Legends",
+  "Valorant",
+  "FIFA / EA FC",
+];
+const DEV_SUGGESTIONS = [
+  "VS Code",
+  "Docker",
+  "Next.js / Node",
+  "PyTorch / AI",
+  "PostgreSQL",
+  "Android Studio",
+];
+const CREATOR_SUGGESTIONS = [
+  "Premiere Pro",
+  "After Effects",
+  "DaVinci Resolve",
+  "Blender 3D",
+  "Photoshop",
+  "OBS Studio",
+];
 
 function resolveFirstImage(images: any): string | null {
-  if (!images) return null
-  if (Array.isArray(images)) return images[0] || null
-  if (typeof images === 'string') {
+  if (!images) return null;
+  if (Array.isArray(images)) return images[0] || null;
+  if (typeof images === "string") {
     try {
-      const parsed = JSON.parse(images)
-      if (Array.isArray(parsed)) return parsed[0] || null
+      const parsed = JSON.parse(images);
+      if (Array.isArray(parsed)) return parsed[0] || null;
     } catch {
-      return images.startsWith('http') ? images : null
+      return images.startsWith("http") ? images : null;
     }
   }
-  return null
+  return null;
 }
 
 export function BuildYourSetupMasterClient({
   initialProducts,
 }: {
-  initialProducts: ProductItem[]
+  initialProducts: ProductItem[];
 }) {
-  const { addItem } = useCartStore()
+  const { addItem } = useCartStore();
 
   // Workflow Stage: 'hub' (Screens 1 & 2) | 'survey' (Screens 3 & 4) | 'loading' (Screen 5) | 'results' (Screens 6 to 12)
-  const [currentStage, setCurrentStage] = useState<'hub' | 'survey' | 'loading' | 'results'>('hub')
+  const [currentStage, setCurrentStage] = useState<
+    "hub" | "survey" | "loading" | "results"
+  >("hub");
 
   // Survey Wizard Step (1: Category, 2: Budget, 3: Apps & Priorities)
-  const [surveyStep, setSurveyStep] = useState<number>(1)
+  const [surveyStep, setSurveyStep] = useState<number>(1);
 
   // Survey State
-  const [selectedCategory, setSelectedCategory] = useState<SetupCategoryKey>('gaming')
-  const [budget, setBudget] = useState<number>(850000)
-  const [selectedApps, setSelectedApps] = useState<string[]>([])
-  const [performancePriority, setPerformancePriority] = useState<'maximum' | 'balanced' | 'value'>('balanced')
-  const [powerPriority, setPowerPriority] = useState<string>('High (Include UPS / Inverter Power)')
-  const [formFactor, setFormFactor] = useState<string>('Laptop-first Workstation')
-  const [customText, setCustomText] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] =
+    useState<SetupCategoryKey>("gaming");
+  const [budget, setBudget] = useState<number>(850000);
+  const [selectedApps, setSelectedApps] = useState<string[]>([]);
+  const [performancePriority, setPerformancePriority] = useState<
+    "maximum" | "balanced" | "value"
+  >("balanced");
+  const [powerPriority, setPowerPriority] = useState<string>(
+    "High (Include UPS / Inverter Power)",
+  );
+  const [formFactor, setFormFactor] = useState<string>(
+    "Laptop-first Workstation",
+  );
+  const [customText, setCustomText] = useState<string>("");
 
   // Build Results State
-  const [activeBuild, setActiveBuild] = useState<GeneratedBuild | null>(null)
+  const [activeBuild, setActiveBuild] = useState<GeneratedBuild | null>(null);
   const [alternatives, setAlternatives] = useState<{
-    maxPerformance: GeneratedBuild | null
-    budgetFriendly: GeneratedBuild | null
-  }>({ maxPerformance: null, budgetFriendly: null })
+    maxPerformance: GeneratedBuild | null;
+    budgetFriendly: GeneratedBuild | null;
+  }>({ maxPerformance: null, budgetFriendly: null });
 
   // Active View Tab on Results Screen: 'overview' | 'components' | 'performance' | 'compare'
-  const [resultTab, setResultTab] = useState<'overview' | 'components' | 'performance' | 'compare'>('overview')
+  const [resultTab, setResultTab] = useState<
+    "overview" | "components" | "performance" | "compare"
+  >("overview");
 
   // Component Swap Drawer
-  const [swappingComponent, setSwappingComponent] = useState<BuildComponent | null>(null)
+  const [swappingComponent, setSwappingComponent] =
+    useState<BuildComponent | null>(null);
 
   // AI Chat Assistant State
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const [chatInput, setChatInput] = useState<string>('')
-  const [chatLoading, setChatLoading] = useState<boolean>(false)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState<string>("");
+  const [chatLoading, setChatLoading] = useState<boolean>(false);
 
   // Feedback states
-  const [cartAdded, setCartAdded] = useState<boolean>(false)
-  const [copiedLink, setCopiedLink] = useState<boolean>(false)
+  const [cartAdded, setCartAdded] = useState<boolean>(false);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
   // Handler: Start Questionnaire from Category Card
-  const handleStartCategory = (categoryKey: SetupCategoryKey, customBudget?: number) => {
-    setSelectedCategory(categoryKey)
-    const catConfig = SETUP_CATEGORIES.find((c) => c.id === categoryKey)
-    setBudget(customBudget || catConfig?.defaultBudget || 750000)
-    setSurveyStep(2) // Move to budget
-    setCurrentStage('survey')
-  }
+  const handleStartCategory = (
+    categoryKey: SetupCategoryKey,
+    customBudget?: number,
+  ) => {
+    setSelectedCategory(categoryKey);
+    const catConfig = SETUP_CATEGORIES.find((c) => c.id === categoryKey);
+    setBudget(customBudget || catConfig?.defaultBudget || 750000);
+    setSurveyStep(2); // Move to budget
+    setCurrentStage("survey");
+  };
 
   // Handler: Submit Survey & Generate Build
   const handleExecuteBuild = async () => {
-    setCurrentStage('loading')
+    setCurrentStage("loading");
 
     const res = await generateCompleteSetup({
       category: selectedCategory,
@@ -154,35 +304,38 @@ export function BuildYourSetupMasterClient({
       powerPriority,
       useCaseDescription: customText,
       specificPreferences: customText,
-    })
+    });
 
     if (res.success && res.recommendedBuild) {
-      setActiveBuild(res.recommendedBuild)
+      setActiveBuild(res.recommendedBuild);
       setAlternatives({
         maxPerformance: res.alternatives.maxPerformance,
         budgetFriendly: res.alternatives.budgetFriendly,
-      })
+      });
 
       // Seed initial AI welcome message
       setChatMessages([
         {
-          id: 'welcome-1',
-          sender: 'ai',
+          id: "welcome-1",
+          sender: "ai",
           text: `Welcome! I've engineered this ${res.recommendedBuild.title} within your ₦${budget.toLocaleString()} target with 100% compatibility across Abuja inventory. What would you like to know about it?`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         },
-      ])
+      ]);
 
-      setCurrentStage('results')
+      setCurrentStage("results");
     } else {
-      alert(res.error || 'Failed to generate setup. Please try again.')
-      setCurrentStage('survey')
+      alert(res.error || "Failed to generate setup. Please try again.");
+      setCurrentStage("survey");
     }
-  }
+  };
 
   // Handler: Swap a Component
   const handleApplyComponentSwap = (newProduct: ProductItem) => {
-    if (!activeBuild || !swappingComponent) return
+    if (!activeBuild || !swappingComponent) return;
 
     const updatedComponents = activeBuild.components.map((comp) => {
       if (comp.slotKey === swappingComponent.slotKey) {
@@ -190,104 +343,132 @@ export function BuildYourSetupMasterClient({
           ...comp,
           product: newProduct,
           reasonWhy: `Manually swapped to ${newProduct.title} from verified merchant stock.`,
-        }
+        };
       }
-      return comp
-    })
+      return comp;
+    });
 
-    const newTotal = updatedComponents.reduce((sum, c) => sum + (Number(c.product?.price) || 0), 0)
+    const newTotal = updatedComponents.reduce(
+      (sum, c) => sum + (Number(c.product?.price) || 0),
+      0,
+    );
 
     setActiveBuild({
       ...activeBuild,
       totalPrice: newTotal,
       components: updatedComponents,
-    })
+    });
 
-    setSwappingComponent(null)
-  }
+    setSwappingComponent(null);
+  };
 
   // Handler: Send Message to AI Assistant
   const handleSendChatMessage = async (presetText?: string) => {
-    const textToSend = presetText || chatInput.trim()
-    if (!textToSend || !activeBuild) return
+    const textToSend = presetText || chatInput.trim();
+    if (!textToSend || !activeBuild) return;
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
-      sender: 'user',
+      sender: "user",
       text: textToSend,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
 
-    setChatMessages((prev) => [...prev, userMsg])
-    if (!presetText) setChatInput('')
-    setChatLoading(true)
+    setChatMessages((prev) => [...prev, userMsg]);
+    if (!presetText) setChatInput("");
+    setChatLoading(true);
 
-    const res = await askBuildAssistant(activeBuild, textToSend)
+    const res = await askBuildAssistant(activeBuild, textToSend);
 
     const aiMsg: ChatMessage = {
       id: `ai-${Date.now()}`,
-      sender: 'ai',
+      sender: "ai",
       text: res.answer,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
 
-    setChatMessages((prev) => [...prev, aiMsg])
-    setChatLoading(false)
-  }
+    setChatMessages((prev) => [...prev, aiMsg]);
+    setChatLoading(false);
+  };
 
-  // Handler: Add Entire Setup to Cart
+  // Handler: Add Entire Setup to Cart with Deduplication
   const handleAddAllToCart = () => {
-    if (!activeBuild) return
+    if (!activeBuild) return;
+    const addedProductIds = new Set<string>();
+
     activeBuild.components.forEach((comp) => {
-      if (comp.product) {
+      if (
+        comp.product &&
+        !comp.isDualRole &&
+        !addedProductIds.has(comp.product.id)
+      ) {
+        addedProductIds.add(comp.product.id);
         addItem({
           id: comp.product.id,
           title: comp.product.title,
           price: Number(comp.product.price),
-          image: resolveFirstImage(comp.product.images) || '',
+          image: resolveFirstImage(comp.product.images) || "",
           seller_id: comp.product.seller_id,
           condition: comp.product.condition,
-        })
+        });
       }
-    })
-    setCartAdded(true)
-    setTimeout(() => setCartAdded(false), 2500)
-  }
+    });
+    setCartAdded(true);
+    setTimeout(() => setCartAdded(false), 2500);
+  };
 
   const handleShare = () => {
-    if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href)
-      setCopiedLink(true)
-      setTimeout(() => setCopiedLink(false), 2000)
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
     }
-  }
+  };
 
   const toggleAppSelection = (app: string) => {
-    setSelectedApps((prev) => (prev.includes(app) ? prev.filter((a) => a !== app) : [...prev, app]))
-  }
+    setSelectedApps((prev) =>
+      prev.includes(app) ? prev.filter((a) => a !== app) : [...prev, app],
+    );
+  };
 
   // Render Category Icon Helper
   const renderCategoryIcon = (iconName: string) => {
     switch (iconName) {
-      case 'Gamepad2': return <Gamepad2 className="w-5 h-5" />
-      case 'Laptop': return <Laptop className="w-5 h-5" />
-      case 'Video': return <Video className="w-5 h-5" />
-      case 'GraduationCap': return <GraduationCap className="w-5 h-5" />
-      case 'Briefcase': return <Briefcase className="w-5 h-5" />
-      case 'Box': return <Box className="w-5 h-5" />
-      case 'Code2': return <Code2 className="w-5 h-5" />
-      case 'Cpu': return <Cpu className="w-5 h-5" />
-      case 'Radio': return <Radio className="w-5 h-5" />
-      default: return <SlidersHorizontal className="w-5 h-5" />
+      case "Gamepad2":
+        return <Gamepad2 className="w-5 h-5" />;
+      case "Laptop":
+        return <Laptop className="w-5 h-5" />;
+      case "Video":
+        return <Video className="w-5 h-5" />;
+      case "GraduationCap":
+        return <GraduationCap className="w-5 h-5" />;
+      case "Briefcase":
+        return <Briefcase className="w-5 h-5" />;
+      case "Box":
+        return <Box className="w-5 h-5" />;
+      case "Code2":
+        return <Code2 className="w-5 h-5" />;
+      case "Cpu":
+        return <Cpu className="w-5 h-5" />;
+      case "Radio":
+        return <Radio className="w-5 h-5" />;
+      default:
+        return <SlidersHorizontal className="w-5 h-5" />;
     }
-  }
+  };
 
   return (
     <div className="space-y-8 min-h-screen">
       {/* =========================================================================
           STAGE 1 & 2: HUB & CATEGORY SELECTION (Screens 1 & 2)
          ========================================================================= */}
-      {currentStage === 'hub' && (
+      {currentStage === "hub" && (
         <div className="space-y-8 animate-in fade-in">
           {/* Visual 8 Screen 1: Hero Banner */}
           <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-blue-700 via-indigo-800 to-slate-950 text-white p-6 sm:p-10 shadow-lg">
@@ -300,11 +481,13 @@ export function BuildYourSetupMasterClient({
                 Build Your Perfect Tech Setup
               </h1>
               <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-                Tell us what you need. Our AI configures matching machines, displays, input gear, and power resilience for your lifestyle, budget, and goals with TechTrust escrow safety.
+                Tell us what you need. Our AI configures matching machines,
+                displays, input gear, and power resilience for your lifestyle,
+                budget, and goals with TechTrust escrow safety.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Button
-                  onClick={() => handleStartCategory('gaming')}
+                  onClick={() => handleStartCategory("gaming")}
                   className="bg-blue-500 hover:bg-blue-600 text-white font-black text-xs px-6 h-11 rounded-xl gap-2 shadow-md cursor-pointer"
                 >
                   Start Building Now <ArrowRight className="w-4 h-4" />
@@ -321,7 +504,8 @@ export function BuildYourSetupMasterClient({
                   Choose Your Setup Category
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Select your primary workflow to launch the adaptive AI assistant
+                  Select your primary workflow to launch the adaptive AI
+                  assistant
                 </p>
               </div>
             </div>
@@ -368,15 +552,28 @@ export function BuildYourSetupMasterClient({
               {POPULAR_SETUPS.map((pop, idx) => (
                 <div
                   key={idx}
-                  onClick={() => handleStartCategory(pop.category as SetupCategoryKey, pop.budget)}
+                  onClick={() =>
+                    handleStartCategory(
+                      pop.category as SetupCategoryKey,
+                      pop.budget,
+                    )
+                  }
                   className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 cursor-pointer hover:border-slate-300 transition"
                 >
                   <div className="space-y-0.5">
-                    <span className="text-[9px] font-black uppercase text-blue-600">{pop.badge}</span>
+                    <span className="text-[9px] font-black uppercase text-blue-600">
+                      {pop.badge}
+                    </span>
                     <h4 className="font-bold text-xs">{pop.title}</h4>
-                    <p className="text-xs font-black">₦{pop.price.toLocaleString()}</p>
+                    <p className="text-xs font-black">
+                      ₦{pop.price.toLocaleString()}
+                    </p>
                   </div>
-                  <Button size="sm" variant="outline" className="h-8 text-[11px] font-bold rounded-xl">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-[11px] font-bold rounded-xl"
+                  >
                     View
                   </Button>
                 </div>
@@ -389,14 +586,14 @@ export function BuildYourSetupMasterClient({
       {/* =========================================================================
           STAGE 2: ADAPTIVE QUESTIONNAIRE WIZARD (Screens 3 & 4)
          ========================================================================= */}
-      {currentStage === 'survey' && (
+      {currentStage === "survey" && (
         <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in">
           {/* Header Navigation */}
           <div className="flex items-center justify-between">
             <button
               onClick={() => {
-                if (surveyStep > 2) setSurveyStep(surveyStep - 1)
-                else setCurrentStage('hub')
+                if (surveyStep > 2) setSurveyStep(surveyStep - 1);
+                else setCurrentStage("hub");
               }}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 cursor-pointer"
             >
@@ -409,9 +606,27 @@ export function BuildYourSetupMasterClient({
 
           {/* Stepper Indicator */}
           <div className="grid grid-cols-4 gap-2 text-center text-xs font-bold text-slate-400">
-            <div className="text-blue-600 border-b-2 border-blue-600 pb-1">1. Purpose</div>
-            <div className={surveyStep >= 2 ? 'text-blue-600 border-b-2 border-blue-600 pb-1' : 'pb-1'}>2. Budget</div>
-            <div className={surveyStep >= 3 ? 'text-blue-600 border-b-2 border-blue-600 pb-1' : 'pb-1'}>3. Preferences</div>
+            <div className="text-blue-600 border-b-2 border-blue-600 pb-1">
+              1. Purpose
+            </div>
+            <div
+              className={
+                surveyStep >= 2
+                  ? "text-blue-600 border-b-2 border-blue-600 pb-1"
+                  : "pb-1"
+              }
+            >
+              2. Budget
+            </div>
+            <div
+              className={
+                surveyStep >= 3
+                  ? "text-blue-600 border-b-2 border-blue-600 pb-1"
+                  : "pb-1"
+              }
+            >
+              3. Preferences
+            </div>
             <div className="pb-1">4. Review</div>
           </div>
 
@@ -421,7 +636,8 @@ export function BuildYourSetupMasterClient({
               <Bot className="w-5 h-5" />
             </div>
             <p className="text-xs text-purple-950 dark:text-purple-200">
-              Great choice! I will analyze real listings across Banex and Emab plazas to engineer your custom setup.
+              Great choice! I will analyze real listings across Banex and Emab
+              plazas to engineer your custom setup.
             </p>
           </div>
 
@@ -429,9 +645,12 @@ export function BuildYourSetupMasterClient({
           {surveyStep === 2 && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 shadow-2xs space-y-5">
               <div>
-                <h3 className="text-base font-black">What is your target budget?</h3>
+                <h3 className="text-base font-black">
+                  What is your target budget?
+                </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  We use this as a strict constraint to allocate component costs accurately.
+                  We use this as a strict constraint to allocate component costs
+                  accurately.
                 </p>
               </div>
 
@@ -441,14 +660,18 @@ export function BuildYourSetupMasterClient({
                   Exact Amount in Naira (₦)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-sm font-black text-slate-400">₦</span>
+                  <span className="absolute left-3.5 top-2.5 text-sm font-black text-slate-400">
+                    ₦
+                  </span>
                   <input
                     type="number"
                     inputMode="numeric"
                     min="100000"
                     step="25000"
-                    value={budget || ''}
-                    onChange={(e) => setBudget(Math.max(0, Number(e.target.value)))}
+                    value={budget || ""}
+                    onChange={(e) =>
+                      setBudget(Math.max(0, Number(e.target.value)))
+                    }
                     placeholder="Enter custom budget..."
                     className="w-full pl-8 pr-4 py-2 text-sm font-black rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -468,8 +691,8 @@ export function BuildYourSetupMasterClient({
                       onClick={() => setBudget(p)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                         budget === p
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                          : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
                       }`}
                     >
                       ₦{p.toLocaleString()}
@@ -485,9 +708,21 @@ export function BuildYourSetupMasterClient({
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
-                    { id: 'maximum', label: 'Max Performance', desc: 'Raw power prioritized' },
-                    { id: 'balanced', label: 'Balanced (Rec)', desc: 'Best blend of cost & speed' },
-                    { id: 'value', label: 'Best Value', desc: 'Avoids overspending' },
+                    {
+                      id: "maximum",
+                      label: "Max Performance",
+                      desc: "Raw power prioritized",
+                    },
+                    {
+                      id: "balanced",
+                      label: "Balanced (Rec)",
+                      desc: "Best blend of cost & speed",
+                    },
+                    {
+                      id: "value",
+                      label: "Best Value",
+                      desc: "Avoids overspending",
+                    },
                   ].map((prof) => (
                     <button
                       key={prof.id}
@@ -495,12 +730,14 @@ export function BuildYourSetupMasterClient({
                       onClick={() => setPerformancePriority(prof.id as any)}
                       className={`p-3 rounded-2xl border text-left text-xs transition cursor-pointer ${
                         performancePriority === prof.id
-                          ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 font-bold ring-1 ring-blue-600'
-                          : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                          ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 font-bold ring-1 ring-blue-600"
+                          : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
                       }`}
                     >
                       <div className="font-bold">{prof.label}</div>
-                      <div className="text-[10px] text-slate-400">{prof.desc}</div>
+                      <div className="text-[10px] text-slate-400">
+                        {prof.desc}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -519,14 +756,18 @@ export function BuildYourSetupMasterClient({
           {surveyStep === 3 && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 shadow-2xs space-y-5">
               <div>
-                <h3 className="text-base font-black">Specify your target software &amp; hardware</h3>
+                <h3 className="text-base font-black">
+                  Specify your target software &amp; hardware
+                </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Helps the AI configure matching RAM, GPU clock speeds, and peripherals.
+                  Helps the AI configure matching RAM, GPU clock speeds, and
+                  peripherals.
                 </p>
               </div>
 
               {/* Dynamic Target Selection */}
-              {selectedCategory === 'gaming' || selectedCategory === 'streaming' ? (
+              {selectedCategory === "gaming" ||
+              selectedCategory === "streaming" ? (
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                     Which games do you plan to run? (Select all that apply)
@@ -539,8 +780,8 @@ export function BuildYourSetupMasterClient({
                         onClick={() => toggleAppSelection(game)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                           selectedApps.includes(game)
-                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                            ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                            : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
                         }`}
                       >
                         {game}
@@ -548,7 +789,8 @@ export function BuildYourSetupMasterClient({
                     ))}
                   </div>
                 </div>
-              ) : selectedCategory === 'programming' || selectedCategory === 'ai_ml' ? (
+              ) : selectedCategory === "programming" ||
+                selectedCategory === "ai_ml" ? (
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                     Core Developer Tools
@@ -561,8 +803,8 @@ export function BuildYourSetupMasterClient({
                         onClick={() => toggleAppSelection(app)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                           selectedApps.includes(app)
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                            ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                            : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
                         }`}
                       >
                         {app}
@@ -583,8 +825,8 @@ export function BuildYourSetupMasterClient({
                         onClick={() => toggleAppSelection(app)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                           selectedApps.includes(app)
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                            ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                            : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
                         }`}
                       >
                         {app}
@@ -605,9 +847,15 @@ export function BuildYourSetupMasterClient({
                     onChange={(e) => setFormFactor(e.target.value)}
                     className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold focus:outline-none"
                   >
-                    <option value="Laptop-first Workstation">Laptop-first Workstation</option>
-                    <option value="Custom Desktop Tower">Custom Desktop Tower</option>
-                    <option value="Apple Mac Ecosystem">Apple Mac Ecosystem</option>
+                    <option value="Laptop-first Workstation">
+                      Laptop-first Workstation
+                    </option>
+                    <option value="Custom Desktop Tower">
+                      Custom Desktop Tower
+                    </option>
+                    <option value="Apple Mac Ecosystem">
+                      Apple Mac Ecosystem
+                    </option>
                     <option value="Compact Mini PC">Compact Mini PC</option>
                   </select>
                 </div>
@@ -621,9 +869,15 @@ export function BuildYourSetupMasterClient({
                     onChange={(e) => setPowerPriority(e.target.value)}
                     className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold focus:outline-none"
                   >
-                    <option value="High (Include UPS / Inverter Power)">High (Reserve UPS/Backup)</option>
-                    <option value="Standard (Focus on Laptop Battery)">Standard (Laptop Battery)</option>
-                    <option value="Low (Already have Inverter)">Low (Home Inverter Present)</option>
+                    <option value="High (Include UPS / Inverter Power)">
+                      High (Reserve UPS/Backup)
+                    </option>
+                    <option value="Standard (Focus on Laptop Battery)">
+                      Standard (Laptop Battery)
+                    </option>
+                    <option value="Low (Already have Inverter)">
+                      Low (Home Inverter Present)
+                    </option>
                   </select>
                 </div>
               </div>
@@ -657,7 +911,7 @@ export function BuildYourSetupMasterClient({
       {/* =========================================================================
           STAGE 3: ANIMATED AI GENERATION SCANNER (Screen 5)
          ========================================================================= */}
-      {currentStage === 'loading' && (
+      {currentStage === "loading" && (
         <div className="max-w-md mx-auto py-16 px-4 text-center space-y-6 animate-in zoom-in-95">
           <div className="relative w-20 h-20 mx-auto">
             <div className="absolute inset-0 rounded-full bg-purple-500/20 animate-ping" />
@@ -669,7 +923,8 @@ export function BuildYourSetupMasterClient({
           <div className="space-y-1.5">
             <h2 className="text-xl font-black">Assembling Your Rig</h2>
             <p className="text-xs text-slate-400">
-              Evaluating live marketplace stock across Banex, Emab, and Wuse 2...
+              Evaluating live marketplace stock across Banex, Emab, and Wuse
+              2...
             </p>
           </div>
 
@@ -698,7 +953,7 @@ export function BuildYourSetupMasterClient({
       {/* =========================================================================
           STAGE 4: COMPLETE RESULTS & WORKBENCH (Screens 6 to 12)
          ========================================================================= */}
-      {currentStage === 'results' && activeBuild && (
+      {currentStage === "results" && activeBuild && (
         <div className="space-y-8 animate-in fade-in">
           {/* Visual 8 Screen 6: Top Header & Build Score Hero Card */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xs space-y-6">
@@ -708,7 +963,9 @@ export function BuildYourSetupMasterClient({
                   <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 text-[10px] font-bold">
                     <Check className="w-3 h-3 mr-0.5" /> 100% Compatible
                   </Badge>
-                  <span className="text-xs text-slate-400">All components verified to work together</span>
+                  <span className="text-xs text-slate-400">
+                    All components verified to work together
+                  </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-1">
                   {activeBuild.title}
@@ -726,15 +983,25 @@ export function BuildYourSetupMasterClient({
                   onClick={handleShare}
                   className="text-xs font-bold rounded-xl h-10 border-slate-200 dark:border-slate-700 gap-1.5"
                 >
-                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
-                  <span>{copiedLink ? 'Copied' : 'Share'}</span>
+                  {copiedLink ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <Share2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>{copiedLink ? "Copied" : "Share"}</span>
                 </Button>
                 <Button
                   onClick={handleAddAllToCart}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-5 gap-2 shadow-xs cursor-pointer"
                 >
-                  {cartAdded ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
-                  <span>{cartAdded ? 'Added to Cart!' : 'Add All to Cart'}</span>
+                  {cartAdded ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <ShoppingCart className="w-4 h-4" />
+                  )}
+                  <span>
+                    {cartAdded ? "Added to Cart!" : "Add All to Cart"}
+                  </span>
                 </Button>
               </div>
             </div>
@@ -761,11 +1028,17 @@ export function BuildYourSetupMasterClient({
                   <span className="text-base font-black text-purple-700 dark:text-purple-300 leading-none">
                     {activeBuild.score}
                   </span>
-                  <span className="text-[9px] font-bold text-purple-500 uppercase">/100</span>
+                  <span className="text-[9px] font-bold text-purple-500 uppercase">
+                    /100
+                  </span>
                 </div>
                 <div className="text-xs">
-                  <span className="font-bold text-slate-900 dark:text-slate-100 block">Setup Score</span>
-                  <span className="text-[11px] text-slate-400">Based on value, thermal headroom &amp; speed</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                    Setup Score
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Based on value, thermal headroom &amp; speed
+                  </span>
                 </div>
               </div>
             </div>
@@ -791,17 +1064,17 @@ export function BuildYourSetupMasterClient({
           {/* Navigation Sub-Tabs */}
           <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
             {[
-              { id: 'overview', label: 'Component Breakdown' },
-              { id: 'performance', label: 'Performance & Benchmarks' },
-              { id: 'compare', label: 'Compare 3 Tier Options' },
+              { id: "overview", label: "Component Breakdown" },
+              { id: "performance", label: "Performance & Benchmarks" },
+              { id: "compare", label: "Compare 3 Tier Options" },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setResultTab(tab.id as any)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                   resultTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                 }`}
               >
                 {tab.label}
@@ -812,11 +1085,15 @@ export function BuildYourSetupMasterClient({
           {/* =========================================================================
               SCREEN 7: COMPONENT BREAKDOWN TABLE
              ========================================================================= */}
-          {resultTab === 'overview' && (
+          {resultTab === "overview" && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                <h3 className="font-black text-sm">Components ({activeBuild.components.length} Items)</h3>
-                <span className="text-xs text-emerald-600 font-bold">✓ 100% Verified Abuja Stock</span>
+                <h3 className="font-black text-sm">
+                  Components ({activeBuild.components.length} Items)
+                </h3>
+                <span className="text-xs text-emerald-600 font-bold">
+                  ✓ 100% Verified Abuja Stock
+                </span>
               </div>
 
               <div className="overflow-x-auto">
@@ -832,39 +1109,109 @@ export function BuildYourSetupMasterClient({
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {activeBuild.components.map((c) => {
-                      const firstImg = resolveFirstImage(c.product?.images)
+                      const firstImg = resolveFirstImage(c.product?.images);
+
                       return (
-                        <tr key={c.slotKey} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+                        <tr
+                          key={c.slotKey}
+                          className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition"
+                        >
                           <td className="py-4 font-bold text-slate-400 text-[11px] whitespace-nowrap">
                             {c.slotName}
                           </td>
+
                           <td className="py-4 font-bold">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
-                                {firstImg ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={firstImg} alt={c.product.title} className="w-full h-full object-contain p-1" />
-                                ) : (
-                                  <Package className="w-5 h-5 text-slate-400" />
-                                )}
+                            {c.isDualRole ? (
+                              /* Dual-Role Component (e.g. Built-in Laptop Screen or Keyboard) */
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center shrink-0 text-purple-600">
+                                  <Check className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-slate-900 dark:text-slate-100 text-xs">
+                                      {c.dualRoleNote ||
+                                        "Integrated with Primary Device"}
+                                    </span>
+                                    <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 text-[9px] font-black uppercase">
+                                      Dual Role
+                                    </Badge>
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-normal block">
+                                    Included with main unit • No extra purchase
+                                    required
+                                  </span>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <span className="block truncate max-w-xs text-slate-900 dark:text-slate-100">
-                                  {c.product?.title}
-                                </span>
-                                <span className="text-[10px] text-slate-400 flex items-center gap-1 font-normal">
-                                  <Store className="w-3 h-3" />
-                                  {c.product?.profiles?.business_name || 'Verified Vendor'} • {c.product?.profiles?.district || 'Abuja'}
-                                </span>
+                            ) : c.product ? (
+                              /* Normal In-Stock Product */
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+                                  {firstImg ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={firstImg}
+                                      alt={c.product.title}
+                                      className="w-full h-full object-contain p-1"
+                                    />
+                                  ) : (
+                                    <Package className="w-5 h-5 text-slate-400" />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="block truncate max-w-xs text-slate-900 dark:text-slate-100">
+                                    {c.product.title}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 flex items-center gap-1 font-normal">
+                                    <Store className="w-3 h-3" />
+                                    {c.product.profiles?.business_name ||
+                                      "Verified Vendor"}{" "}
+                                    • {c.product.profiles?.district || "Abuja"}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
+                            ) : (
+                              /* Out of Stock in Abuja */
+                              <div className="flex items-center gap-3 text-slate-400">
+                                <div className="w-12 h-12 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs shrink-0">
+                                  —
+                                </div>
+                                <div>
+                                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400 block">
+                                    No verified stock currently in Abuja
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-normal">
+                                    Optional component • Bring your own or swap
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </td>
-                          <td className="py-4 font-black text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                            ₦{Number(c.product?.price || 0).toLocaleString()}
+
+                          {/* Price Column */}
+                          <td className="py-4 font-black whitespace-nowrap">
+                            {c.isDualRole ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                                ₦0{" "}
+                                <span className="text-[10px] text-slate-400 font-normal">
+                                  (Included)
+                                </span>
+                              </span>
+                            ) : c.product ? (
+                              <span className="text-slate-900 dark:text-slate-100">
+                                ₦{Number(c.product.price || 0).toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">—</span>
+                            )}
                           </td>
+
+                          {/* Reason Column */}
                           <td className="py-4 text-slate-500 dark:text-slate-400 text-[11px] max-w-xs leading-relaxed">
                             {c.reasonWhy}
                           </td>
+
+                          {/* Customize / Swap Column */}
                           <td className="py-4 text-right whitespace-nowrap">
                             <Button
                               size="sm"
@@ -872,11 +1219,12 @@ export function BuildYourSetupMasterClient({
                               onClick={() => setSwappingComponent(c)}
                               className="text-[11px] font-bold rounded-xl h-8 px-3 border-slate-200 dark:border-slate-700 gap-1 cursor-pointer"
                             >
-                              <RefreshCw className="w-3 h-3" /> Swap
+                              <RefreshCw className="w-3 h-3" />{" "}
+                              {c.product ? "Swap" : "Check Stock"}
                             </Button>
                           </td>
                         </tr>
-                      )
+                      );
                     })}
                   </tbody>
                 </table>
@@ -887,34 +1235,48 @@ export function BuildYourSetupMasterClient({
           {/* =========================================================================
               SCREEN 9: PERFORMANCE & BENCHMARK VIEW
              ========================================================================= */}
-          {resultTab === 'performance' && (
+          {resultTab === "performance" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Ratings Overview */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 shadow-2xs space-y-4">
                 <h3 className="font-black text-sm">Performance Overview</h3>
                 <div className="space-y-3 text-xs">
-                  {Object.entries(activeBuild.performanceRatings).map(([key, val]) => (
-                    <div key={key} className="space-y-1">
-                      <div className="flex justify-between font-bold capitalize">
-                        <span>{key.replace(/([A-Z])/g, ' $1')}</span>
-                        <span className="text-blue-600">{val}%</span>
+                  {Object.entries(activeBuild.performanceRatings).map(
+                    ([key, val]) => (
+                      <div key={key} className="space-y-1">
+                        <div className="flex justify-between font-bold capitalize">
+                          <span>{key.replace(/([A-Z])/g, " $1")}</span>
+                          <span className="text-blue-600">{val}%</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full bg-blue-600 rounded-full"
+                            style={{ width: `${val}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                        <div className="h-full bg-blue-600 rounded-full" style={{ width: `${val}%` }} />
-                      </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </div>
 
               {/* Real World Benchmark Targets */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 shadow-2xs space-y-4">
-                <h3 className="font-black text-sm">Real World Performance Targets</h3>
+                <h3 className="font-black text-sm">
+                  Real World Performance Targets
+                </h3>
                 <div className="grid grid-cols-2 gap-3">
                   {activeBuild.benchmarks.map((bm, i) => (
-                    <div key={i} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-1">
-                      <span className="text-[10px] uppercase font-black text-blue-600 block">{bm.label}</span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{bm.rating}</p>
+                    <div
+                      key={i}
+                      className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-1"
+                    >
+                      <span className="text-[10px] uppercase font-black text-blue-600 block">
+                        {bm.label}
+                      </span>
+                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                        {bm.rating}
+                      </p>
                       <p className="text-[10px] text-slate-400">{bm.target}</p>
                     </div>
                   ))}
@@ -926,16 +1288,23 @@ export function BuildYourSetupMasterClient({
           {/* =========================================================================
               SCREEN 10: SAVE & COMPARE 3 TIER OPTIONS
              ========================================================================= */}
-          {resultTab === 'compare' && (
+          {resultTab === "compare" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Option 1: Max Performance */}
               {alternatives.maxPerformance && (
                 <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3 flex flex-col justify-between">
                   <div className="space-y-1.5">
-                    <span className="text-[10px] uppercase font-black text-purple-600">Option 1 • Max Speed</span>
+                    <span className="text-[10px] uppercase font-black text-purple-600">
+                      Option 1 • Max Speed
+                    </span>
                     <h4 className="font-black text-sm">Maximum Performance</h4>
-                    <p className="text-xl font-black">₦{alternatives.maxPerformance.totalPrice.toLocaleString()}</p>
-                    <p className="text-[11px] text-slate-400">Score: {alternatives.maxPerformance.score}/100 • Higher spec components</p>
+                    <p className="text-xl font-black">
+                      ₦{alternatives.maxPerformance.totalPrice.toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Score: {alternatives.maxPerformance.score}/100 • Higher
+                      spec components
+                    </p>
                   </div>
                   <Button
                     onClick={() => setActiveBuild(alternatives.maxPerformance)}
@@ -950,10 +1319,16 @@ export function BuildYourSetupMasterClient({
               {/* Option 2: Recommended Best Value */}
               <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border-2 border-blue-600 shadow-md space-y-3 flex flex-col justify-between">
                 <div className="space-y-1.5">
-                  <Badge className="bg-blue-600 text-white text-[9px]">Option 2 • Recommended</Badge>
+                  <Badge className="bg-blue-600 text-white text-[9px]">
+                    Option 2 • Recommended
+                  </Badge>
                   <h4 className="font-black text-sm">{activeBuild.title}</h4>
-                  <p className="text-2xl font-black text-blue-600">₦{activeBuild.totalPrice.toLocaleString()}</p>
-                  <p className="text-[11px] text-slate-400">Score: {activeBuild.score}/100 • Optimal budget balance</p>
+                  <p className="text-2xl font-black text-blue-600">
+                    ₦{activeBuild.totalPrice.toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Score: {activeBuild.score}/100 • Optimal budget balance
+                  </p>
                 </div>
                 <Button className="w-full bg-blue-600 text-white text-xs font-bold rounded-xl h-9">
                   Active Build
@@ -964,10 +1339,19 @@ export function BuildYourSetupMasterClient({
               {alternatives.budgetFriendly && (
                 <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3 flex flex-col justify-between">
                   <div className="space-y-1.5">
-                    <span className="text-[10px] uppercase font-black text-emerald-600">Option 3 • Budget Saver</span>
-                    <h4 className="font-black text-sm">Budget-Friendly Variant</h4>
-                    <p className="text-xl font-black">₦{alternatives.budgetFriendly.totalPrice.toLocaleString()}</p>
-                    <p className="text-[11px] text-slate-400">Score: {alternatives.budgetFriendly.score}/100 • Saves ₦{alternatives.budgetFriendly.savings.toLocaleString()}</p>
+                    <span className="text-[10px] uppercase font-black text-emerald-600">
+                      Option 3 • Budget Saver
+                    </span>
+                    <h4 className="font-black text-sm">
+                      Budget-Friendly Variant
+                    </h4>
+                    <p className="text-xl font-black">
+                      ₦{alternatives.budgetFriendly.totalPrice.toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Score: {alternatives.budgetFriendly.score}/100 • Saves ₦
+                      {alternatives.budgetFriendly.savings.toLocaleString()}
+                    </p>
                   </div>
                   <Button
                     onClick={() => setActiveBuild(alternatives.budgetFriendly)}
@@ -991,17 +1375,19 @@ export function BuildYourSetupMasterClient({
                 <Bot className="w-5 h-5 text-purple-600" />
                 <div>
                   <h3 className="font-black text-sm">Ask About Your Build</h3>
-                  <p className="text-[10px] text-slate-400">Live AI guidance grounded in your active components</p>
+                  <p className="text-[10px] text-slate-400">
+                    Live AI guidance grounded in your active components
+                  </p>
                 </div>
               </div>
 
               {/* Quick Prompt Chips */}
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  'Can this run GTA 6?',
-                  'Why this processor?',
-                  'Cheaper alternative?',
-                  'Can I upgrade RAM later?',
+                  "Can this run GTA 6?",
+                  "Why this processor?",
+                  "Cheaper alternative?",
+                  "Can I upgrade RAM later?",
                 ].map((chip) => (
                   <button
                     key={chip}
@@ -1020,13 +1406,15 @@ export function BuildYourSetupMasterClient({
                   <div
                     key={msg.id}
                     className={`p-3 rounded-2xl ${
-                      msg.sender === 'user'
-                        ? 'bg-blue-600 text-white ml-auto max-w-[80%]'
-                        : 'bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 mr-auto max-w-[90%]'
+                      msg.sender === "user"
+                        ? "bg-blue-600 text-white ml-auto max-w-[80%]"
+                        : "bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 mr-auto max-w-[90%]"
                     }`}
                   >
                     <p className="leading-relaxed">{msg.text}</p>
-                    <span className="text-[9px] opacity-60 block mt-1">{msg.timestamp}</span>
+                    <span className="text-[9px] opacity-60 block mt-1">
+                      {msg.timestamp}
+                    </span>
                   </div>
                 ))}
                 {chatLoading && (
@@ -1043,7 +1431,9 @@ export function BuildYourSetupMasterClient({
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && handleSendChatMessage()
+                  }
                   placeholder="Ask anything about compatibility, thermals, gaming..."
                   className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500 font-medium"
                 />
@@ -1063,20 +1453,27 @@ export function BuildYourSetupMasterClient({
                 <span className="text-[10px] font-black uppercase tracking-wider text-indigo-300">
                   Ready for Purchase
                 </span>
-                <h3 className="text-lg font-black tracking-tight">Your Rig is Ready!</h3>
+                <h3 className="text-lg font-black tracking-tight">
+                  Your Rig is Ready!
+                </h3>
                 <p className="text-xs text-indigo-200">
-                  {activeBuild.components.length} components • 100% verified compatibility
+                  {activeBuild.components.length} components • 100% verified
+                  compatibility
                 </p>
               </div>
 
               <div className="space-y-2 text-xs border-t border-white/10 pt-3 text-indigo-100">
                 <div className="flex justify-between">
                   <span>Hardware Subtotal:</span>
-                  <span className="font-bold text-white">₦{activeBuild.totalPrice.toLocaleString()}</span>
+                  <span className="font-bold text-white">
+                    ₦{activeBuild.totalPrice.toLocaleString()}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Abuja Inspection / Meetup:</span>
-                  <span className="font-bold text-emerald-400">Free (TechTrust Protected)</span>
+                  <span className="font-bold text-emerald-400">
+                    Free (TechTrust Protected)
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>7-Day Buyer Escrow Protection:</span>
@@ -1084,7 +1481,9 @@ export function BuildYourSetupMasterClient({
                 </div>
                 <div className="flex justify-between pt-2 border-t border-white/10 text-base font-black text-white">
                   <span>Total Payable:</span>
-                  <span className="text-emerald-400">₦{activeBuild.totalPrice.toLocaleString()}</span>
+                  <span className="text-emerald-400">
+                    ₦{activeBuild.totalPrice.toLocaleString()}
+                  </span>
                 </div>
               </div>
 
@@ -1092,8 +1491,16 @@ export function BuildYourSetupMasterClient({
                 onClick={handleAddAllToCart}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs sm:text-sm h-12 rounded-xl shadow-lg cursor-pointer gap-2"
               >
-                {cartAdded ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
-                <span>{cartAdded ? 'Added All to Cart!' : 'Add All to Cart & Checkout'}</span>
+                {cartAdded ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <ShoppingCart className="w-4 h-4" />
+                )}
+                <span>
+                  {cartAdded
+                    ? "Added All to Cart!"
+                    : "Add All to Cart & Checkout"}
+                </span>
               </Button>
             </div>
           </div>
@@ -1113,9 +1520,12 @@ export function BuildYourSetupMasterClient({
           <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl z-10 space-y-4 max-h-[85vh] flex flex-col text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="font-black text-base">Swap {swappingComponent.slotName}</h3>
+                <h3 className="font-black text-base">
+                  Swap {swappingComponent.slotName}
+                </h3>
                 <p className="text-xs text-slate-400">
-                  Select a compatible alternative currently available in Abuja plazas
+                  Select a compatible alternative currently available in Abuja
+                  plazas
                 </p>
               </div>
               <button
@@ -1127,10 +1537,13 @@ export function BuildYourSetupMasterClient({
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 [scrollbar-width:thin]">
-              {swappingComponent.alternatives && swappingComponent.alternatives.length > 0 ? (
+              {swappingComponent.alternatives &&
+              swappingComponent.alternatives.length > 0 ? (
                 swappingComponent.alternatives.map((alt) => {
-                  const firstImg = resolveFirstImage(alt.images)
-                  const priceDiff = Number(alt.price) - Number(swappingComponent.product?.price || 0)
+                  const firstImg = resolveFirstImage(alt.images);
+                  const priceDiff =
+                    Number(alt.price) -
+                    Number(swappingComponent.product?.price || 0);
 
                   return (
                     <div
@@ -1142,30 +1555,46 @@ export function BuildYourSetupMasterClient({
                         <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
                           {firstImg ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={firstImg} alt={alt.title} className="w-full h-full object-contain p-1" />
+                            <img
+                              src={firstImg}
+                              alt={alt.title}
+                              className="w-full h-full object-contain p-1"
+                            />
                           ) : (
                             <Package className="w-5 h-5 text-slate-400" />
                           )}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-bold text-xs truncate">{alt.title}</h4>
-                          <p className="text-xs font-black text-blue-600">₦{Number(alt.price).toLocaleString()}</p>
+                          <h4 className="font-bold text-xs truncate">
+                            {alt.title}
+                          </h4>
+                          <p className="text-xs font-black text-blue-600">
+                            ₦{Number(alt.price).toLocaleString()}
+                          </p>
                           <p className="text-[10px] text-slate-400">
-                            {alt.profiles?.business_name || 'Vendor'} • {alt.profiles?.district || 'Abuja'}
+                            {alt.profiles?.business_name || "Vendor"} •{" "}
+                            {alt.profiles?.district || "Abuja"}
                           </p>
                         </div>
                       </div>
 
                       <div className="text-right shrink-0">
-                        <span className={`text-[11px] font-black block ${priceDiff > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                          {priceDiff > 0 ? `+₦${priceDiff.toLocaleString()}` : `-₦${Math.abs(priceDiff).toLocaleString()}`}
+                        <span
+                          className={`text-[11px] font-black block ${priceDiff > 0 ? "text-amber-600" : "text-emerald-600"}`}
+                        >
+                          {priceDiff > 0
+                            ? `+₦${priceDiff.toLocaleString()}`
+                            : `-₦${Math.abs(priceDiff).toLocaleString()}`}
                         </span>
-                        <Button size="sm" className="bg-blue-600 text-white text-[10px] font-bold h-7 px-2.5 rounded-lg mt-1">
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 text-white text-[10px] font-bold h-7 px-2.5 rounded-lg mt-1"
+                        >
                           Select
                         </Button>
                       </div>
                     </div>
-                  )
+                  );
                 })
               ) : (
                 <div className="py-12 text-center text-slate-400 text-xs">
@@ -1177,5 +1606,5 @@ export function BuildYourSetupMasterClient({
         </div>
       )}
     </div>
-  )
+  );
 }
