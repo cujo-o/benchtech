@@ -18,6 +18,9 @@ import { BuyingRequestModal } from "@/components/products/BuyingRequestModal";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { CompareButton } from "@/components/CompareButton";
 import { ProductViewTracker } from "@/components/products/ProductViewTracker";
+import { getSponsoredProducts } from "@/lib/ads/getSponsoredProducts";
+import { AdProductCardWrapper } from "@/components/storefront/AdProductCardWrapper";
+import { AdImpressionTracker } from "@/components/storefront/AdImpressionTracker";
 import { ShareButton } from "@/components/storefront/ShareButton";
 import type { Metadata } from "next";
 
@@ -104,100 +107,124 @@ export default async function ProductDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: product, error }, { data: rawAlternatives }] =
-    await Promise.all([
-      supabase
-        .from("products")
-        .select(
-          `
-          *,
-          profiles!products_seller_id_fkey(
-            id,
-            full_name,
-            business_name,
-            district,
-            phone,
-            avatar_url,
-            profile_image,
-            logo_url,
-            tech_trust_status
-          )
-        `
-        )
-        .eq("id", id)
-        .maybeSingle(),
-      supabase
-        .from("products")
-        .select(
-          `
-          id,
-          title,
-          price,
-          condition,
-          images,
-          brand,
-          category,
-          profiles!products_seller_id_fkey(business_name, district)
-        `
-        )
-        .eq("status", "published")
-        .neq("id", id)
-        .limit(10),
-    ]);
+  // 1. Fetch product with wildcards to avoid schema cache column errors
+  let { data: product, error } = await supabase
+    .from("products")
+    .select("*, profiles!products_seller_id_fkey(*)")
+    .eq("id", id)
+    .maybeSingle();
 
+  // Bulletproof fallback: If joined relation errors, fetch product and profile separately
   if (error || !product) {
-    notFound();
-  }
+    const { data: fallbackProduct } = await supabase
+      .from("products")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
 
-  const seller = product.profiles;
-  const isVerified = seller?.tech_trust_status === "verified";
-  const sellerAvatar =
-    seller?.avatar_url || seller?.profile_image || seller?.logo_url || null;
+    if (fallbackProduct) {
+      product = fallbackProduct;
+      error = null;
 
-  // Deduplicate alternatives strictly by ID and filter out current product
-  const uniqueAlternatives = Array.from(
-    new Map((rawAlternatives || []).map((item) => [item.id, item])).values()
-  ).slice(0, 4);
-
-  // Parse all listing specifications dynamically
-  let dynamicSpecs: Record<string, any> = {};
-  if (product.specs) {
-    if (typeof product.specs === "object") {
-      dynamicSpecs = { ...product.specs };
-    } else if (typeof product.specs === "string") {
-      try {
-        dynamicSpecs = JSON.parse(product.specs);
-      } catch {
-        // ignore malformed specs
+      if (fallbackProduct.seller_id) {
+        const { data: sellerData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", fallbackProduct.seller_id)
+          .maybeSingle();
+        product.profiles = sellerData;
       }
     }
   }
 
-  const allSpecs: Record<string, string> = {
-    Brand: product.brand || "N/A",
-    Condition: product.condition ? product.condition.replace(/_/g, " ") : "Used",
-    ...(product.model && { Model: product.model }),
-    ...(product.processor && { Processor: product.processor }),
-    ...(product.ram && { RAM: product.ram }),
-    ...(product.storage && { Storage: product.storage }),
-    ...(product.battery_health && {
-      "Battery Health": `${product.battery_health}%`,
-    }),
-    ...(product.screen_size && { "Screen Size": product.screen_size }),
-    ...(product.color && { Color: product.color }),
-    ...(product.warranty && { Warranty: product.warranty }),
-    ...(product.accessories && { "Accessories Included": product.accessories }),
+  if (!product) {
+    notFound();
+  }
+
+  // 2. Fetch alternative products and deduplicate strictly by ID
+  const sponsoredCandidates = await getSponsoredProducts({ limit: 8 });
+
+  const seenIds = new Set<string>();
+  const uniqueAlternatives: any[] = [];
+
+  for (const ad of sponsoredCandidates || []) {
+    const candidateId = ad?.product?.id;
+    if (candidateId && candidateId !== id && !seenIds.has(candidateId)) {
+      seenIds.add(candidateId);
+      uniqueAlternatives.push(ad);
+      if (uniqueAlternatives.length >= 4) break;
+    }
+  }
+
+  const seller = product.profiles;
+  const isVerified = seller?.tech_trust_status === "verified";
+
+  // Resolve Seller Profile Picture
+  const sellerAvatar =
+    seller?.avatar_url ||
+    seller?.profile_image ||
+    seller?.logo_url ||
+    seller?.photo_url ||
+    seller?.image ||
+    null;
+
+  // 3. Dynamic Specifications Engine (Parses JSON specs and direct table columns)
+  let parsedSpecs: Record<string, any> = {};
+  if (product.specs) {
+    if (typeof product.specs === "object") {
+      parsedSpecs = { ...product.specs };
+    } else if (typeof product.specs === "string") {
+      try {
+        parsedSpecs = JSON.parse(product.specs);
+      } catch {
+        // ignore malformed string
+      }
+    }
+  }
+
+  const specList: { label: string; value: string }[] = [];
+  const addSpec = (label: string, val: any) => {
+    if (val !== undefined && val !== null && val !== "" && val !== "N/A") {
+      specList.push({ label, value: String(val) });
+    }
   };
 
-  // Add any remaining dynamic keys from specs JSON
-  Object.entries(dynamicSpecs).forEach(([key, val]) => {
-    if (val !== undefined && val !== null && val !== "") {
-      const formattedKey = key
+  addSpec("Brand", product.brand);
+  addSpec("Model", product.model || parsedSpecs.model);
+  addSpec("Condition", product.condition ? product.condition.replace(/_/g, " ") : "Used");
+  addSpec("Processor", product.processor || parsedSpecs.processor);
+  addSpec("RAM", product.ram || parsedSpecs.ram);
+  addSpec("Storage", product.storage || parsedSpecs.storage);
+  addSpec(
+    "Battery Health",
+    product.battery_health
+      ? `${product.battery_health}%`
+      : parsedSpecs.battery_health
+      ? String(parsedSpecs.battery_health).includes("%")
+        ? parsedSpecs.battery_health
+        : `${parsedSpecs.battery_health}%`
+      : null
+  );
+  addSpec("Screen Size", product.screen_size || parsedSpecs.screen_size);
+  addSpec("Color", product.color || parsedSpecs.color);
+  addSpec("Operating System", product.os || parsedSpecs.os || parsedSpecs.operating_system);
+  addSpec("Graphics / GPU", product.gpu || parsedSpecs.gpu || parsedSpecs.graphics);
+  addSpec("Warranty", product.warranty || parsedSpecs.warranty);
+  addSpec("Accessories Included", product.accessories || parsedSpecs.accessories);
+
+  // Catch any custom fields added during listing creation
+  const standardKeys = new Set([
+    "brand", "model", "condition", "processor", "ram", "storage",
+    "battery_health", "screen_size", "color", "os", "operating_system",
+    "gpu", "graphics", "warranty", "accessories"
+  ]);
+
+  Object.entries(parsedSpecs).forEach(([k, v]) => {
+    if (!standardKeys.has(k.toLowerCase()) && v !== undefined && v !== null && v !== "") {
+      const formattedLabel = k
         .replace(/_/g, " ")
         .replace(/\b\w/g, (char) => char.toUpperCase());
-      if (!allSpecs[formattedKey]) {
-        allSpecs[formattedKey] = String(val);
-      }
+      addSpec(formattedLabel, v);
     }
   });
 
@@ -226,7 +253,7 @@ export default async function ProductDetailPage({
 
         {/* 2-Column Responsive Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* Left Column: Image Gallery & Specs */}
+          {/* Left Column: Image Gallery & Full Specifications */}
           <div className="lg:col-span-7 space-y-6 min-w-0">
             <Card className="rounded-3xl border-slate-200/80 dark:border-slate-800/80 shadow-xs overflow-hidden">
               <CardContent className="p-2 sm:p-4">
@@ -245,16 +272,13 @@ export default async function ProductDetailPage({
                 </h3>
 
                 <div className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs sm:text-sm">
-                  {Object.entries(allSpecs).map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="py-3 flex justify-between items-center"
-                    >
+                  {specList.map((spec) => (
+                    <div key={spec.label} className="py-3 flex justify-between items-center">
                       <span className="text-slate-500 dark:text-slate-400 font-medium">
-                        {label}
+                        {spec.label}
                       </span>
                       <span className="font-bold text-slate-900 dark:text-slate-100 capitalize">
-                        {value}
+                        {spec.value}
                       </span>
                     </div>
                   ))}
@@ -290,14 +314,14 @@ export default async function ProductDetailPage({
                   </p>
                 </div>
 
-                {/* Verified Merchant Profile with Avatar */}
+                {/* Verified Merchant Profile with Avatar Photo */}
                 {seller && (
                   <Link
                     href={`/sellers/${seller.id}`}
                     className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-slate-800 transition"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 overflow-hidden flex items-center justify-center font-bold text-blue-600 dark:text-blue-300 shadow-2xs text-sm shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-blue-600 dark:text-blue-300 shadow-2xs text-sm overflow-hidden shrink-0">
                         {sellerAvatar ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -306,41 +330,29 @@ export default async function ProductDetailPage({
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span>
-                            {(
-                              seller.business_name ||
-                              seller.full_name ||
-                              "S"
-                            )[0]?.toUpperCase()}
-                          </span>
+                          seller.business_name ? seller.business_name[0].toUpperCase() : "S"
                         )}
                       </div>
-                      <div className="min-w-0">
+                      <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition truncate">
-                            {seller.business_name ||
-                              seller.full_name ||
-                              "BenchTech Seller"}
+                          <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                            {seller.business_name || seller.full_name || "BenchTech Seller"}
                           </span>
                           {isVerified && (
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                           )}
                         </div>
                         <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
-                          <span className="truncate">
-                            {seller.district
-                              ? `${seller.district}, Abuja`
-                              : "Abuja, NG"}
-                          </span>
+                          <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                          <span>{seller.district ? `${seller.district}, Abuja` : "Abuja, NG"}</span>
                         </div>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition" />
                   </Link>
                 )}
 
-                {/* Actions: Request to Buy, Add to Cart, Compare & Share */}
+                {/* Actions: Request to Buy, Add to Cart, Compare, Share */}
                 <div className="space-y-3 pt-1">
                   <div className="w-full [&>button]:w-full [&>button]:h-12 [&>button]:text-sm [&>button]:font-bold [&>button]:rounded-xl [&>button]:shadow-xs">
                     <BuyingRequestModal
@@ -371,9 +383,7 @@ export default async function ProductDetailPage({
                     TechTrust Buyer Shield
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                    All transactions and settlements are protected by
-                    ShopbenchTech. Inspect your device in person upon pickup or
-                    delivery before funds are released to the vendor.
+                    All transactions and settlements are protected by ShopbenchTech. Inspect your device in person upon pickup or delivery before funds are released to the vendor.
                   </p>
                 </div>
               </CardContent>
@@ -386,9 +396,12 @@ export default async function ProductDetailPage({
           <section className="space-y-4 pt-6 border-t border-slate-200/80 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">
-                  Similar Tech in Abuja
-                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <h2 className="text-base font-black text-slate-900 dark:text-slate-100">
+                    Similar Tech in Abuja
+                  </h2>
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Verified devices from dealers in Banex, Emab, and Wuse 2.
                 </p>
@@ -402,7 +415,8 @@ export default async function ProductDetailPage({
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-              {uniqueAlternatives.map((item) => {
+              {uniqueAlternatives.map((ad) => {
+                const item = ad.product || ad;
                 const firstImg = resolveFirstImage(item.images);
 
                 return (
@@ -410,38 +424,53 @@ export default async function ProductDetailPage({
                     key={item.id}
                     className="group rounded-2xl border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
                   >
-                    <Link
-                      href={`/products/${item.id}`}
-                      className="flex-1 flex flex-col min-w-0"
+                    <AdProductCardWrapper
+                      campaignId={ad.campaignId}
+                      productId={item.id}
+                      sellerId={ad.sellerId || item.seller_id}
+                      isSponsored={false}
                     >
-                      <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800 flex items-center justify-center p-3">
-                        {firstImg ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={firstImg}
-                            alt={item.title}
-                            loading="lazy"
-                            className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <Package className="w-6 h-6 text-slate-300" />
-                        )}
-                      </div>
-
-                      <CardContent className="p-3 flex-1 flex flex-col justify-between space-y-1.5">
-                        <p className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                          {item.title}
-                        </p>
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-black text-slate-900 dark:text-slate-100">
-                            ₦{Number(item.price).toLocaleString()}
-                          </span>
-                          <span className="text-[10px] text-slate-400 capitalize">
-                            {item.condition?.replace("_", " ") || "Refurbished"}
-                          </span>
+                      <AdImpressionTracker
+                        campaignId={ad.campaignId}
+                        productId={item.id}
+                        sellerId={ad.sellerId || item.seller_id}
+                        isSponsored={false}
+                      />
+                      <Link
+                        href={`/products/${item.id}`}
+                        className="flex-1 flex flex-col min-w-0"
+                      >
+                        <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800 flex items-center justify-center p-3">
+                          {firstImg ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={firstImg}
+                              alt={item.title}
+                              loading="lazy"
+                              className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-6 h-6 text-slate-300" />
+                            </div>
+                          )}
                         </div>
-                      </CardContent>
-                    </Link>
+
+                        <CardContent className="p-3 flex-1 flex flex-col justify-between space-y-1.5">
+                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {item.title}
+                          </p>
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-black text-slate-900 dark:text-slate-100">
+                              ₦{Number(item.price).toLocaleString()}
+                            </span>
+                            <span className="text-[10px] text-slate-400 capitalize">
+                              {item.condition?.replace("_", " ") || "Refurbished"}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Link>
+                    </AdProductCardWrapper>
                   </Card>
                 );
               })}
