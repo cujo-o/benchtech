@@ -266,3 +266,72 @@ export async function recordDeliveryException(jobId: string, reason: string, not
   revalidatePath('/delivery')
   return { success: true }
 }
+
+
+export async function requestDeliveryEarningsCashout(
+  amount: number,
+  bankDetails: {
+    bankName: string
+    accountNumber: string
+    accountName: string
+  }
+) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
+  const adminClient = getAdminClient()
+
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('delivery_earnings, full_name')
+    .eq('id', user.id)
+    .single()
+
+  const currentEarnings = Number(profile?.delivery_earnings || 0)
+  if (amount < 2000) {
+    return { success: false, error: 'Minimum withdrawal amount is ₦2,000' }
+  }
+  if (amount > currentEarnings) {
+    return { success: false, error: 'Insufficient delivery earnings balance' }
+  }
+
+  // 1. Deduct driver available balance
+  const remainingEarnings = currentEarnings - amount
+  await adminClient
+    .from('profiles')
+    .update({
+      delivery_earnings: remainingEarnings,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', user.id)
+
+  // 2. Insert into payout_requests table for automated Paystack bank disbursement
+  const payoutRef = `DRV-${Date.now().toString().slice(-6)}`
+  await adminClient.from('payout_requests').insert({
+    seller_id: user.id, // Linked user profile
+    amount,
+    currency: 'NGN',
+    bank_name: bankDetails.bankName,
+    account_number: bankDetails.accountNumber,
+    account_name: bankDetails.accountName,
+    status: 'pending',
+    reference: payoutRef,
+    notes: `Delivery Fleet Instant Cashout: ₦${amount.toLocaleString()} to ${bankDetails.bankName}`,
+  })
+
+  // 3. Log into financial ledger
+  await adminClient.from('financial_ledger').insert({
+    transaction_type: 'payout_disbursed',
+    account: 'delivery_partner_cashout',
+    entry_type: 'debit',
+    amount,
+    idempotency_key: `cashout_${user.id}_${Date.now()}`,
+    reference: payoutRef,
+  })
+
+  revalidatePath('/delivery')
+  return { success: true, remainingEarnings }
+}

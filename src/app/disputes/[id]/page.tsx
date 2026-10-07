@@ -11,9 +11,9 @@ import {
   CheckCircle2,
   Package,
   MessageSquare,
-  Image as ImageIcon,
   Send,
-  AlertTriangle,
+  Truck,
+  ExternalLink,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -25,18 +25,24 @@ export default async function DisputeDetailPage({
 }) {
   const { id } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) redirect(`/login?next=/disputes/${id}`)
 
-  // Fetch dispute, messages, evidence, and order details
+  // 1. Fetch dispute, messages, evidence, and order details
   const { data: dispute } = await supabase
     .from('disputes')
     .select(`
       *,
-      order:orders(*, product:products(*)),
-      buyer:profiles!disputes_buyer_id_fkey(full_name, business_name),
-      seller:profiles!disputes_seller_id_fkey(business_name, full_name),
+      order:orders(
+        *,
+        product:products(*),
+        seller:profiles!orders_seller_id_fkey(business_name, full_name, phone, district)
+      ),
+      buyer:profiles!disputes_buyer_id_fkey(full_name, business_name, phone),
+      seller:profiles!disputes_seller_id_fkey(business_name, full_name, phone),
       messages:dispute_messages(*, sender:profiles(full_name, business_name)),
       evidence:dispute_evidence(*)
     `)
@@ -45,9 +51,18 @@ export default async function DisputeDetailPage({
 
   if (!dispute) notFound()
 
-  const isBuyer = dispute.buyer_id === user.id
-  const isSeller = dispute.seller_id === user.id
-  const product = dispute.order?.product
+  // 2. Fetch linked delivery job for 3-way operational evidence
+  const { data: deliveryJob } = await supabase
+    .from('delivery_jobs')
+    .select(`
+      *,
+      driver:profiles!delivery_jobs_delivery_person_id_fkey(full_name, phone, vehicle_type)
+    `)
+    .eq('order_id', dispute.order_id)
+    .maybeSingle()
+
+  const order = dispute.order
+  const product = order?.product
 
   // Stepper active states: Open -> Buyer Evidence -> Seller Response -> Under Review -> Resolved
   const statusIndexMap: Record<string, number> = {
@@ -68,51 +83,87 @@ export default async function DisputeDetailPage({
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center gap-3">
-            <Link href={`/orders/${dispute.order_id}`} className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">
+            <Link
+              href={`/orders/${dispute.order_id}`}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-black">Dispute Case #{dispute.case_number}</h1>
+                <h1 className="text-base sm:text-lg font-black">
+                  Dispute Case #{dispute.case_number}
+                </h1>
                 <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 text-[10px] font-bold capitalize">
                   {dispute.status.replace(/_/g, ' ')}
                 </Badge>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Opened on {new Date(dispute.created_at).toLocaleDateString('en-NG', { dateStyle: 'medium' })}
+                Opened on{' '}
+                {new Date(dispute.created_at).toLocaleDateString('en-NG', {
+                  dateStyle: 'medium',
+                })}
               </p>
             </div>
           </div>
 
           <div className="text-right">
-            <span className="text-[10px] font-bold text-slate-400 uppercase block">Disputed Escrow</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase block">
+              Disputed Escrow
+            </span>
             <span className="text-lg font-black text-red-600 dark:text-red-400">
-              ₦{Number(dispute.order?.total_amount || dispute.order?.amount).toLocaleString()}
+              ₦{Number(order?.total_amount || order?.amount || 0).toLocaleString()}
             </span>
           </div>
         </div>
 
-        {/* Visual 8 Screen 7: Dispute Timeline Stepper */}
+        {/* Dispute Timeline Stepper */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-4">
           <div className="grid grid-cols-5 gap-2 text-center text-xs font-bold">
-            <div className={`space-y-1 ${activeStep >= 0 ? 'text-blue-600' : 'text-slate-400'}`}>
-              <div className="w-7 h-7 mx-auto rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">✓</div>
+            <div className={`space-y-1 ${activeStep >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
+              <div className="w-7 h-7 mx-auto rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">
+                ✓
+              </div>
               <span>Open</span>
             </div>
             <div className={`space-y-1 ${activeStep >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
-              <div className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-xs ${activeStep >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}>2</div>
+              <div
+                className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-xs ${
+                  activeStep >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'
+                }`}
+              >
+                2
+              </div>
               <span>Buyer Evidence</span>
             </div>
             <div className={`space-y-1 ${activeStep >= 2 ? 'text-blue-600' : 'text-slate-400'}`}>
-              <div className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-xs ${activeStep >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}>3</div>
+              <div
+                className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-xs ${
+                  activeStep >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'
+                }`}
+              >
+                3
+              </div>
               <span>Seller Response</span>
             </div>
             <div className={`space-y-1 ${activeStep >= 3 ? 'text-blue-600' : 'text-slate-400'}`}>
-              <div className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-xs ${activeStep >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}>4</div>
+              <div
+                className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-xs ${
+                  activeStep >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'
+                }`}
+              >
+                4
+              </div>
               <span>Under Review</span>
             </div>
             <div className={`space-y-1 ${activeStep >= 4 ? 'text-emerald-600' : 'text-slate-400'}`}>
-              <div className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-xs ${activeStep >= 4 ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}>5</div>
+              <div
+                className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-xs ${
+                  activeStep >= 4 ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800'
+                }`}
+              >
+                5
+              </div>
               <span>Resolved</span>
             </div>
           </div>
@@ -122,11 +173,98 @@ export default async function DisputeDetailPage({
             <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-2xl flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
               <span className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-600" />
-                <span><strong>Respond by:</strong> {new Date(dispute.seller_response_deadline).toLocaleString('en-NG')}</span>
+                <span>
+                  <strong>Respond by:</strong>{' '}
+                  {new Date(dispute.seller_response_deadline).toLocaleString('en-NG')}
+                </span>
               </span>
               <span className="text-[11px] font-bold">48-Hour Arbitration Window</span>
             </div>
           )}
+        </div>
+
+        {/* 3-Way Operational Evidence Chain Deck */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xs space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <ShieldAlert className="w-5 h-5 text-purple-600" />
+            <div>
+              <h3 className="font-black text-sm text-slate-900 dark:text-slate-100">
+                3-Way Operational Evidence Chain
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Cross-referenced operational logs between Seller, Delivery Partner, and Buyer
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            {/* 1. Seller Pre-Dispatch Station */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
+              <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider block">
+                1. Seller Pre-Dispatch
+              </span>
+              <p className="font-bold text-slate-800 dark:text-slate-200">
+                {order?.seller?.business_name || dispute.seller?.business_name || 'Vendor'}
+              </p>
+              <div className="space-y-1 text-[11px] text-slate-500">
+                <p>
+                  Dispatch Status:{' '}
+                  <span className="font-semibold text-slate-700 dark:text-slate-300 capitalize">
+                    {order?.delivery_status?.replace(/_/g, ' ') || 'Dispatched'}
+                  </span>
+                </p>
+                <p>
+                  Package Pre-Check:{' '}
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Handed to courier
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* 2. Delivery Logistics Chain */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
+              <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider block">
+                2. Delivery Fleet Record
+              </span>
+              <p className="font-bold text-slate-800 dark:text-slate-200">
+                {deliveryJob?.driver?.full_name || 'BenchTech Logistics Fleet'}
+              </p>
+              <div className="space-y-1 text-[11px] text-slate-500">
+                <p>
+                  Verification Method:{' '}
+                  <span className="font-semibold text-slate-700 dark:text-slate-300 capitalize">
+                    {deliveryJob?.delivery_proof_type || 'OTP Handover'}
+                  </span>
+                </p>
+                <p>
+                  Driver Earning:{' '}
+                  <span className="font-semibold text-emerald-600">
+                    Disbursed (Decoupled)
+                  </span>
+                </p>
+                <p>
+                  Exception:{' '}
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    {deliveryJob?.exception_reason || 'None reported'}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* 3. Buyer Dispute Claim */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
+              <span className="text-[10px] font-black uppercase text-rose-600 tracking-wider block">
+                3. Buyer Stated Issue
+              </span>
+              <p className="font-bold text-slate-800 dark:text-slate-200 capitalize">
+                {dispute.reason.replace(/_/g, ' ')}
+              </p>
+              <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-3">
+                {dispute.description}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Two-Column Grid: Case Chat & Order Summary */}
@@ -140,8 +278,12 @@ export default async function DisputeDetailPage({
             {/* Initial Buyer Narrative */}
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-blue-600 dark:text-blue-400">Buyer Complaint ({dispute.reason.replace(/_/g, ' ')})</span>
-                <span className="text-[10px] text-slate-400">{new Date(dispute.created_at).toLocaleTimeString('en-NG')}</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">
+                  Buyer Complaint ({dispute.reason.replace(/_/g, ' ')})
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {new Date(dispute.created_at).toLocaleTimeString('en-NG')}
+                </span>
               </div>
               <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
                 {dispute.description}
@@ -151,10 +293,18 @@ export default async function DisputeDetailPage({
             {/* Evidence Thumbnails */}
             {dispute.evidence && dispute.evidence.length > 0 && (
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Attached Evidence</span>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Attached Evidence
+                </span>
                 <div className="flex flex-wrap gap-2">
                   {dispute.evidence.map((ev: any) => (
-                    <a key={ev.id} href={ev.file_url} target="_blank" rel="noreferrer" className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 flex items-center justify-center hover:opacity-80 transition">
+                    <a
+                      key={ev.id}
+                      href={ev.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 flex items-center justify-center hover:opacity-80 transition"
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={ev.file_url} alt="Evidence" className="w-full h-full object-cover" />
                     </a>
@@ -167,16 +317,25 @@ export default async function DisputeDetailPage({
             <div className="space-y-3 pt-2">
               {dispute.messages && dispute.messages.length > 0 ? (
                 dispute.messages.map((msg: any) => (
-                  <div key={msg.id} className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-xs space-y-1">
+                  <div
+                    key={msg.id}
+                    className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-xs space-y-1"
+                  >
                     <div className="flex justify-between font-bold text-slate-500">
-                      <span>{msg.sender?.business_name || msg.sender?.full_name || 'Participant'}</span>
-                      <span className="text-[10px] font-normal">{new Date(msg.created_at).toLocaleTimeString('en-NG')}</span>
+                      <span>
+                        {msg.sender?.business_name || msg.sender?.full_name || 'Participant'}
+                      </span>
+                      <span className="text-[10px] font-normal">
+                        {new Date(msg.created_at).toLocaleTimeString('en-NG')}
+                      </span>
                     </div>
                     <p className="text-slate-800 dark:text-slate-200">{msg.message}</p>
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-slate-400 py-3 text-center">No additional messages logged yet.</p>
+                <p className="text-xs text-slate-400 py-3 text-center">
+                  No additional messages logged yet.
+                </p>
               )}
             </div>
 
@@ -190,7 +349,11 @@ export default async function DisputeDetailPage({
                 placeholder="Type your response to the arbitrator..."
                 className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
               />
-              <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl px-4 cursor-pointer gap-1.5">
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl px-4 cursor-pointer gap-1.5"
+              >
                 <Send className="w-3.5 h-3.5" /> Send
               </Button>
             </form>
@@ -198,14 +361,20 @@ export default async function DisputeDetailPage({
 
           {/* Right Column: Order Summary Card (4 cols) */}
           <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 shadow-2xs">
-            <h3 className="font-black text-xs uppercase tracking-wider text-slate-400">Order Summary</h3>
+            <h3 className="font-black text-xs uppercase tracking-wider text-slate-400">
+              Order Summary
+            </h3>
 
             {product && (
               <div className="flex gap-3 items-center">
                 <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
                   {product.images?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={product.images[0]} alt={product.title} className="w-full h-full object-contain p-1" />
+                    <img
+                      src={product.images[0]}
+                      alt={product.title}
+                      className="w-full h-full object-contain p-1"
+                    />
                   ) : (
                     <Package className="w-5 h-5 text-slate-400" />
                   )}
@@ -222,20 +391,29 @@ export default async function DisputeDetailPage({
             <div className="border-t border-slate-100 dark:border-slate-800 pt-3 space-y-2 text-xs text-slate-500">
               <div className="flex justify-between">
                 <span>Seller:</span>
-                <span className="font-bold text-slate-900 dark:text-slate-100">{dispute.seller?.business_name || 'Vendor'}</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">
+                  {order?.seller?.business_name || dispute.seller?.business_name || 'Vendor'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Order No:</span>
-                <span className="font-mono">{dispute.order?.order_number || dispute.order_id.slice(0, 8)}</span>
+                <span className="font-mono">
+                  {order?.order_number || dispute.order_id.slice(0, 8)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Remedy:</span>
-                <span className="font-bold text-red-600 capitalize">{dispute.requested_remedy.replace(/_/g, ' ')}</span>
+                <span className="font-bold text-red-600 capitalize">
+                  {dispute.requested_remedy.replace(/_/g, ' ')}
+                </span>
               </div>
             </div>
 
             <Link href={`/orders/${dispute.order_id}`} className="block pt-2">
-              <Button variant="outline" className="w-full text-xs font-bold rounded-xl h-9 border-slate-200 dark:border-slate-700">
+              <Button
+                variant="outline"
+                className="w-full text-xs font-bold rounded-xl h-9 border-slate-200 dark:border-slate-700"
+              >
                 View Full Order Details
               </Button>
             </Link>

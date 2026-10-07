@@ -20,7 +20,6 @@ import {
   Building2,
   Truck,
   Megaphone,
-  CreditCard,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -59,7 +58,8 @@ export default async function AdminLayout({
     .single()
 
   const userRoles: string[] = profile?.roles || (profile?.role ? [profile.role] : [])
-  const isAdmin = profile?.is_admin === true || profile?.role === 'admin' || userRoles.includes('admin')
+  const isAdmin =
+    profile?.is_admin === true || profile?.role === 'admin' || userRoles.includes('admin')
 
   if (!isAdmin) {
     redirect('/feed')
@@ -105,9 +105,7 @@ export default async function AdminLayout({
   const SIDEBAR_NAV: NavSection[] = [
     {
       group: null,
-      items: [
-        { label: 'Overview', href: '/admin/overview', icon: LayoutDashboard },
-      ],
+      items: [{ label: 'Overview', href: '/admin/overview', icon: LayoutDashboard }],
     },
     {
       group: 'FINANCIALS & ESCROW',
@@ -135,6 +133,21 @@ export default async function AdminLayout({
           label: 'Ad Engine & Rates',
           href: '/admin/advertising',
           icon: Megaphone,
+        },
+      ],
+    },
+    {
+      group: 'LOGISTICS & FLEET',
+      items: [
+        {
+          label: 'Deliveries & Fleet',
+          href: '/admin/deliveries',
+          icon: Truck,
+        },
+        {
+          label: 'Fleet Personnel',
+          href: '/admin/users?role=delivery',
+          icon: Users,
         },
       ],
     },
@@ -200,22 +213,6 @@ export default async function AdminLayout({
         },
       ],
     },
-    // Inside SIDEBAR_NAV under MARKETPLACE or FINANCIALS & ESCROW:
-{
-  group: 'LOGISTICS & FLEET',
-  items: [
-    {
-      label: 'Deliveries & Fleet',
-      href: '/admin/deliveries',
-      icon: Truck,
-    },
-    {
-      label: 'Fleet Personnel',
-      href: '/admin/users?role=delivery',
-      icon: Users,
-    },
-  ],
-},
     {
       group: 'SUPPORT & TRUST',
       items: [
@@ -352,9 +349,7 @@ export default async function AdminLayout({
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto">
-          {children}
-        </main>
+        <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
       </div>
     </div>
   )

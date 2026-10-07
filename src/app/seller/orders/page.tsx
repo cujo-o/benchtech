@@ -6,7 +6,6 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EarlyPayoutModal } from '@/app/seller/payouts/EarlyPayoutModal'
-import { createDeliveryJobFromOrder } from '@/app/actions/delivery'
 import { DispatchModal } from './DispatchModal'
 import {
   Package,
@@ -15,15 +14,11 @@ import {
   CheckCircle2,
   ShieldCheck,
   ShieldAlert,
-  ArrowRight,
   MapPin,
   User,
   Phone,
   ExternalLink,
   Store,
-  Wallet,
-  ShoppingBag,
-  Zap,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -97,22 +92,15 @@ export default async function SellerOrdersPage({
 
   // Metrics
   const pendingDispatchCount = allOrders.filter(
-    (o) => o.delivery_status !== 'verified' && o.order_status !== 'cancelled' && o.order_status !== 'refunded'
+    (o) =>
+      o.delivery_status !== 'verified' &&
+      o.order_status !== 'cancelled' &&
+      o.order_status !== 'refunded'
   ).length
 
   const escrowBalanceHeld = allOrders
     .filter((o) => o.payout_status === 'on_hold')
     .reduce((acc, curr) => acc + Number(curr.seller_payout || 0), 0)
-
-
-// Update the dispatch handler:
-async function markDispatched(orderId: string) {
-  'use server'
-  // Generates linked delivery_jobs entry for Abuja logistics fleet
-  await createDeliveryJobFromOrder(orderId)
-  revalidatePath('/seller/orders')
-  revalidatePath('/seller/payouts')
-}
 
   // Filter orders according to active tab
   const filteredOrders = allOrders.filter((o) => {
@@ -120,7 +108,11 @@ async function markDispatched(orderId: string) {
       return o.delivery_status === 'not_delivered' || o.order_status === 'paid'
     }
     if (activeTab === 'in_protection') {
-      return o.delivery_status === 'verified' && o.order_status !== 'completed' && o.dispute_status === 'none'
+      return (
+        o.delivery_status === 'verified' &&
+        o.order_status !== 'completed' &&
+        o.dispute_status === 'none'
+      )
     }
     if (activeTab === 'disputes') {
       return o.dispute_status && o.dispute_status !== 'none'
@@ -143,19 +135,28 @@ async function markDispatched(orderId: string) {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Fulfil paid orders, coordinate Abuja meetups, track buyer inspection protection, and manage payouts.
+            Fulfil paid orders, coordinate Abuja meetups, track buyer inspection protection, and
+            manage payouts.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-2xl text-left">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Pending Dispatch</span>
-            <span className="text-sm font-black text-blue-600 dark:text-blue-400">{pendingDispatchCount} Orders</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">
+              Pending Dispatch
+            </span>
+            <span className="text-sm font-black text-blue-600 dark:text-blue-400">
+              {pendingDispatchCount} Orders
+            </span>
           </div>
 
           <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-2xl text-left">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Escrow Float Held</span>
-            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">₦{escrowBalanceHeld.toLocaleString()}</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">
+              Escrow Float Held
+            </span>
+            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+              ₦{escrowBalanceHeld.toLocaleString()}
+            </span>
           </div>
         </div>
       </div>
@@ -213,7 +214,8 @@ async function markDispatched(orderId: string) {
                       Agreed: ₦{Number(req.agreed_price).toLocaleString()}
                     </p>
                     <p className="text-xs text-slate-400">
-                      Buyer: {req.profiles?.full_name || 'Buyer'} • Area: {req.delivery_area || 'Abuja'}
+                      Buyer: {req.profiles?.full_name || 'Buyer'} • Area:{' '}
+                      {req.delivery_area || 'Abuja'}
                     </p>
                   </div>
                   <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -238,8 +240,12 @@ async function markDispatched(orderId: string) {
                 ? order.buyer.phone.replace(/[^0-9]/g, '').replace(/^0/, '234')
                 : null
 
-              const isDelivered = order.delivery_status === 'verified' || order.order_status === 'delivered'
-              const isDispatched = order.delivery_status === 'dispatched' || isDelivered
+              const isDelivered =
+                order.delivery_status === 'verified' || order.order_status === 'delivered'
+              const isDispatched =
+                order.delivery_status === 'dispatched' ||
+                order.delivery_status === 'pickup_pending' ||
+                isDelivered
 
               // Protection countdown
               let daysLeft = 0
@@ -263,26 +269,25 @@ async function markDispatched(orderId: string) {
                       </span>
                       <span className="text-slate-400 text-xs">•</span>
                       <span className="text-xs text-slate-400">
-                        {new Date(order.created_at).toLocaleDateString('en-NG', { dateStyle: 'medium' })}
+                        {new Date(order.created_at).toLocaleDateString('en-NG', {
+                          dateStyle: 'medium',
+                        })}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* Protection Badge */}
                       {daysLeft > 0 && order.dispute_status === 'none' && (
                         <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 text-[10px] font-black">
                           <ShieldCheck className="w-3 h-3 mr-1" /> {daysLeft} Days Protection Remaining
                         </Badge>
                       )}
 
-                      {/* Dispute Badge */}
                       {order.dispute_status && order.dispute_status !== 'none' && (
                         <Badge className="bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300 border border-red-200 text-[10px] font-bold">
                           <ShieldAlert className="w-3 h-3 mr-1" /> Disputed
                         </Badge>
                       )}
 
-                      {/* Fulfillment Badge */}
                       <Badge
                         className={`text-[10px] font-bold capitalize ${
                           isDelivered
@@ -292,14 +297,17 @@ async function markDispatched(orderId: string) {
                             : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
                         }`}
                       >
-                        {isDelivered ? 'Delivered' : isDispatched ? 'Dispatched' : 'Awaiting Dispatch'}
+                        {isDelivered
+                          ? 'Delivered'
+                          : isDispatched
+                          ? 'In Transit / Dispatched'
+                          : 'Awaiting Dispatch'}
                       </Badge>
                     </div>
                   </div>
 
-                  {/* Middle Section: Device, Buyer & Financial Ledger Strip */}
+                  {/* Middle Section: Device, Buyer & Financial Summary */}
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                    {/* Device Thumbnail & Name (5 cols) */}
                     <div className="md:col-span-5 flex items-center gap-3.5 min-w-0">
                       <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
                         {firstImg ? (
@@ -319,19 +327,19 @@ async function markDispatched(orderId: string) {
                           {order.product?.title || 'Hardware Device'}
                         </h3>
                         <p className="text-[11px] text-slate-400">
-                          {order.product?.condition?.replace('_', ' ') || 'Refurbished'} • {order.delivery_method || 'Pickup'}
+                          {order.product?.condition?.replace('_', ' ') || 'Refurbished'} •{' '}
+                          {order.delivery_method || 'Pickup'}
                         </p>
                       </div>
                     </div>
 
-                    {/* Buyer Contact Details (4 cols) */}
                     <div className="md:col-span-4 space-y-1 text-xs text-slate-500 dark:text-slate-400 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 md:pl-4">
                       <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                         <User className="w-3.5 h-3.5 text-slate-400" />
                         <span>{order.buyer?.full_name || 'Abuja Tech Buyer'}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-[11px]">
-                        <MapPin className="w-3 h-3 text-slate-400" />
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
                         <span>{order.delivery_area || order.buyer?.district || 'Abuja'}</span>
                       </div>
                       {cleanPhone && (
@@ -346,19 +354,24 @@ async function markDispatched(orderId: string) {
                       )}
                     </div>
 
-                    {/* Payout Financial Summary (3 cols) */}
                     <div className="md:col-span-3 text-left md:text-right border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 md:pl-4 space-y-0.5">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Net Payout to You</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                        Net Payout to You
+                      </span>
                       <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
                         ₦{Number(order.seller_payout || 0).toLocaleString()}
                       </p>
                       <p className="text-[10px] text-slate-400">
-                        Gross: ₦{Number(order.total_amount || order.amount).toLocaleString()} (-₦{Number((order.marketplace_fee || 0) + (order.ad_fee || 0)).toLocaleString()} fee)
+                        Gross: ₦{Number(order.total_amount || order.amount).toLocaleString()} (-₦
+                        {Number(
+                          (order.marketplace_fee || 0) + (order.ad_fee || 0)
+                        ).toLocaleString()}{' '}
+                        fee)
                       </p>
                     </div>
                   </div>
 
-                  {/* Bottom Action Strip: Fulfilment Dispatch & Early Payouts */}
+                  {/* Bottom Action Strip */}
                   <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
                     <div className="text-xs text-slate-400 flex items-center gap-1.5">
                       <Truck className="w-3.5 h-3.5" />
@@ -371,21 +384,12 @@ async function markDispatched(orderId: string) {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* 1. If not yet dispatched, show Dispatch action */}
+                      {/* If not yet dispatched/ready, show Pre-Dispatch Modal */}
                       {!isDispatched && (
-                        <form action={markDispatched.bind(null, order.id)}>
-                          <Button
-                            size="sm"
-                            type="submit"
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-9 px-3.5 gap-1.5 shadow-xs cursor-pointer"
-                          >
-                            <Truck className="w-3.5 h-3.5" />
-                            <span>Mark Dispatched / Ready</span>
-                          </Button>
-                        </form>
+                        <DispatchModal order={order} />
                       )}
 
-                      {/* 2. If delivery verified & in protection, offer Early Payout Modal */}
+                      {/* If delivery verified & in protection, offer Early Payout Modal */}
                       {isDelivered && (
                         <EarlyPayoutModal
                           order={{
@@ -399,7 +403,7 @@ async function markDispatched(orderId: string) {
                         />
                       )}
 
-                      {/* 3. If disputed, link directly to arbitration case thread */}
+                      {/* If disputed, link directly to arbitration case thread */}
                       {dispute && (
                         <Link href={`/disputes/${dispute.id}`}>
                           <Button
@@ -420,39 +424,6 @@ async function markDispatched(orderId: string) {
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </Button>
-                        <div className="flex items-center gap-2">
-  {/* If not yet in transit or delivered, render the pre-dispatch modal */}
-  {!isDispatched && (
-    <DispatchModal order={order} />
-  )}
-
-  {/* If delivery verified & in protection, render Early Payout Modal */}
-  {isDelivered && (
-    <EarlyPayoutModal
-      order={{
-        id: order.id,
-        order_number: order.order_number,
-        seller_payout: Number(order.seller_payout || 0),
-        delivery_status: order.delivery_status,
-        dispute_status: order.dispute_status,
-        early_payout_claimed: order.early_payout_claimed,
-      }}
-    />
-  )}
-
-  {/* If disputed, link to dispute arbitration */}
-  {dispute && (
-    <Link href={`/disputes/${dispute.id}`}>
-      <Button
-        size="sm"
-        variant="outline"
-        className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-bold rounded-xl h-9 px-3"
-      >
-        Respond to Dispute
-      </Button>
-    </Link>
-  )}
-</div>
                       </Link>
                     </div>
                   </div>
@@ -469,7 +440,8 @@ async function markDispatched(orderId: string) {
                   No orders found in this view
                 </p>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  When customers purchase your published gadgets in Abuja, paid escrow orders will appear here for dispatch and settlement.
+                  When customers purchase your published gadgets in Abuja, paid escrow orders will
+                  appear here for dispatch and settlement.
                 </p>
               </div>
             </div>
