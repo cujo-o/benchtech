@@ -6,6 +6,8 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EarlyPayoutModal } from '@/app/seller/payouts/EarlyPayoutModal'
+import { createDeliveryJobFromOrder } from '@/app/actions/delivery'
+import { DispatchModal } from './DispatchModal'
 import {
   Package,
   Clock,
@@ -102,23 +104,15 @@ export default async function SellerOrdersPage({
     .filter((o) => o.payout_status === 'on_hold')
     .reduce((acc, curr) => acc + Number(curr.seller_payout || 0), 0)
 
-  // Server Action: Mark Order Dispatched
-  async function markDispatched(orderId: string) {
-    'use server'
-    const adminClient = getAdminClient()
-    await adminClient
-      .from('orders')
-      .update({
-        order_status: 'dispatched',
-        delivery_status: 'dispatched',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId)
 
-    revalidatePath('/seller/orders')
-    revalidatePath('/seller/payouts')
-    revalidatePath(`/orders/${orderId}`)
-  }
+// Update the dispatch handler:
+async function markDispatched(orderId: string) {
+  'use server'
+  // Generates linked delivery_jobs entry for Abuja logistics fleet
+  await createDeliveryJobFromOrder(orderId)
+  revalidatePath('/seller/orders')
+  revalidatePath('/seller/payouts')
+}
 
   // Filter orders according to active tab
   const filteredOrders = allOrders.filter((o) => {
@@ -426,6 +420,39 @@ export default async function SellerOrdersPage({
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </Button>
+                        <div className="flex items-center gap-2">
+  {/* If not yet in transit or delivered, render the pre-dispatch modal */}
+  {!isDispatched && (
+    <DispatchModal order={order} />
+  )}
+
+  {/* If delivery verified & in protection, render Early Payout Modal */}
+  {isDelivered && (
+    <EarlyPayoutModal
+      order={{
+        id: order.id,
+        order_number: order.order_number,
+        seller_payout: Number(order.seller_payout || 0),
+        delivery_status: order.delivery_status,
+        dispute_status: order.dispute_status,
+        early_payout_claimed: order.early_payout_claimed,
+      }}
+    />
+  )}
+
+  {/* If disputed, link to dispute arbitration */}
+  {dispute && (
+    <Link href={`/disputes/${dispute.id}`}>
+      <Button
+        size="sm"
+        variant="outline"
+        className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-bold rounded-xl h-9 px-3"
+      >
+        Respond to Dispute
+      </Button>
+    </Link>
+  )}
+</div>
                       </Link>
                     </div>
                   </div>

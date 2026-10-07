@@ -33,11 +33,25 @@ export default async function OrderDetailPage({
 
   if (!user) redirect(`/login?next=/orders/${id}`);
 
-  const { data: order } = await supabase
-    .from("orders")
-    .select("*, product:products(*), seller:profiles!orders_seller_id_fkey(*)")
-    .eq("id", id)
-    .single();
+  // Inside src/app/orders/[id]/page.tsx
+
+  // 1. Fetch order and any linked delivery job
+  const [{ data: order }, { data: deliveryJob }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select(
+        "*, product:products(*), seller:profiles!orders_seller_id_fkey(*)",
+      )
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("delivery_jobs")
+      .select(
+        "*, driver:profiles!delivery_jobs_delivery_person_id_fkey(full_name, phone, vehicle_type)",
+      )
+      .eq("order_id", id)
+      .maybeSingle(),
+  ]);
 
   if (!order) notFound();
 
@@ -151,6 +165,75 @@ export default async function OrderDetailPage({
               <span className="text-[11px] font-bold">Delivered</span>
             </div>
           </div>
+
+          {/* Delivery Driver & OTP Handover Card */}
+          {deliveryJob && deliveryJob.status !== "delivered" && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 flex items-center justify-center font-bold">
+                    <Truck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-black text-sm text-slate-900 dark:text-slate-100">
+                        BenchTech Logistics Delivery
+                      </h3>
+                      <Badge className="bg-blue-600 text-white text-[9px] uppercase font-bold">
+                        #{deliveryJob.job_number}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-400 capitalize">
+                      Status: {deliveryJob.status.replace("_", " ")}
+                    </p>
+                  </div>
+                </div>
+
+                {deliveryJob.driver && (
+                  <div className="text-left sm:text-right text-xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Assigned Driver
+                    </span>
+                    <p className="font-bold text-slate-900 dark:text-slate-100">
+                      {deliveryJob.driver.full_name}
+                    </p>
+                    <a
+                      href={`tel:${deliveryJob.driver.phone}`}
+                      className="text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                    >
+                      {deliveryJob.driver.phone}
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Handover OTP Notice */}
+              {deliveryJob.delivery_otp && (
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-1 max-w-md">
+                    <div className="flex items-center gap-1.5 text-amber-900 dark:text-amber-200 font-bold text-xs">
+                      <ShieldCheck className="w-4 h-4 text-amber-600" />
+                      <span>Inspection Before Handover Required</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                      Inspect the device hardware, battery, and condition with
+                      the delivery driver. Only give this 6-digit code to the
+                      driver once you are satisfied with the device.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-center shrink-0 w-full sm:w-auto shadow-xs">
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
+                      Verification OTP
+                    </span>
+                    <span className="text-xl font-mono font-black text-amber-600 dark:text-amber-400 tracking-widest">
+                      {deliveryJob.delivery_otp}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Delivery Confirmation Trigger */}
           {!isDelivered && isBuyer && (

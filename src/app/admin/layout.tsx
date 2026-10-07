@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronRight,
   Building2,
+  Truck,
   Megaphone,
   CreditCard,
   type LucideIcon,
@@ -199,6 +200,22 @@ export default async function AdminLayout({
         },
       ],
     },
+    // Inside SIDEBAR_NAV under MARKETPLACE or FINANCIALS & ESCROW:
+{
+  group: 'LOGISTICS & FLEET',
+  items: [
+    {
+      label: 'Deliveries & Fleet',
+      href: '/admin/deliveries',
+      icon: Truck,
+    },
+    {
+      label: 'Fleet Personnel',
+      href: '/admin/users?role=delivery',
+      icon: Users,
+    },
+  ],
+},
     {
       group: 'SUPPORT & TRUST',
       items: [

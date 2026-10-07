@@ -277,3 +277,82 @@ export async function updateSellerSubscription(
   revalidatePath('/seller/subscription')
   return { success: true }
 }
+
+// Append to src/app/admin/actions.ts
+
+/**
+ * Assigns or switches a user's role (Admin, Delivery Partner, Seller, Buyer)
+ */
+export async function setUserRole(
+  userId: string,
+  targetRole: 'admin' | 'delivery' | 'seller' | 'buyer'
+) {
+  const supabase = await createClient()
+  await checkAdmin(supabase)
+  const adminClient = getAdminClient()
+
+  const { data: profile, error: fetchErr } = await adminClient
+    .from('profiles')
+    .select('id, roles, role, is_admin, is_delivery')
+    .eq('id', userId)
+    .single()
+
+  if (fetchErr || !profile) {
+    return { success: false, error: 'User profile not found' }
+  }
+
+  const currentRoles: string[] = profile.roles || [profile.role || 'buyer']
+  const updatedRoles = Array.from(new Set([...currentRoles, targetRole]))
+
+  const updatePayload: Record<string, any> = {
+    role: targetRole,
+    roles: updatedRoles,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (targetRole === 'admin') {
+    updatePayload.is_admin = true
+  } else if (targetRole === 'delivery') {
+    updatePayload.is_delivery = true
+    updatePayload.is_online = true
+  }
+
+  const { error: updateErr } = await adminClient
+    .from('profiles')
+    .update(updatePayload)
+    .eq('id', userId)
+
+  if (updateErr) {
+    return { success: false, error: updateErr.message }
+  }
+
+  revalidatePath('/admin/users')
+  revalidatePath('/admin/overview')
+  return { success: true }
+}
+
+/**
+ * Revokes elevated roles and sets the user back to standard buyer
+ */
+export async function revokeUserRole(userId: string) {
+  const supabase = await createClient()
+  await checkAdmin(supabase)
+  const adminClient = getAdminClient()
+
+  const { error } = await adminClient
+    .from('profiles')
+    .update({
+      role: 'buyer',
+      is_admin: false,
+      is_delivery: false,
+      roles: ['buyer'],
+      is_online: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/users')
+  return { success: true }
+}
