@@ -21,6 +21,8 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Package,
   Bookmark,
   MessageSquare,
@@ -34,12 +36,14 @@ export function BuyerSidebar() {
   const [unreadMessages, setUnreadMessages] = useState<number>(0)
   const [savedCount, setSavedCount] = useState<number>(0)
 
-  // Accordion section states (matching the screenshot layout)
-  const [isNavOpen, setIsNavOpen] = useState(true)
+  // 1. Sidebar Horizontal Collapse State (w-60 vs w-16 icon rail)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false)
+
+  // 2. Accordion Group States (when expanded)
   const [isShopOpen, setIsShopOpen] = useState(true)
   const [isCompareBuildOpen, setIsCompareBuildOpen] = useState(true)
-  
-  // Auto-open My Account if on any account sub-page
+
+  // Auto-open My Account accordion if on any account subpage
   const isAccountRoute = [
     '/orders',
     '/saved',
@@ -58,7 +62,7 @@ export function BuyerSidebar() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // 1. Sync Saved Items Count from localStorage
+  // Sync Saved Items Count from localStorage
   const updateSavedCount = useCallback(() => {
     try {
       const savedRaw =
@@ -79,7 +83,7 @@ export function BuyerSidebar() {
     }
   }, [])
 
-  // 2. Unread messages checking
+  // Check unread messages from Supabase
   const checkUnreadMessages = useCallback(async () => {
     try {
       if (pathname === '/messages') {
@@ -124,14 +128,21 @@ export function BuyerSidebar() {
       }
       isInitialLoad.current = false
     } catch {
-      // Ignore network dropouts
+      // Ignore network drops
     }
   }, [pathname, supabase])
 
-  // 3. Smart event listeners
+  // Sync listeners and restore collapsed preference
   useEffect(() => {
     updateSavedCount()
     checkUnreadMessages()
+
+    try {
+      const stored = localStorage.getItem('benchtech_sidebar_collapsed')
+      if (stored !== null) {
+        setIsCollapsed(stored === 'true')
+      }
+    } catch {}
 
     const handleCustomSync = () => updateSavedCount()
     window.addEventListener('storage', handleCustomSync)
@@ -158,6 +169,14 @@ export function BuyerSidebar() {
     }
   }, [checkUnreadMessages, updateSavedCount])
 
+  const toggleSidebarCollapse = () => {
+    const next = !isCollapsed
+    setIsCollapsed(next)
+    try {
+      localStorage.setItem('benchtech_sidebar_collapsed', String(next))
+    } catch {}
+  }
+
   const isActive = (href: string) => {
     if (href === '/feed') {
       return pathname === '/feed' || pathname === '/'
@@ -166,25 +185,173 @@ export function BuyerSidebar() {
   }
 
   return (
-    <aside className="w-60 xl:w-64 shrink-0 hidden md:flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/80 p-3.5 min-h-[calc(100vh-4rem)] sticky top-16 h-[calc(100vh-4rem)] select-none">
-      <div className="flex-1 overflow-y-auto space-y-5 pr-1 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full">
-        {/* Navigation Collapsible Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80">
+    <aside
+      className={`shrink-0 hidden md:flex flex-col justify-between bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/80 min-h-[calc(100vh-4rem)] sticky top-16 h-[calc(100vh-4rem)] select-none transition-all duration-300 z-30 ${
+        isCollapsed ? 'w-16 p-2' : 'w-60 xl:w-64 p-3.5'
+      }`}
+    >
+      {/* 1. Header with Collapse / Expand Toggle */}
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80 mb-2">
+        {!isCollapsed && (
           <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
             Navigation
           </span>
-          <button
-            type="button"
-            onClick={() => setIsNavOpen(!isNavOpen)}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
-          >
-            {isNavOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={toggleSidebarCollapse}
+          className={`p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer ${
+            isCollapsed ? 'mx-auto' : 'ml-auto'
+          }`}
+          title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          aria-label={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <ChevronLeft className="w-4 h-4" />
+          )}
+        </button>
+      </div>
 
-        {isNavOpen && (
+      {/* 2. Scrollable Body: Expanded Accordions vs. Collapsed Icon Rail */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-4 pr-0.5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full">
+        {isCollapsed ? (
+          /* =========================================================================
+             COLLAPSED ICON RAIL MODE (w-16)
+             ========================================================================= */
+          <div className="space-y-2">
+            {/* Home */}
+            <Link
+              href="/feed"
+              title="Home"
+              className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
+                isActive('/feed')
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
+              }`}
+            >
+              <Home className="w-4 h-4" />
+            </Link>
+
+            {/* Shop */}
+            <Link
+              href="/products"
+              title="Shop by Category"
+              className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
+                isActive('/products') || isActive('/categories')
+                  ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4" />
+            </Link>
+
+            {/* Deals (Hot badge indicator) */}
+            <Link
+              href="/deals"
+              title="Deals & Offers"
+              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
+            >
+              <Tag className="w-4 h-4" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
+            </Link>
+
+            {/* Find My Tech (AI indicator) */}
+            <Link
+              href="/assistant"
+              title="Find My Tech (AI)"
+              className={`w-full flex items-center justify-center p-2.5 rounded-xl relative transition ${
+                isActive('/assistant')
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
+            </Link>
+
+            {/* Compare & Build */}
+            <Link
+              href="/compare"
+              title="Compare Tech"
+              className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
+                isActive('/compare') || isActive('/build')
+                  ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+            </Link>
+
+            {/* TechSpin */}
+            <Link
+              href="/techspin"
+              title="TechSpin"
+              className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
+                isActive('/techspin')
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <Disc className="w-4 h-4" />
+            </Link>
+
+            <div className="my-2 border-t border-slate-100 dark:border-slate-800/80" />
+
+            {/* Account Quick Icon */}
+            <Link
+              href="/orders"
+              title="My Account"
+              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
+            >
+              <User className="w-4 h-4" />
+              {unreadMessages > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
+              )}
+            </Link>
+
+            {/* Saved Items */}
+            <Link
+              href="/saved"
+              title="Saved Items"
+              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
+            >
+              <Bookmark className="w-4 h-4" />
+              {savedCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-600" />
+              )}
+            </Link>
+
+            {/* Messages */}
+            <Link
+              href="/messages"
+              title="Messages"
+              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
+            >
+              <MessageSquare className="w-4 h-4" />
+              {unreadMessages > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
+              )}
+            </Link>
+
+            <div className="my-2 border-t border-slate-100 dark:border-slate-800/80" />
+
+            {/* Help */}
+            <Link
+              href="/help"
+              title="Help & Support"
+              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </Link>
+          </div>
+        ) : (
+          /* =========================================================================
+             EXPANDED FULL VIEW MODE (w-60 to w-64)
+             ========================================================================= */
           <div className="space-y-4">
-            {/* 1. PRIMARY GROUP */}
+            {/* 1. PRIMARY SECTION */}
             <div className="space-y-1">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
                 Primary
@@ -222,7 +389,7 @@ export function BuyerSidebar() {
                 </button>
 
                 {isShopOpen && (
-                  <div className="pl-3 space-y-0.5">
+                  <div className="pl-3 space-y-0.5 animate-in fade-in">
                     <Link
                       href="/products"
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
@@ -316,7 +483,7 @@ export function BuyerSidebar() {
                 </button>
 
                 {isCompareBuildOpen && (
-                  <div className="pl-3 space-y-0.5">
+                  <div className="pl-3 space-y-0.5 animate-in fade-in">
                     <Link
                       href="/compare"
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
@@ -358,7 +525,7 @@ export function BuyerSidebar() {
               </Link>
             </div>
 
-            {/* 2. ACCOUNT GROUP */}
+            {/* 2. ACCOUNT SECTION */}
             <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
                 Account
@@ -471,7 +638,7 @@ export function BuyerSidebar() {
               )}
             </div>
 
-            {/* 3. SUPPORT GROUP */}
+            {/* 3. SUPPORT SECTION */}
             <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
                 Support
