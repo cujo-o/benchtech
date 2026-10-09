@@ -7,35 +7,49 @@ import { createBrowserClient } from '@supabase/ssr'
 import { playNotificationTone } from '@/lib/notificationSound'
 import {
   Home,
-  Grid,
-  Flame,
+  ShoppingBag,
+  LayoutGrid,
+  ShieldCheck,
+  Megaphone,
+  Tag,
+  Sparkles,
+  Layers,
   Scale,
+  SlidersHorizontal,
   Disc,
-  Crown,
+  User,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
   Package,
   Bookmark,
   MessageSquare,
-  Clock,
   Bell,
   Wallet,
-  Users,
-  HelpCircle,
-  MessageCircle,
-  PhoneCall,
-  AlertTriangle,
-  ArrowRight,
-  Sparkles,
-  Store,
-  ChevronLeft,
-  ChevronRight,
-  Bot,
+  Clock,
 } from 'lucide-react'
 
 export function BuyerSidebar() {
   const pathname = usePathname()
   const [unreadMessages, setUnreadMessages] = useState<number>(0)
   const [savedCount, setSavedCount] = useState<number>(0)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // Accordion section states (matching the screenshot layout)
+  const [isNavOpen, setIsNavOpen] = useState(true)
+  const [isShopOpen, setIsShopOpen] = useState(true)
+  const [isCompareBuildOpen, setIsCompareBuildOpen] = useState(true)
+  
+  // Auto-open My Account if on any account sub-page
+  const isAccountRoute = [
+    '/orders',
+    '/saved',
+    '/messages',
+    '/wallet',
+    '/price-alerts',
+    '/recently-viewed',
+  ].some((route) => pathname.startsWith(route))
+  const [isAccountOpen, setIsAccountOpen] = useState(isAccountRoute)
+
   const previousUnreadRef = useRef<number>(0)
   const isInitialLoad = useRef<boolean>(true)
 
@@ -65,7 +79,7 @@ export function BuyerSidebar() {
     }
   }, [])
 
-  // 2. Optimized unread checking (only runs when active)
+  // 2. Unread messages checking
   const checkUnreadMessages = useCallback(async () => {
     try {
       if (pathname === '/messages') {
@@ -74,7 +88,6 @@ export function BuyerSidebar() {
         return
       }
 
-      // Skip checking if document is not visible
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return
       }
@@ -115,7 +128,7 @@ export function BuyerSidebar() {
     }
   }, [pathname, supabase])
 
-  // 3. Smart event-based sync (Zero polling when tab is inactive)
+  // 3. Smart event listeners
   useEffect(() => {
     updateSavedCount()
     checkUnreadMessages()
@@ -131,7 +144,6 @@ export function BuyerSidebar() {
     }
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // Poll conservatively every 60s instead of 5s only if tab is visible
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         checkUnreadMessages()
@@ -146,177 +158,340 @@ export function BuyerSidebar() {
     }
   }, [checkUnreadMessages, updateSavedCount])
 
-  const NAV_ITEMS = [
-    { label: 'Home', href: '/feed', icon: Home },
-    { label: 'Shop by Category', href: '/products', icon: Grid },
-    { label: 'Verified Sellers', href: '/sellers', icon: Store },
-    { label: 'Request a Gadget', href: '/requests/new', icon: Sparkles },
-    {
-      label: 'Deals & Offers',
-      href: '/deals',
-      icon: Flame,
-      badge: 'Hot',
-      badgeColor: 'bg-red-500 text-white',
-    },
-    { label: 'Compare Tech', href: '/compare', icon: Scale },
-    {
-      label: 'Find My Tech',
-      href: '/assistant',
-      icon: Bot,
-      badge: 'AI',
-      badgeColor: 'bg-indigo-600 text-white',
-    },
-    { label: 'TechSpin', href: '/techspin', icon: Disc },
-    { label: 'TechPass', href: '/subscription', icon: Crown },
-    { label: 'My Orders', href: '/orders', icon: Package },
-    {
-      label: 'Saved Items',
-      href: '/saved',
-      icon: Bookmark,
-      badge: savedCount > 0 ? String(savedCount) : undefined,
-      badgeColor:
-        pathname === '/saved'
-          ? 'bg-white text-blue-600 font-black'
-          : 'bg-blue-600 text-white',
-    },
-    {
-      label: 'Messages',
-      href: '/messages',
-      icon: MessageSquare,
-      badge:
-        unreadMessages > 0
-          ? unreadMessages > 9
-            ? '9+'
-            : String(unreadMessages)
-          : undefined,
-      badgeColor:
-        pathname === '/messages'
-          ? 'bg-white text-red-600 font-black'
-          : 'bg-red-500 text-white',
-    },
-    { label: 'Recently Viewed', href: '/recently-viewed', icon: Clock },
-    { label: 'Price Alerts', href: '/price-alerts', icon: Bell },
-    { label: 'My Wallet', href: '/wallet', icon: Wallet },
-    { label: 'Referrals', href: '/referrals', icon: Users },
-    { label: 'Help & Support', href: '/help', icon: HelpCircle },
-  ]
+  const isActive = (href: string) => {
+    if (href === '/feed') {
+      return pathname === '/feed' || pathname === '/'
+    }
+    return pathname.startsWith(href)
+  }
 
   return (
-    <aside
-      className={`shrink-0 hidden md:flex flex-col justify-between bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 min-h-[calc(100vh-4rem)] transition-all duration-200 sticky top-16 h-[calc(100vh-4rem)] ${
-        isCollapsed ? 'w-16 p-2' : 'w-60 xl:w-64 p-3.5'
-      }`}
-    >
-      {/* 1. Header with Collapse / Expand Trigger */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80 mb-2">
-        {!isCollapsed && (
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2">
+    <aside className="w-60 xl:w-64 shrink-0 hidden md:flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/80 p-3.5 min-h-[calc(100vh-4rem)] sticky top-16 h-[calc(100vh-4rem)] select-none">
+      <div className="flex-1 overflow-y-auto space-y-5 pr-1 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full">
+        {/* Navigation Collapsible Header */}
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
             Navigation
           </span>
-        )}
-        <button
-          type="button"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition ${
-            isCollapsed ? 'mx-auto' : 'ml-auto'
-          }`}
-          title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-          aria-label={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <ChevronLeft className="w-4 h-4" />
-          )}
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setIsNavOpen(!isNavOpen)}
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
+          >
+            {isNavOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        </div>
 
-      {/* 2. Scrollable Navigation List with Visible Custom Scroller */}
-      <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-1 pr-1 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href
+        {isNavOpen && (
+          <div className="space-y-4">
+            {/* 1. PRIMARY GROUP */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
+                Primary
+              </span>
 
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              title={isCollapsed ? item.label : undefined}
-              className={`flex items-center rounded-xl text-xs font-semibold transition relative group ${
-                isCollapsed
-                  ? 'justify-center p-2.5'
-                  : 'justify-between px-3 py-2'
-              } ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-xs font-bold'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/70 hover:text-slate-900 dark:hover:text-slate-100'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Icon
-                  className={`w-4 h-4 shrink-0 ${
-                    isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                />
-                {!isCollapsed && <span className="truncate">{item.label}</span>}
+              {/* Home */}
+              <Link
+                href="/feed"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  isActive('/feed')
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <Home className="w-4 h-4 shrink-0" />
+                <span>Home</span>
+              </Link>
+
+              {/* Shop Collapsible Accordion */}
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => setIsShopOpen(!isShopOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <ShoppingBag className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Shop</span>
+                  </div>
+                  {isShopOpen ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  )}
+                </button>
+
+                {isShopOpen && (
+                  <div className="pl-3 space-y-0.5">
+                    <Link
+                      href="/products"
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                        isActive('/products')
+                          ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
+                      <span>Shop by Category</span>
+                    </Link>
+
+                    <Link
+                      href="/sellers"
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                        isActive('/sellers')
+                          ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span>Verified Sellers</span>
+                    </Link>
+
+                    <Link
+                      href="/requests/new"
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                        isActive('/requests')
+                          ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <Megaphone className="w-3.5 h-3.5 shrink-0" />
+                      <span>Request a Gadget</span>
+                    </Link>
+
+                    <Link
+                      href="/deals"
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                        isActive('/deals')
+                          ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Tag className="w-3.5 h-3.5 shrink-0" />
+                        <span>Deals &amp; Offers</span>
+                      </div>
+                      <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase leading-none">
+                        Hot
+                      </span>
+                    </Link>
+                  </div>
+                )}
               </div>
 
-              {!isCollapsed && item.badge && (
-                <span
-                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-2xs shrink-0 ${item.badgeColor}`}
-                >
-                  {item.badge}
+              {/* Find My Tech (AI Badge) */}
+              <Link
+                href="/assistant"
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                  isActive('/assistant')
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
+                  <span>Find My Tech</span>
+                </div>
+                <span className="bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase leading-none">
+                  AI
                 </span>
-              )}
+              </Link>
 
-              {isCollapsed && item.badge && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400" />
-              )}
-            </Link>
-          )
-        })}
-      </nav>
+              {/* Compare & Build Accordion */}
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => setIsCompareBuildOpen(!isCompareBuildOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <Layers className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Compare &amp; Build</span>
+                  </div>
+                  {isCompareBuildOpen ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  )}
+                </button>
 
-      {/* 3. Footer Banners */}
-      {!isCollapsed && (
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2 shrink-0">
-          <div className="bg-gradient-to-b from-slate-900 to-slate-950 text-white rounded-2xl p-3 space-y-2 border border-slate-800 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-amber-300 flex items-center gap-1">
-                <Crown className="w-3.5 h-3.5 fill-amber-300" /> TechPass
-              </span>
-              <span className="text-[9px] text-slate-400 font-medium">Phase 2</span>
+                {isCompareBuildOpen && (
+                  <div className="pl-3 space-y-0.5">
+                    <Link
+                      href="/compare"
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                        isActive('/compare')
+                          ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <Scale className="w-3.5 h-3.5 shrink-0" />
+                      <span>Compare Tech</span>
+                    </Link>
+
+                    <Link
+                      href="/build"
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                        isActive('/build')
+                          ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+                      <span>Build My Setup</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* TechSpin */}
+              <Link
+                href="/techspin"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                  isActive('/techspin')
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <Disc className="w-4 h-4 text-slate-500 shrink-0" />
+                <span>TechSpin</span>
+              </Link>
             </div>
-            <p className="text-[10px] text-slate-300 leading-snug">
-              Unlock free delivery &amp; vendor contacts across Abuja.
-            </p>
-            <Link href="/subscription" className="block pt-0.5">
-              <button className="w-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition">
-                View Membership <ArrowRight className="w-3 h-3" />
-              </button>
-            </Link>
-          </div>
 
-          <div className="p-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-            <Link
-              href="/help"
-              className="hover:text-blue-600 dark:hover:text-blue-400 font-semibold flex items-center gap-1"
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-              <span>Help Centre</span>
-            </Link>
-            <a
-              href="https://wa.me/2348000000000"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-emerald-600 font-semibold flex items-center gap-1"
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              <span>Support</span>
-            </a>
+            {/* 2. ACCOUNT GROUP */}
+            <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
+                Account
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setIsAccountOpen(!isAccountOpen)}
+                className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <User className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span>My Account</span>
+                </div>
+                {isAccountOpen ? (
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                )}
+              </button>
+
+              {isAccountOpen && (
+                <div className="pl-3 space-y-0.5 animate-in fade-in">
+                  <Link
+                    href="/orders"
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                      isActive('/orders')
+                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <Package className="w-3.5 h-3.5 shrink-0" />
+                    <span>My Orders</span>
+                  </Link>
+
+                  <Link
+                    href="/saved"
+                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                      isActive('/saved')
+                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Bookmark className="w-3.5 h-3.5 shrink-0" />
+                      <span>Saved Items</span>
+                    </div>
+                    {savedCount > 0 && (
+                      <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                        {savedCount}
+                      </span>
+                    )}
+                  </Link>
+
+                  <Link
+                    href="/messages"
+                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                      isActive('/messages')
+                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                      <span>Messages</span>
+                    </div>
+                    {unreadMessages > 0 && (
+                      <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                        {unreadMessages > 9 ? '9+' : unreadMessages}
+                      </span>
+                    )}
+                  </Link>
+
+                  <Link
+                    href="/recently-viewed"
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                      isActive('/recently-viewed')
+                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    <span>Recently Viewed</span>
+                  </Link>
+
+                  <Link
+                    href="/price-alerts"
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                      isActive('/price-alerts')
+                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <Bell className="w-3.5 h-3.5 shrink-0" />
+                    <span>Price Alerts</span>
+                  </Link>
+
+                  <Link
+                    href="/wallet"
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                      isActive('/wallet')
+                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <Wallet className="w-3.5 h-3.5 shrink-0" />
+                    <span>My Wallet</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* 3. SUPPORT GROUP */}
+            <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
+                Support
+              </span>
+
+              <Link
+                href="/help"
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition ${
+                  isActive('/help')
+                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                <span>Help &amp; Support</span>
+              </Link>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   )
 }
