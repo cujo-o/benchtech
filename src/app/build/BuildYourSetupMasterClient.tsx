@@ -1091,9 +1091,7 @@ export function BuildYourSetupMasterClient({
                 <h3 className="font-black text-sm">
                   Components ({activeBuild.components.length} Items)
                 </h3>
-                <span className="text-xs text-emerald-600 font-bold">
-                  ✓ 100% Verified Abuja Stock
-                </span>
+                
               </div>
 
               <div className="overflow-x-auto">

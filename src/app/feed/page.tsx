@@ -206,9 +206,7 @@ export default async function FeedPage() {
                 className="w-full h-full object-cover rounded-xl opacity-90"
                 loading="eager"
               />
-              <div className="absolute top-3 right-3 bg-slate-950/90 border border-slate-700 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-200">
-                Verified Abuja Stock
-              </div>
+              
             </div>
           </div>
 
