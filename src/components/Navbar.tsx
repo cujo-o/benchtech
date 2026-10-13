@@ -46,7 +46,7 @@ export async function Navbar() {
           <MobileSidebarDrawer profile={profile} />
 
           <Link href={user ? "/feed" : "/"} className="flex items-center gap-2.5 group">
-            <BenchTechLogo size={32} />
+            <BenchTechLogo/>
             <div className="hidden min-[480px]:block">
               <span className="font-black text-base sm:text-lg text-slate-900 dark:text-slate-100 tracking-tight leading-none block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
                 BenchTech

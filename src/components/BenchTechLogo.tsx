@@ -1,3 +1,8 @@
+interface BenchTechLogoProps {
+  className?: string
+  size?: number
+}
+
 export function BenchTechLogo({ className = "w-8 h-8" }: { className?: string }) {
   return (
     <div
