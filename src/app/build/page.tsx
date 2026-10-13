@@ -3,7 +3,7 @@ import { Navbar } from '@/components/Navbar'
 import { BuildYourSetupMasterClient } from './BuildYourSetupMasterClient'
 import type { Metadata } from 'next'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'Build Your Setup | BenchTech Abuja',

@@ -2,9 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
-import { playNotificationTone } from '@/lib/notificationSound'
+import { useEffect, useState, useCallback } from 'react'
 import {
   Home,
   ShoppingBag,
@@ -25,7 +23,6 @@ import {
   ChevronRight,
   Package,
   Bookmark,
-  MessageSquare,
   Bell,
   Wallet,
   Clock,
@@ -33,43 +30,28 @@ import {
 
 export function BuyerSidebar() {
   const pathname = usePathname()
-  const [unreadMessages, setUnreadMessages] = useState<number>(0)
   const [savedCount, setSavedCount] = useState<number>(0)
-
-  // 1. Sidebar Horizontal Collapse State (w-60 vs w-16 icon rail)
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false)
 
-  // 2. Accordion Group States (when expanded)
+  // Accordion Group States
   const [isShopOpen, setIsShopOpen] = useState(true)
   const [isCompareBuildOpen, setIsCompareBuildOpen] = useState(true)
 
-  // Auto-open My Account accordion if on any account subpage
   const isAccountRoute = [
     '/orders',
     '/saved',
-    '/messages',
     '/wallet',
     '/price-alerts',
     '/recently-viewed',
   ].some((route) => pathname.startsWith(route))
   const [isAccountOpen, setIsAccountOpen] = useState(isAccountRoute)
 
-  const previousUnreadRef = useRef<number>(0)
-  const isInitialLoad = useRef<boolean>(true)
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
-  // Sync Saved Items Count from localStorage
+  // Fast localStorage sync for saved count (no database calls on navigation)
   const updateSavedCount = useCallback(() => {
     try {
       const savedRaw =
         localStorage.getItem('benchtech_saved') ||
-        localStorage.getItem('techmart_saved_items') ||
-        localStorage.getItem('techmart_saved')
-
+        localStorage.getItem('techmart_saved_items')
       if (savedRaw) {
         const parsed = JSON.parse(savedRaw)
         if (Array.isArray(parsed)) {
@@ -83,59 +65,8 @@ export function BuyerSidebar() {
     }
   }, [])
 
-  // Check unread messages from Supabase
-  const checkUnreadMessages = useCallback(async () => {
-    try {
-      if (pathname === '/messages') {
-        setUnreadMessages(0)
-        previousUnreadRef.current = 0
-        return
-      }
-
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        return
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: userEnquiries } = await supabase
-        .from('enquiries')
-        .select('id')
-        .eq('buyer_id', user.id)
-
-      const enquiryIds = userEnquiries?.map((e) => e.id) || []
-
-      if (enquiryIds.length > 0) {
-        const { count, error } = await supabase
-          .from('enquiry_replies')
-          .select('*', { count: 'exact', head: true })
-          .in('enquiry_id', enquiryIds)
-          .neq('sender_id', user.id)
-          .eq('is_read', false)
-
-        if (!error && count !== null) {
-          if (!isInitialLoad.current && count > previousUnreadRef.current) {
-            playNotificationTone()
-          }
-          previousUnreadRef.current = count
-          setUnreadMessages(count)
-        }
-      } else {
-        setUnreadMessages(0)
-      }
-      isInitialLoad.current = false
-    } catch {
-      // Ignore network drops
-    }
-  }, [pathname, supabase])
-
-  // Sync listeners and restore collapsed preference
   useEffect(() => {
     updateSavedCount()
-    checkUnreadMessages()
 
     try {
       const stored = localStorage.getItem('benchtech_sidebar_collapsed')
@@ -144,30 +75,15 @@ export function BuyerSidebar() {
       }
     } catch {}
 
-    const handleCustomSync = () => updateSavedCount()
-    window.addEventListener('storage', handleCustomSync)
-    window.addEventListener('savedItemsUpdated', handleCustomSync)
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        checkUnreadMessages()
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        checkUnreadMessages()
-      }
-    }, 60000)
+    const handleSync = () => updateSavedCount()
+    window.addEventListener('storage', handleSync)
+    window.addEventListener('savedItemsUpdated', handleSync)
 
     return () => {
-      window.removeEventListener('storage', handleCustomSync)
-      window.removeEventListener('savedItemsUpdated', handleCustomSync)
-      document.removeEventListener('visibilitychange', handleVisibility)
-      clearInterval(interval)
+      window.removeEventListener('storage', handleSync)
+      window.removeEventListener('savedItemsUpdated', handleSync)
     }
-  }, [checkUnreadMessages, updateSavedCount])
+  }, [updateSavedCount])
 
   const toggleSidebarCollapse = () => {
     const next = !isCollapsed
@@ -186,7 +102,7 @@ export function BuyerSidebar() {
 
   return (
     <aside
-      className={`shrink-0 hidden md:flex flex-col justify-between bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/80 min-h-[calc(100vh-4rem)] sticky top-16 h-[calc(100vh-4rem)] select-none transition-all duration-300 z-30 ${
+      className={`shrink-0 hidden md:flex flex-col justify-between bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/80 min-h-[calc(100vh-4rem)] sticky top-16 h-[calc(100vh-4rem)] select-none transition-all duration-200 z-30 ${
         isCollapsed ? 'w-16 p-2' : 'w-60 xl:w-64 p-3.5'
       }`}
     >
@@ -214,29 +130,27 @@ export function BuyerSidebar() {
         </button>
       </div>
 
-      {/* 2. Scrollable Body: Expanded Accordions vs. Collapsed Icon Rail */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-4 pr-0.5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#334155_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full">
+      {/* 2. Scrollable Body */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-4 pr-0.5 [scrollbar-width:thin]">
         {isCollapsed ? (
-          /* =========================================================================
-             COLLAPSED ICON RAIL MODE (w-16)
-             ========================================================================= */
+          /* COLLAPSED ICON RAIL MODE */
           <div className="space-y-2">
-            {/* Home */}
             <Link
               href="/feed"
+              prefetch={true}
               title="Home"
               className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
                 isActive('/feed')
                   ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
               }`}
             >
               <Home className="w-4 h-4" />
             </Link>
 
-            {/* Shop */}
             <Link
               href="/products"
+              prefetch={true}
               title="Shop by Category"
               className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
                 isActive('/products') || isActive('/categories')
@@ -247,9 +161,9 @@ export function BuyerSidebar() {
               <ShoppingBag className="w-4 h-4" />
             </Link>
 
-            {/* Deals (Hot badge indicator) */}
             <Link
               href="/deals"
+              prefetch={true}
               title="Deals & Offers"
               className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
             >
@@ -257,9 +171,9 @@ export function BuyerSidebar() {
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
             </Link>
 
-            {/* Find My Tech (AI indicator) */}
             <Link
               href="/assistant"
+              prefetch={true}
               title="Find My Tech (AI)"
               className={`w-full flex items-center justify-center p-2.5 rounded-xl relative transition ${
                 isActive('/assistant')
@@ -271,9 +185,9 @@ export function BuyerSidebar() {
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
             </Link>
 
-            {/* Compare & Build */}
             <Link
               href="/compare"
+              prefetch={true}
               title="Compare Tech"
               className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
                 isActive('/compare') || isActive('/build')
@@ -284,9 +198,9 @@ export function BuyerSidebar() {
               <Layers className="w-4 h-4" />
             </Link>
 
-            {/* TechSpin */}
             <Link
               href="/techspin"
+              prefetch={true}
               title="TechSpin"
               className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
                 isActive('/techspin')
@@ -299,21 +213,18 @@ export function BuyerSidebar() {
 
             <div className="my-2 border-t border-slate-100 dark:border-slate-800/80" />
 
-            {/* Account Quick Icon */}
             <Link
               href="/orders"
-              title="My Account"
-              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
+              prefetch={true}
+              title="My Orders"
+              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
             >
-              <User className="w-4 h-4" />
-              {unreadMessages > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
-              )}
+              <Package className="w-4 h-4" />
             </Link>
 
-            {/* Saved Items */}
             <Link
               href="/saved"
+              prefetch={true}
               title="Saved Items"
               className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
             >
@@ -323,23 +234,20 @@ export function BuyerSidebar() {
               )}
             </Link>
 
-            {/* Messages */}
             <Link
-              href="/messages"
-              title="Messages"
-              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
+              href="/wallet"
+              prefetch={true}
+              title="My Wallet"
+              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
             >
-              <MessageSquare className="w-4 h-4" />
-              {unreadMessages > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
-              )}
+              <Wallet className="w-4 h-4" />
             </Link>
 
             <div className="my-2 border-t border-slate-100 dark:border-slate-800/80" />
 
-            {/* Help */}
             <Link
               href="/help"
+              prefetch={true}
               title="Help & Support"
               className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
             >
@@ -347,19 +255,17 @@ export function BuyerSidebar() {
             </Link>
           </div>
         ) : (
-          /* =========================================================================
-             EXPANDED FULL VIEW MODE (w-60 to w-64)
-             ========================================================================= */
+          /* EXPANDED FULL VIEW MODE */
           <div className="space-y-4">
-            {/* 1. PRIMARY SECTION */}
+            {/* PRIMARY */}
             <div className="space-y-1">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
                 Primary
               </span>
 
-              {/* Home */}
               <Link
                 href="/feed"
+                prefetch={true}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
                   isActive('/feed')
                     ? 'bg-blue-600 text-white shadow-xs'
@@ -370,7 +276,7 @@ export function BuyerSidebar() {
                 <span>Home</span>
               </Link>
 
-              {/* Shop Collapsible Accordion */}
+              {/* Shop Collapsible */}
               <div className="space-y-0.5">
                 <button
                   type="button"
@@ -389,9 +295,10 @@ export function BuyerSidebar() {
                 </button>
 
                 {isShopOpen && (
-                  <div className="pl-3 space-y-0.5 animate-in fade-in">
+                  <div className="pl-3 space-y-0.5">
                     <Link
                       href="/products"
+                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/products')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -404,6 +311,7 @@ export function BuyerSidebar() {
 
                     <Link
                       href="/sellers"
+                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/sellers')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -416,6 +324,7 @@ export function BuyerSidebar() {
 
                     <Link
                       href="/requests/new"
+                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/requests')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -428,6 +337,7 @@ export function BuyerSidebar() {
 
                     <Link
                       href="/deals"
+                      prefetch={true}
                       className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/deals')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -446,9 +356,10 @@ export function BuyerSidebar() {
                 )}
               </div>
 
-              {/* Find My Tech (AI Badge) */}
+              {/* Find My Tech (AI) */}
               <Link
                 href="/assistant"
+                prefetch={true}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition ${
                   isActive('/assistant')
                     ? 'bg-blue-600 text-white'
@@ -483,9 +394,10 @@ export function BuyerSidebar() {
                 </button>
 
                 {isCompareBuildOpen && (
-                  <div className="pl-3 space-y-0.5 animate-in fade-in">
+                  <div className="pl-3 space-y-0.5">
                     <Link
                       href="/compare"
+                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/compare')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -498,6 +410,7 @@ export function BuyerSidebar() {
 
                     <Link
                       href="/build"
+                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/build')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -514,6 +427,7 @@ export function BuyerSidebar() {
               {/* TechSpin */}
               <Link
                 href="/techspin"
+                prefetch={true}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
                   isActive('/techspin')
                     ? 'bg-blue-600 text-white'
@@ -525,7 +439,7 @@ export function BuyerSidebar() {
               </Link>
             </div>
 
-            {/* 2. ACCOUNT SECTION */}
+            {/* ACCOUNT */}
             <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
                 Account
@@ -548,9 +462,10 @@ export function BuyerSidebar() {
               </button>
 
               {isAccountOpen && (
-                <div className="pl-3 space-y-0.5 animate-in fade-in">
+                <div className="pl-3 space-y-0.5">
                   <Link
                     href="/orders"
+                    prefetch={true}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/orders')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -563,6 +478,7 @@ export function BuyerSidebar() {
 
                   <Link
                     href="/saved"
+                    prefetch={true}
                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/saved')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -581,26 +497,8 @@ export function BuyerSidebar() {
                   </Link>
 
                   <Link
-                    href="/messages"
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
-                      isActive('/messages')
-                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                      <span>Messages</span>
-                    </div>
-                    {unreadMessages > 0 && (
-                      <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
-                        {unreadMessages > 9 ? '9+' : unreadMessages}
-                      </span>
-                    )}
-                  </Link>
-
-                  <Link
                     href="/recently-viewed"
+                    prefetch={true}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/recently-viewed')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -613,6 +511,7 @@ export function BuyerSidebar() {
 
                   <Link
                     href="/price-alerts"
+                    prefetch={true}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/price-alerts')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -625,6 +524,7 @@ export function BuyerSidebar() {
 
                   <Link
                     href="/wallet"
+                    prefetch={true}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/wallet')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -638,7 +538,7 @@ export function BuyerSidebar() {
               )}
             </div>
 
-            {/* 3. SUPPORT SECTION */}
+            {/* SUPPORT */}
             <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
                 Support
@@ -646,6 +546,7 @@ export function BuyerSidebar() {
 
               <Link
                 href="/help"
+                prefetch={true}
                 className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition ${
                   isActive('/help')
                     ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'

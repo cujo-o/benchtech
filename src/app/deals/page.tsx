@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from 'next'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'Tech Deals & Clearance Hub Abuja | BenchTech',

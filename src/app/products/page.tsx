@@ -6,12 +6,12 @@ import { ProductsCatalogClient } from './ProductsCatalogClient'
 import { getSponsoredProducts } from '@/lib/ads/getSponsoredProducts'
 import type { Metadata } from 'next'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'Explore Gadgets & Electronics in Abuja | BenchTech',
   description:
-    'Browse verified laptops, smartphones, gaming consoles, and accessories available for direct pickup or delivery in Abuja. Compare prices from Banex, Emab, and Wuse 2 dealers.',
+    'Browse verified laptops, smartphones, gaming consoles, and accessories in Abuja.',
   alternates: {
     canonical: 'https://shopbenchtech.com/products',
   },

@@ -24,7 +24,7 @@ import { AdImpressionTracker } from "@/components/storefront/AdImpressionTracker
 import { ShareButton } from "@/components/storefront/ShareButton";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 function resolveFirstImage(images: any): string | null {
   if (!images) return null;
