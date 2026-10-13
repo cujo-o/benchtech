@@ -46,7 +46,7 @@ export function BuyerSidebar() {
   ].some((route) => pathname.startsWith(route))
   const [isAccountOpen, setIsAccountOpen] = useState(isAccountRoute)
 
-  // Fast localStorage sync for saved count (no database calls on navigation)
+  // Sync saved count from localStorage without network overhead
   const updateSavedCount = useCallback(() => {
     try {
       const savedRaw =
@@ -106,7 +106,7 @@ export function BuyerSidebar() {
         isCollapsed ? 'w-16 p-2' : 'w-60 xl:w-64 p-3.5'
       }`}
     >
-      {/* 1. Header with Collapse / Expand Toggle */}
+      {/* 1. Navigation Header & Collapse Button */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80 mb-2">
         {!isCollapsed && (
           <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
@@ -276,7 +276,7 @@ export function BuyerSidebar() {
                 <span>Home</span>
               </Link>
 
-              {/* Shop Collapsible */}
+              {/* Shop Collapsible Accordion */}
               <div className="space-y-0.5">
                 <button
                   type="button"
@@ -439,7 +439,7 @@ export function BuyerSidebar() {
               </Link>
             </div>
 
-            {/* ACCOUNT */}
+            {/* ACCOUNT (No Messaging) */}
             <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
                 Account
