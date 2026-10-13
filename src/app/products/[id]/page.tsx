@@ -5,6 +5,7 @@ import { Navbar } from "@/components/Navbar";
 import { ProductImageGallery } from "@/components/storefront/ProductImageGallery";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   ShieldCheck,
   MapPin,
@@ -13,14 +14,12 @@ import {
   ArrowLeft,
   ArrowRight,
   Package,
+  Lock,
+  Sparkles,
 } from "lucide-react";
-import { BuyingRequestModal } from "@/components/products/BuyingRequestModal";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { CompareButton } from "@/components/CompareButton";
 import { ProductViewTracker } from "@/components/products/ProductViewTracker";
-import { getSponsoredProducts } from "@/lib/ads/getSponsoredProducts";
-import { AdProductCardWrapper } from "@/components/storefront/AdProductCardWrapper";
-import { AdImpressionTracker } from "@/components/storefront/AdImpressionTracker";
 import { ShareButton } from "@/components/storefront/ShareButton";
 import type { Metadata } from "next";
 
@@ -114,7 +113,7 @@ export default async function ProductDetailPage({
     .eq("id", id)
     .maybeSingle();
 
-  // Bulletproof fallback: If joined relation errors, fetch product and profile separately
+  // Fallback: If joined relation errors, fetch product and profile separately
   if (error || !product) {
     const { data: fallbackProduct } = await supabase
       .from("products")
@@ -141,20 +140,53 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  // 2. Fetch alternative products and deduplicate strictly by ID
-  const sponsoredCandidates = await getSponsoredProducts({ limit: 8 });
+  // 2. Fetch related and complementary tech suggestions in Abuja
+  const currentCategory = product.category?.toLowerCase() || "";
 
-  const seenIds = new Set<string>();
-  const uniqueAlternatives: any[] = [];
+  // Complementary category mapping for smart product suggestions
+  const complementaryCategories: Record<string, string[]> = {
+    laptops: ["monitors", "accessories", "gaming", "networking"],
+    phones: ["accessories", "wearables", "tablets"],
+    gaming: ["monitors", "accessories", "gaming"],
+    monitors: ["accessories", "laptops", "gaming"],
+    cameras: ["accessories", "tablets"],
+    tablets: ["accessories", "phones"],
+  };
 
-  for (const ad of sponsoredCandidates || []) {
-    const candidateId = ad?.product?.id;
-    if (candidateId && candidateId !== id && !seenIds.has(candidateId)) {
-      seenIds.add(candidateId);
-      uniqueAlternatives.push(ad);
-      if (uniqueAlternatives.length >= 4) break;
-    }
-  }
+  const matchingCategories = [
+    currentCategory,
+    ...(complementaryCategories[currentCategory] || ["accessories", "laptops"]),
+  ];
+
+  const { data: catalogSuggestions } = await supabase
+    .from("products")
+    .select(`
+      id,
+      title,
+      price,
+      condition,
+      images,
+      brand,
+      category,
+      profiles!products_seller_id_fkey(business_name, district)
+    `)
+    .eq("status", "published")
+    .neq("id", id)
+    .order("created_at", { ascending: false })
+    .limit(16);
+
+  // Filter and deduplicate: prioritize items in the same or complementary categories
+  const sortedSuggestions = (catalogSuggestions || []).sort((a, b) => {
+    const aMatch = matchingCategories.includes(a.category?.toLowerCase() || "");
+    const bMatch = matchingCategories.includes(b.category?.toLowerCase() || "");
+    if (aMatch && !bMatch) return -1;
+    if (!aMatch && bMatch) return 1;
+    return 0;
+  });
+
+  const uniqueSuggestions = Array.from(
+    new Map(sortedSuggestions.map((item) => [item.id, item])).values()
+  ).slice(0, 4);
 
   const seller = product.profiles;
   const isVerified = seller?.tech_trust_status === "verified";
@@ -168,7 +200,7 @@ export default async function ProductDetailPage({
     seller?.image ||
     null;
 
-  // 3. Dynamic Specifications Engine (Parses JSON specs and direct table columns)
+  // 3. Dynamic Specifications Engine
   let parsedSpecs: Record<string, any> = {};
   if (product.specs) {
     if (typeof product.specs === "object") {
@@ -212,7 +244,6 @@ export default async function ProductDetailPage({
   addSpec("Warranty", product.warranty || parsedSpecs.warranty);
   addSpec("Accessories Included", product.accessories || parsedSpecs.accessories);
 
-  // Catch any custom fields added during listing creation
   const standardKeys = new Set([
     "brand", "model", "condition", "processor", "ram", "storage",
     "battery_health", "screen_size", "color", "os", "operating_system",
@@ -298,7 +329,7 @@ export default async function ProductDetailPage({
             </Card>
           </div>
 
-          {/* Right Column: Pricing, Checkout & Merchant Profile */}
+          {/* Right Column: Pricing, Direct Escrow Buy & Merchant Profile */}
           <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24 min-w-0">
             <Card className="rounded-3xl border-slate-200/80 dark:border-slate-800/80 shadow-xs">
               <CardContent className="p-5 sm:p-7 space-y-6">
@@ -314,13 +345,13 @@ export default async function ProductDetailPage({
                   </p>
                 </div>
 
-                {/* Verified Merchant Profile with Avatar Photo */}
+                {/* Verified Merchant Profile */}
                 {seller && (
                   <Link
                     href={`/sellers/${seller.id}`}
                     className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-slate-800 transition"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-blue-600 dark:text-blue-300 shadow-2xs text-sm overflow-hidden shrink-0">
                         {sellerAvatar ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -352,19 +383,14 @@ export default async function ProductDetailPage({
                   </Link>
                 )}
 
-                {/* Actions: Request to Buy, Add to Cart, Compare, Share */}
+                {/* Primary Pure Escrow Checkout & Secondary Actions */}
                 <div className="space-y-3 pt-1">
-                  <div className="w-full [&>button]:w-full [&>button]:h-12 [&>button]:text-sm [&>button]:font-bold [&>button]:rounded-xl [&>button]:shadow-xs">
-                    <BuyingRequestModal
-                      product={{
-                        id: product.id,
-                        title: product.title,
-                        price: product.price,
-                        seller_id: product.seller_id,
-                        location: product.location,
-                      }}
-                    />
-                  </div>
+                  <Link href={`/checkout?productId=${product.id}`} className="block">
+                    <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition active:scale-[0.99]">
+                      <Lock className="w-4 h-4" />
+                      <span>Order with TechTrust Escrow</span>
+                    </Button>
+                  </Link>
 
                   <div className="grid grid-cols-3 gap-2 [&>div]:w-full [&_button]:w-full [&_button]:h-11 [&_button]:text-xs [&_button]:font-bold [&_button]:rounded-xl [&_button]:border [&_button]:border-slate-200 dark:[&_button]:border-slate-700 [&_button]:bg-white dark:[&_button]:bg-slate-800 [&_button]:text-slate-800 dark:[&_button]:text-slate-100 hover:[&_button]:bg-slate-100 dark:hover:[&_button]:bg-slate-700 transition">
                     <AddToCartButton product={product} />
@@ -383,7 +409,7 @@ export default async function ProductDetailPage({
                     TechTrust Buyer Shield
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                    All transactions and settlements are protected by ShopbenchTech. Inspect your device in person upon pickup or delivery before funds are released to the vendor.
+                    All settlements are held in escrow. Inspect your device with the verified courier upon delivery before funds are released to the vendor via 6-digit confirmation OTP[cite: 13].
                   </p>
                 </div>
               </CardContent>
@@ -391,32 +417,31 @@ export default async function ProductDetailPage({
           </div>
         </div>
 
-        {/* Similar Tech Deals (Clean title, deduplicated, no SPONSORED badge) */}
-        {uniqueAlternatives.length > 0 && (
+        {/* Smart Recommendations: Related Tech & Suggested Next Additions */}
+        {uniqueSuggestions.length > 0 && (
           <section className="space-y-4 pt-6 border-t border-slate-200/80 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <Sparkles className="w-4 h-4 text-blue-600" />
                   <h2 className="text-base font-black text-slate-900 dark:text-slate-100">
-                    Similar Tech in Abuja
+                    Suggested Next Additions &amp; Related Tech
                   </h2>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Verified devices from dealers in Banex, Emab, and Wuse 2.
+                  Complementary gear and matching hardware available in Abuja plazas.
                 </p>
               </div>
               <Link
                 href="/products"
                 className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                View Catalog <ArrowRight className="w-3.5 h-3.5" />
+                Browse All <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-              {uniqueAlternatives.map((ad) => {
-                const item = ad.product || ad;
+              {uniqueSuggestions.map((item) => {
                 const firstImg = resolveFirstImage(item.images);
 
                 return (
@@ -424,53 +449,38 @@ export default async function ProductDetailPage({
                     key={item.id}
                     className="group rounded-2xl border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
                   >
-                    <AdProductCardWrapper
-                      campaignId={ad.campaignId}
-                      productId={item.id}
-                      sellerId={ad.sellerId || item.seller_id}
-                      isSponsored={false}
+                    <Link
+                      href={`/products/${item.id}`}
+                      className="flex-1 flex flex-col min-w-0"
                     >
-                      <AdImpressionTracker
-                        campaignId={ad.campaignId}
-                        productId={item.id}
-                        sellerId={ad.sellerId || item.seller_id}
-                        isSponsored={false}
-                      />
-                      <Link
-                        href={`/products/${item.id}`}
-                        className="flex-1 flex flex-col min-w-0"
-                      >
-                        <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800 flex items-center justify-center p-3">
-                          {firstImg ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={firstImg}
-                              alt={item.title}
-                              loading="lazy"
-                              className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-6 h-6 text-slate-300" />
-                            </div>
-                          )}
-                        </div>
+                      <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800 flex items-center justify-center p-3">
+                        {firstImg ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={firstImg}
+                            alt={item.title}
+                            loading="lazy"
+                            className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <Package className="w-6 h-6 text-slate-300" />
+                        )}
+                      </div>
 
-                        <CardContent className="p-3 flex-1 flex flex-col justify-between space-y-1.5">
-                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {item.title}
-                          </p>
-                          <div className="flex items-center justify-between pt-1">
-                            <span className="text-xs font-black text-slate-900 dark:text-slate-100">
-                              ₦{Number(item.price).toLocaleString()}
-                            </span>
-                            <span className="text-[10px] text-slate-400 capitalize">
-                              {item.condition?.replace("_", " ") || "Refurbished"}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Link>
-                    </AdProductCardWrapper>
+                      <CardContent className="p-3 flex-1 flex flex-col justify-between space-y-1.5">
+                        <p className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {item.title}
+                        </p>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-xs font-black text-slate-900 dark:text-slate-100">
+                            ₦{Number(item.price).toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-slate-400 capitalize">
+                            {item.condition?.replace("_", " ") || "Refurbished"}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Link>
                   </Card>
                 );
               })}
