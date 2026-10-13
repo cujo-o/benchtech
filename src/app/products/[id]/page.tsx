@@ -10,12 +10,9 @@ import {
   ShieldCheck,
   MapPin,
   ChevronRight,
-  ShieldAlert,
   ArrowLeft,
   ArrowRight,
   Package,
-  Lock,
-  Sparkles,
 } from "lucide-react";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { CompareButton } from "@/components/CompareButton";
@@ -65,7 +62,7 @@ export async function generateMetadata({
   const title = `${product.title} - ${formattedPrice} | BenchTech`;
   const description = `Buy ${
     product.condition?.replace("_", " ") || "inspected"
-  } ${product.title} in ${location}, Abuja for ${formattedPrice} from ${sellerName}. Safe escrow and physical inspection available.`;
+  } ${product.title} in ${location}, Abuja for ${formattedPrice} from ${sellerName}. Safe inspection available on delivery.`;
 
   return {
     title,
@@ -106,14 +103,13 @@ export default async function ProductDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // 1. Fetch product with wildcards to avoid schema cache column errors
+  // 1. Fetch product
   let { data: product, error } = await supabase
     .from("products")
     .select("*, profiles!products_seller_id_fkey(*)")
     .eq("id", id)
     .maybeSingle();
 
-  // Fallback: If joined relation errors, fetch product and profile separately
   if (error || !product) {
     const { data: fallbackProduct } = await supabase
       .from("products")
@@ -140,12 +136,11 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  // 2. Fetch related and complementary tech suggestions in Abuja
+  // 2. Fetch related products in the same or complementary categories
   const currentCategory = product.category?.toLowerCase() || "";
 
-  // Complementary category mapping for smart product suggestions
   const complementaryCategories: Record<string, string[]> = {
-    laptops: ["monitors", "accessories", "gaming", "networking"],
+    laptops: ["monitors", "accessories", "gaming"],
     phones: ["accessories", "wearables", "tablets"],
     gaming: ["monitors", "accessories", "gaming"],
     monitors: ["accessories", "laptops", "gaming"],
@@ -175,7 +170,6 @@ export default async function ProductDetailPage({
     .order("created_at", { ascending: false })
     .limit(16);
 
-  // Filter and deduplicate: prioritize items in the same or complementary categories
   const sortedSuggestions = (catalogSuggestions || []).sort((a, b) => {
     const aMatch = matchingCategories.includes(a.category?.toLowerCase() || "");
     const bMatch = matchingCategories.includes(b.category?.toLowerCase() || "");
@@ -191,7 +185,6 @@ export default async function ProductDetailPage({
   const seller = product.profiles;
   const isVerified = seller?.tech_trust_status === "verified";
 
-  // Resolve Seller Profile Picture
   const sellerAvatar =
     seller?.avatar_url ||
     seller?.profile_image ||
@@ -284,7 +277,7 @@ export default async function ProductDetailPage({
 
         {/* 2-Column Responsive Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* Left Column: Image Gallery & Full Specifications */}
+          {/* Left Column: Image Gallery & Specifications */}
           <div className="lg:col-span-7 space-y-6 min-w-0">
             <Card className="rounded-3xl border-slate-200/80 dark:border-slate-800/80 shadow-xs overflow-hidden">
               <CardContent className="p-2 sm:p-4">
@@ -318,7 +311,7 @@ export default async function ProductDetailPage({
                 {product.description && (
                   <div className="pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2">
                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-                      Seller Notes &amp; Description
+                      Seller Notes
                     </p>
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                       {product.description}
@@ -329,7 +322,7 @@ export default async function ProductDetailPage({
             </Card>
           </div>
 
-          {/* Right Column: Pricing, Direct Escrow Buy & Merchant Profile */}
+          {/* Right Column: Pricing, Buy & Merchant Profile */}
           <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24 min-w-0">
             <Card className="rounded-3xl border-slate-200/80 dark:border-slate-800/80 shadow-xs">
               <CardContent className="p-5 sm:p-7 space-y-6">
@@ -383,12 +376,12 @@ export default async function ProductDetailPage({
                   </Link>
                 )}
 
-                {/* Primary Pure Escrow Checkout & Secondary Actions */}
+                {/* Primary Buy & Actions */}
                 <div className="space-y-3 pt-1">
                   <Link href={`/checkout?productId=${product.id}`} className="block">
                     <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition active:scale-[0.99]">
-                      <Lock className="w-4 h-4" />
-                      <span>Order with TechTrust Escrow</span>
+                      <span>Buy Now</span>
+                      <ArrowRight className="w-4 h-4" />
                     </Button>
                   </Link>
 
@@ -402,14 +395,14 @@ export default async function ProductDetailPage({
                   </div>
                 </div>
 
-                {/* TechTrust Shield */}
-                <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-800 space-y-2 text-xs">
+                {/* Buyer Protection Guarantee */}
+                <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-800 space-y-1 text-xs">
                   <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
-                    <ShieldAlert className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                    TechTrust Buyer Shield
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    Buyer Protection
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                    All settlements are held in escrow. Inspect your device with the verified courier upon delivery before funds are released to the vendor via 6-digit confirmation OTP[cite: 13].
+                    Your payment is held safely until you inspect and receive your device.
                   </p>
                 </div>
               </CardContent>
@@ -417,26 +410,18 @@ export default async function ProductDetailPage({
           </div>
         </div>
 
-        {/* Smart Recommendations: Related Tech & Suggested Next Additions */}
+        {/* You May Also Like Section */}
         {uniqueSuggestions.length > 0 && (
           <section className="space-y-4 pt-6 border-t border-slate-200/80 dark:border-slate-800">
             <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-blue-600" />
-                  <h2 className="text-base font-black text-slate-900 dark:text-slate-100">
-                    Suggested Next Additions &amp; Related Tech
-                  </h2>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Complementary gear and matching hardware available in Abuja plazas.
-                </p>
-              </div>
+              <h2 className="text-base font-black text-slate-900 dark:text-slate-100">
+                You May Also Like
+              </h2>
               <Link
                 href="/products"
                 className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                Browse All <ArrowRight className="w-3.5 h-3.5" />
+                View all <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
