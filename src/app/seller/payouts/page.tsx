@@ -46,7 +46,7 @@ export default async function SellerPayoutSchedulePage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Review settlement dates, pending inspection windows, and bank transfers[cite: 3].
+            Review settlement dates, pending inspection windows, and bank transfers.
           </p>
         </div>
 

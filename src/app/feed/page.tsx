@@ -166,7 +166,7 @@ export default async function FeedPage() {
               </h1>
 
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
-                Buy, compare, and sell authentic hardware in Abuja. Every order includes physical inspection before funds are released[cite: 14, 15].
+                Buy, compare, and sell authentic hardware in Abuja. Every order includes physical inspection before funds are released.
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-1">

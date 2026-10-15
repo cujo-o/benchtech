@@ -119,7 +119,7 @@ export default async function SellerOrdersPage({
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Dispatch paid items, track delivery handovers, and review payouts[cite: 3].
+            Dispatch paid items, track delivery handovers, and review payouts.
           </p>
         </div>
 

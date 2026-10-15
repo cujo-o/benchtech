@@ -263,7 +263,7 @@ export default async function SellerWalletPage({
               Payment Settlement Policy
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Net proceeds are made available after delivery verification and the standard buyer inspection window[cite: 3].
+              Net proceeds are made available after delivery verification and the standard buyer inspection window.
             </p>
           </div>
         </div>
