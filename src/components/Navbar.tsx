@@ -91,15 +91,6 @@ export async function Navbar() {
             <CartDrawer />
           </div>
 
-          {/* 3. Saved Items */}
-          <Link
-            href="/saved"
-            className="p-2 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-xl transition"
-            title="Saved Items"
-            aria-label="Saved Items"
-          >
-            <Bookmark className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-          </Link>
 
           {/* 4. Authenticated vs Guest Actions */}
           {user ? (
