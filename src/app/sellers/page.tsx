@@ -5,270 +5,288 @@ import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  Store,
-  MapPin,
   ShieldCheck,
-  Phone,
+  MapPin,
+  Package,
   Calendar,
-  ShoppingBag,
-  Search,
-  CheckCircle2,
   ArrowRight,
-  Sparkles,
+  Search,
+  Store,
 } from 'lucide-react'
+import type { Metadata } from 'next'
 
-const ABUJA_DISTRICTS = [
-  { label: 'All Abuja', value: 'all' },
-  { label: 'Gwarinpa', value: 'gwarinpa' },
-  { label: 'Wuse 2', value: 'wuse 2' },
-  { label: 'Maitama', value: 'maitama' },
-  { label: 'Banex', value: 'banex' },
-  { label: 'Utako', value: 'utako' },
-  { label: 'Jabi', value: 'jabi' },
+export const revalidate = 60
+
+export const metadata: Metadata = {
+  title: 'Verified Sellers | BenchTech Abuja',
+  description: 'Browse verified electronics stores and hardware vendors across Abuja.',
+}
+
+const DISTRICTS = [
+  'All Abuja',
+  'Gwarinpa',
+  'Wuse 2',
+  'Maitama',
+  'Banex',
+  'Utako',
+  'Jabi',
 ]
 
-export default async function VerifiedSellersPage({
+function resolveSellerAvatar(seller: any): string | null {
+  return (
+    seller?.avatar_url ||
+    seller?.profile_image ||
+    seller?.logo_url ||
+    seller?.photo_url ||
+    seller?.image ||
+    null
+  )
+}
+
+export default async function SellersDirectoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ query?: string; district?: string }>
+  searchParams: Promise<{ district?: string; q?: string }>
 }) {
-  const { query = '', district = 'all' } = await searchParams
+  const params = await searchParams
+  const selectedDistrict = params?.district || 'All Abuja'
+  const searchQuery = (params?.q || '').trim().toLowerCase()
+
   const supabase = await createClient()
 
-  // 1. Fetch seller profiles
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: false })
+  // Parallel query: Fetch seller profiles and published products for accurate stock counts
+  const [{ data: profiles }, { data: publishedProducts }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('products')
+      .select('id, seller_id')
+      .eq('status', 'published'),
+  ])
 
-  // 2. Fetch published products to get active inventory counts per seller
-  const { data: products } = await supabase
-    .from('products')
-    .select('id, seller_id')
-    .eq('status', 'published')
-
-  // Map published product count per seller
-  const productCountMap = new Map<string, number>()
-  products?.forEach((item) => {
-    if (item.seller_id) {
-      productCountMap.set(
-        item.seller_id,
-        (productCountMap.get(item.seller_id) || 0) + 1
-      )
+  // Count active published listings per seller
+  const productCounts = new Map<string, number>()
+  for (const prod of publishedProducts || []) {
+    if (prod.seller_id) {
+      productCounts.set(prod.seller_id, (productCounts.get(prod.seller_id) || 0) + 1)
     }
+  }
+
+  // Filter for valid seller accounts
+  const allSellers = (profiles || []).filter((p) => {
+    const roles: string[] = Array.isArray(p.roles) ? p.roles : p.role ? [p.role] : []
+    const hasListings = (productCounts.get(p.id) || 0) > 0
+    return (
+      p.role === 'seller' ||
+      p.is_seller === true ||
+      roles.includes('seller') ||
+      Boolean(p.business_name) ||
+      p.tech_trust_status === 'verified' ||
+      hasListings
+    )
   })
 
-  // 3. Filter for vendor profiles (verified, has business name, seller role, or active stock)
-  const sellers = (profiles || []).filter((p) => {
-    const isVerified = p.tech_trust_status === 'verified'
-    const hasBusiness = Boolean(p.business_name && p.business_name.trim().length > 0)
-    const isSellerRole = p.role === 'seller' || p.role === 'vendor'
-    const hasProducts = (productCountMap.get(p.id) || 0) > 0
+  // Apply District & Search Filters
+  const filteredSellers = allSellers
+    .filter((seller) => {
+      const storeName = (seller.business_name || seller.full_name || '').toLowerCase()
+      const district = (seller.district || 'Abuja').toLowerCase()
 
-    return isVerified || hasBusiness || isSellerRole || hasProducts
-  })
+      const matchesDistrict =
+        selectedDistrict === 'All Abuja' ||
+        district.includes(selectedDistrict.toLowerCase())
 
-  // Sort verified sellers first, then by active inventory count
-  sellers.sort((a, b) => {
-    const aVerified = a.tech_trust_status === 'verified' ? 1 : 0
-    const bVerified = b.tech_trust_status === 'verified' ? 1 : 0
-    if (bVerified !== aVerified) return bVerified - aVerified
-    return (productCountMap.get(b.id) || 0) - (productCountMap.get(a.id) || 0)
-  })
+      const matchesSearch =
+        !searchQuery ||
+        storeName.includes(searchQuery) ||
+        district.includes(searchQuery)
 
-  // 4. Apply search & location filters
-  const filteredSellers = sellers.filter((seller) => {
-    const name = (seller.business_name || seller.full_name || '').toLowerCase()
-    const districtName = (seller.district || '').toLowerCase()
-    const q = query.toLowerCase().trim()
+      return matchesDistrict && matchesSearch
+    })
+    .sort((a, b) => {
+      // Prioritize verified stores and stores with active inventory
+      const aVerified = a.tech_trust_status === 'verified' ? 1 : 0
+      const bVerified = b.tech_trust_status === 'verified' ? 1 : 0
+      if (aVerified !== bVerified) return bVerified - aVerified
 
-    const matchesQuery = !q || name.includes(q) || districtName.includes(q)
-    const matchesDistrict =
-      district === 'all' || districtName.includes(district.toLowerCase())
-
-    return matchesQuery && matchesDistrict
-  })
+      const aCount = productCounts.get(a.id) || 0
+      const bCount = productCounts.get(b.id) || 0
+      return bCount - aCount
+    })
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       <Navbar />
 
-      <div className="flex-1 flex w-full">
-        {/* Buyer Navigation Sidebar */}
+      <div className="max-w-[1700px] w-full mx-auto flex flex-1">
         <BuyerSidebar />
 
-        {/* Main Content Area */}
-        <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8 space-y-6">
-          {/* Header & Search */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-6">
+          {/* Header & Search Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="p-1.5 rounded-xl bg-blue-50 text-blue-600">
-                  <ShieldCheck className="w-5 h-5" />
-                </span>
-                <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-6 h-6 text-blue-600 dark:text-blue-400 shrink-0" />
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                   Verified Sellers
                 </h1>
               </div>
-              <p className="text-xs md:text-sm text-slate-500">
-                Browse TechTrust-verified stores and certified gadget vendors across Abuja.
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Browse verified electronics stores and hardware vendors across Abuja.
               </p>
             </div>
 
-            {/* Search Input */}
-            <form action="/sellers" method="GET" className="relative w-full md:w-80">
-              {district !== 'all' && (
-                <input type="hidden" name="district" value={district} />
+            <form action="/sellers" method="GET" className="w-full md:w-72">
+              {selectedDistrict !== 'All Abuja' && (
+                <input type="hidden" name="district" value={selectedDistrict} />
               )}
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                name="query"
-                defaultValue={query}
-                placeholder="Search vendor or location..."
-                className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-xs md:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition"
-              />
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  name="q"
+                  defaultValue={params?.q || ''}
+                  placeholder="Search store or location..."
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-9 pr-4 py-2.5 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                />
+              </div>
             </form>
           </div>
 
-          {/* Abuja District Filter Tabs */}
+          {/* District Filter Pills */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-            {ABUJA_DISTRICTS.map((item) => {
-              const isActive = district === item.value
+            {DISTRICTS.map((district) => {
+              const isSelected =
+                selectedDistrict.toLowerCase() === district.toLowerCase()
               const href =
-                item.value === 'all'
-                  ? query ? `/sellers?query=${encodeURIComponent(query)}` : '/sellers'
-                  : `/sellers?district=${encodeURIComponent(item.value)}${
-                      query ? `&query=${encodeURIComponent(query)}` : ''
+                district === 'All Abuja'
+                  ? params?.q
+                    ? `/sellers?q=${encodeURIComponent(params.q)}`
+                    : '/sellers'
+                  : `/sellers?district=${encodeURIComponent(district)}${
+                      params?.q ? `&q=${encodeURIComponent(params.q)}` : ''
                     }`
 
               return (
-                <Link
-                  key={item.value}
-                  href={href}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-white border border-slate-200/80 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  {item.label}
+                <Link key={district} href={href}>
+                  <button
+                    type="button"
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0 transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {district}
+                  </button>
                 </Link>
               )
             })}
           </div>
 
-          {/* Result Count */}
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>
-              <strong className="text-slate-900 font-bold">{filteredSellers.length}</strong>{' '}
-              {filteredSellers.length === 1 ? 'store' : 'stores'} found
-            </span>
+          {/* Store Count */}
+          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <strong className="font-bold text-slate-900 dark:text-slate-100">
+              {filteredSellers.length}
+            </strong>{' '}
+            {filteredSellers.length === 1 ? 'store' : 'stores'} found
           </div>
 
           {/* Sellers Grid */}
           {filteredSellers.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {filteredSellers.map((seller) => {
+                const storeName =
+                  seller.business_name || seller.full_name || 'Vendor Store'
+                const avatar = resolveSellerAvatar(seller)
                 const isVerified = seller.tech_trust_status === 'verified'
-                const displayName = seller.business_name || seller.full_name || 'Verified Vendor'
-                const displayDistrict = seller.district ? `${seller.district}, Abuja` : 'Abuja, NG'
-                const itemCount = productCountMap.get(seller.id) || 0
-                const formattedPhone = seller.phone
-                  ? seller.phone.replace(/[^0-9]/g, '').replace(/^0/, '234')
-                  : null
+                const itemCount = productCounts.get(seller.id) || 0
+                const joinedYear = seller.created_at
+                  ? new Date(seller.created_at).getFullYear()
+                  : 2026
 
                 return (
                   <div
                     key={seller.id}
-                    className="group bg-white rounded-3xl border border-slate-200/80 p-5 hover:shadow-md hover:border-blue-500/40 transition duration-200 flex flex-col justify-between"
+                    className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition flex flex-col justify-between space-y-5"
                   >
-                    <div>
-                      {/* Top Header: Avatar & Badge */}
-                      <div className="flex items-start justify-between gap-3 mb-4">
-                        <div className="w-13 h-13 rounded-2xl bg-blue-600 text-white font-black text-xl flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
-                          {seller.business_name
-                            ? seller.business_name[0].toUpperCase()
-                            : 'S'}
+                    <div className="space-y-4">
+                      {/* Avatar & Verification Badge */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white border border-slate-200/60 dark:border-slate-700 flex items-center justify-center font-black text-base overflow-hidden shrink-0 shadow-2xs">
+                          {avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={avatar}
+                              alt={storeName}
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            storeName[0]?.toUpperCase() || 'S'
+                          )}
                         </div>
 
-                        <Badge
-                          className={`text-[10px] font-bold uppercase gap-1 border-none ${
-                            isVerified
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-amber-50 text-amber-700'
-                          }`}
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                          {isVerified ? 'TechTrust Verified' : 'Vendor'}
-                        </Badge>
+                        {isVerified ? (
+                          <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold px-2.5 py-0.5 flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>Verified</span>
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-bold px-2.5 py-0.5">
+                            Vendor
+                          </Badge>
+                        )}
                       </div>
 
-                      {/* Store Details */}
-                      <h2 className="font-black text-base text-slate-900 group-hover:text-blue-600 transition line-clamp-1">
-                        {displayName}
-                      </h2>
+                      {/* Store Name & District */}
+                      <div>
+                        <h2 className="text-base font-black text-slate-900 dark:text-white truncate">
+                          {storeName}
+                        </h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">
+                            {seller.district ? `${seller.district}, Abuja` : 'Abuja, NG'}
+                          </span>
+                        </p>
+                      </div>
 
-                      <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                        <span className="truncate">{displayDistrict}</span>
-                      </p>
-
-                      {/* Metadata */}
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                        <span className="flex items-center gap-1 font-semibold text-slate-700">
-                          <ShoppingBag className="w-3.5 h-3.5 text-slate-400" />
-                          {itemCount} {itemCount === 1 ? 'gadget' : 'gadgets'}
+                      {/* Meta Stats */}
+                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200">
+                          <Package className="w-3.5 h-3.5 text-slate-400" />
+                          {itemCount} {itemCount === 1 ? 'listing' : 'listings'}
                         </span>
-
-                        <span className="flex items-center gap-1 text-[11px] text-slate-400">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          Since {new Date(seller.created_at || Date.now()).getFullYear()}
+                        <span className="flex items-center gap-1 text-[11px]">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          Since {joinedYear}
                         </span>
                       </div>
                     </div>
 
-                    {/* Bottom Actions */}
-                    <div className="mt-5 pt-3 border-t border-slate-100 flex items-center gap-2">
-                      <Link href={`/sellers/${seller.id}`} className="flex-1">
-                        <Button className="w-full bg-slate-900 hover:bg-blue-600 text-white text-xs font-bold h-9 rounded-xl flex items-center justify-center gap-1 transition">
-                          <span>Visit Store</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </Button>
-                      </Link>
-
-                      {formattedPhone && (
-                        <a
-                          href={`https://wa.me/${formattedPhone}?text=Hello%20${encodeURIComponent(
-                            displayName
-                          )},%20I%20saw%20your%20store%20on%20BenchTech.`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="h-9 w-9 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white flex items-center justify-center transition border border-emerald-200/60"
-                          title="WhatsApp Vendor"
-                        >
-                          <Phone className="w-4 h-4" />
-                        </a>
-                      )}
-                    </div>
+                    {/* Full-Width Store Link */}
+                    <Link href={`/sellers/${seller.id}`} className="block">
+                      <Button className="w-full h-10 bg-slate-950 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold text-xs rounded-xl gap-1.5 cursor-pointer transition">
+                        <span>Visit Store</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </Link>
                   </div>
                 )
               })}
             </div>
           ) : (
-            <div className="p-16 text-center bg-white rounded-3xl border border-slate-200/80">
-              <Store className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <h3 className="text-slate-800 font-bold text-sm">No Verified Sellers Found</h3>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                No stores found matching your criteria. Try selecting another area in Abuja or clear your search query.
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-2">
+              <Store className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                No stores match your filter
               </p>
-              {(query || district !== 'all') && (
-                <Link href="/sellers" className="inline-block mt-4">
-                  <Button variant="outline" className="text-xs font-bold rounded-xl h-8">
-                    Clear Filters
-                  </Button>
-                </Link>
-              )}
+              <p className="text-xs text-slate-400">
+                Try selecting a different Abuja district or clearing your search query.
+              </p>
             </div>
           )}
         </main>
