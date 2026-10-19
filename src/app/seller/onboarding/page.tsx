@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Navbar } from '@/components/Navbar'
 import { OnboardingWizard } from './OnboardingWizard'
 
 export const dynamic = 'force-dynamic'
@@ -25,8 +24,7 @@ export default async function SellerOnboardingPage() {
     supabase.from('seller_verifications').select('*').eq('seller_id', user.id).maybeSingle(),
   ])
 
-  // Determine normalized state
-  let currentState =
+  const currentState =
     verification?.status ||
     profile?.verification_state ||
     (profile?.tech_trust_status === 'verified'
@@ -38,19 +36,16 @@ export default async function SellerOnboardingPage() {
       : 'draft')
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-      <Navbar />
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-8">
-        <OnboardingWizard
-          user={{
-            id: user.id,
-            email: user.email || '',
-          }}
-          profile={profile}
-          verification={verification}
-          initialState={currentState}
-        />
-      </main>
+    <div className="w-full max-w-4xl mx-auto py-2">
+      <OnboardingWizard
+        user={{
+          id: user.id,
+          email: user.email || '',
+        }}
+        profile={profile}
+        verification={verification}
+        initialState={currentState}
+      />
     </div>
   )
 }

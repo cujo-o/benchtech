@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { NextResponse, type NextRequest } from 'next/server'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -11,114 +11,152 @@ function getAdminClient() {
   })
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const requestedRole = searchParams.get('role')
-  const nextParam = searchParams.get('next')
+  const oauthError =
+    searchParams.get('error_description') || searchParams.get('error')
+
+  if (oauthError) {
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent(oauthError)}`
+    )
+  }
+
+  const requestedRole =
+    request.cookies.get('bt_oauth_role')?.value ||
+    searchParams.get('role') ||
+    'buyer'
+  const nextParam =
+    request.cookies.get('bt_oauth_next')?.value ||
+    searchParams.get('next') ||
+    ''
 
   if (code) {
-    const supabase = await createClient()
+    const cookiesToAttach: { name: string; value: string; options: any }[] = []
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach((c) => cookiesToAttach.push(c))
+          },
+        },
+      }
+    )
+
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (!error && data.user) {
-      const user = data.user
-      const adminDb = getAdminClient()
+    if (error || !data?.user) {
+      const msg = error?.message || 'Google sign-in could not be completed.'
+      return NextResponse.redirect(
+        `${origin}/login?error=${encodeURIComponent(msg)}`
+      )
+    }
 
-      const { data: existingProfile } = await adminDb
-        .from('profiles')
-        .select('id, role, roles, is_admin, is_seller, business_name, verification_state, tech_trust_status')
-        .eq('id', user.id)
-        .maybeSingle()
+    const user = data.user
+    const adminDb = getAdminClient()
+    const isSellerIntent = requestedRole === 'seller'
 
-      const isSellerSignup = requestedRole === 'seller'
+    // Fetch existing profile with '*' to avoid column errors
+    const { data: existingProfile } = await adminDb
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle()
 
-      if (!existingProfile) {
-        const googleName =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split('@')[0] ||
-          'BenchTech User'
-        const googleAvatar =
-          user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+    const googleName =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split('@')[0] ||
+      'BenchTech User'
+    const googleAvatar =
+      user.user_metadata?.avatar_url || user.user_metadata?.picture || null
 
-        await adminDb.from('profiles').upsert(
-          {
-            id: user.id,
+    if (!existingProfile) {
+      // 1. Insert core profile fields without phone requirement
+      await adminDb.from('profiles').upsert(
+        {
+          id: user.id,
+          full_name: googleName,
+          avatar_url: googleAvatar,
+          role: isSellerIntent ? 'seller' : 'buyer',
+          tech_trust_status: 'unverified',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      )
+
+      // 2. Best-effort update for extended columns
+      try {
+        await adminDb
+          .from('profiles')
+          .update({
             email: user.email,
-            full_name: googleName,
-            avatar_url: googleAvatar,
             district: 'Abuja',
-            role: isSellerSignup ? 'seller' : 'buyer',
-            roles: isSellerSignup ? ['buyer', 'seller'] : ['buyer'],
-            is_seller: isSellerSignup,
+            is_seller: isSellerIntent,
+            roles: isSellerIntent ? ['buyer', 'seller'] : ['buyer'],
             verification_state: 'draft',
-            tech_trust_status: 'unverified',
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        )
-
-        if (isSellerSignup) {
-          return NextResponse.redirect(`${origin}/seller/onboarding`)
-        }
-        return NextResponse.redirect(`${origin}${nextParam || '/feed'}`)
-      }
-
-      // If existing user clicked "Sign up with Google" while on the Seller tab, enable seller role
-      if (isSellerSignup && !existingProfile.is_seller && existingProfile.role !== 'seller') {
+          })
+          .eq('id', user.id)
+      } catch {}
+    } else if (isSellerIntent && existingProfile.role !== 'admin') {
+      try {
         await adminDb
           .from('profiles')
           .update({
             role: 'seller',
             is_seller: true,
-            roles: Array.from(new Set([...(existingProfile.roles || ['buyer']), 'seller'])),
-            updated_at: new Date().toISOString(),
           })
           .eq('id', user.id)
-
-        return NextResponse.redirect(`${origin}/seller/onboarding`)
-      }
-
-      if (nextParam && nextParam.startsWith('/')) {
-        return NextResponse.redirect(`${origin}${nextParam}`)
-      }
-
-      const roles: string[] = Array.isArray(existingProfile.roles)
-        ? existingProfile.roles
-        : existingProfile.role
-        ? [existingProfile.role]
-        : ['buyer']
-
-      const isAdmin =
-        existingProfile.role === 'admin' ||
-        existingProfile.is_admin === true ||
-        roles.includes('admin')
-      const isSeller =
-        existingProfile.role === 'seller' ||
-        existingProfile.is_seller === true ||
-        roles.includes('seller') ||
-        Boolean(existingProfile.business_name)
-
-      const hasCompletedOnboarding =
-        Boolean(existingProfile.business_name) ||
-        (existingProfile.verification_state &&
-          existingProfile.verification_state !== 'draft') ||
-        existingProfile.tech_trust_status === 'verified' ||
-        existingProfile.tech_trust_status === 'pending'
-
-      if (isAdmin) {
-        return NextResponse.redirect(`${origin}/admin`)
-      }
-      if (isSeller) {
-        return NextResponse.redirect(
-          `${origin}${hasCompletedOnboarding ? '/seller/dashboard' : '/seller/onboarding'}`
-        )
-      }
-
-      return NextResponse.redirect(`${origin}/feed`)
+      } catch {}
     }
+
+    const hasCompletedSellerOnboarding =
+      existingProfile?.verification_state === 'verified' ||
+      existingProfile?.verification_state === 'under_review' ||
+      existingProfile?.verification_state === 'action_required' ||
+      existingProfile?.tech_trust_status === 'verified' ||
+      existingProfile?.tech_trust_status === 'pending'
+
+    const isAdmin =
+      existingProfile?.role === 'admin' || existingProfile?.is_admin === true
+
+    let targetPath = '/feed'
+    if (nextParam && nextParam.startsWith('/')) {
+      targetPath = nextParam
+    } else if (isSellerIntent) {
+      targetPath = hasCompletedSellerOnboarding
+        ? '/seller/dashboard'
+        : '/seller/onboarding'
+    } else if (isAdmin) {
+      targetPath = '/admin'
+    } else if (hasCompletedSellerOnboarding) {
+      targetPath = '/seller/dashboard'
+    }
+
+    const response = NextResponse.redirect(`${origin}${targetPath}`)
+
+    // Attach all Supabase session cookies to the redirect response
+    cookiesToAttach.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, options)
+    })
+
+    // Clear temporary OAuth intent cookies
+    response.cookies.set('bt_oauth_role', '', { path: '/', maxAge: 0 })
+    response.cookies.set('bt_oauth_next', '', { path: '/', maxAge: 0 })
+
+    return response
   }
 
-  return NextResponse.redirect(`${origin}/login?error=Authentication+failed.+Please+try+again.`)
+  return NextResponse.redirect(
+    `${origin}/login?error=${encodeURIComponent(
+      'Unable to complete sign-in. Please ensure https://shopbenchtech.com/auth/callback is added to Supabase Redirect URLs.'
+    )}`
+  )
 }

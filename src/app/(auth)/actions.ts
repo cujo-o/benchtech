@@ -45,11 +45,10 @@ export async function signIn(formData: FormData) {
     return { error: error?.message || 'Invalid email or password.' }
   }
 
-  // Ensure profile record exists and check role for routing
   const adminDb = getAdminClient()
   const { data: profile } = await adminDb
     .from('profiles')
-    .select('role, roles, is_admin, is_seller, business_name, verification_state, tech_trust_status')
+    .select('*')
     .eq('id', data.user.id)
     .maybeSingle()
 
@@ -57,10 +56,9 @@ export async function signIn(formData: FormData) {
     await adminDb.from('profiles').upsert(
       {
         id: data.user.id,
-        email: data.user.email,
         full_name: data.user.user_metadata?.full_name || email.split('@')[0],
         role: 'buyer',
-        roles: ['buyer'],
+        tech_trust_status: 'unverified',
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }
@@ -78,12 +76,12 @@ export async function signIn(formData: FormData) {
   const isSeller =
     profile?.role === 'seller' ||
     profile?.is_seller === true ||
-    roles.includes('seller') ||
-    Boolean(profile?.business_name)
+    roles.includes('seller')
 
-  const hasCompletedOnboarding =
-    Boolean(profile?.business_name) ||
-    (profile?.verification_state && profile.verification_state !== 'draft') ||
+  const hasCompletedSellerOnboarding =
+    profile?.verification_state === 'verified' ||
+    profile?.verification_state === 'under_review' ||
+    profile?.verification_state === 'action_required' ||
     profile?.tech_trust_status === 'verified' ||
     profile?.tech_trust_status === 'pending'
 
@@ -93,7 +91,7 @@ export async function signIn(formData: FormData) {
   } else if (isAdmin) {
     destination = '/admin'
   } else if (isSeller) {
-    destination = hasCompletedOnboarding ? '/seller/dashboard' : '/seller/onboarding'
+    destination = hasCompletedSellerOnboarding ? '/seller/dashboard' : '/seller/onboarding'
   }
 
   revalidatePath('/', 'layout')
@@ -103,7 +101,6 @@ export async function signIn(formData: FormData) {
 export async function signUp(formData: FormData) {
   const fullName = ((formData.get('fullName') as string) || '').trim()
   const email = ((formData.get('email') as string) || '').trim().toLowerCase()
-  const phone = ((formData.get('phone') as string) || '').trim()
   const password = (formData.get('password') as string) || ''
   const accountRole = ((formData.get('role') as string) || 'buyer').trim().toLowerCase()
 
@@ -125,12 +122,9 @@ export async function signUp(formData: FormData) {
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=${
-        isSellerIntent ? '/seller/onboarding' : '/feed'
-      }`,
+      emailRedirectTo: `${origin}/auth/callback`,
       data: {
         full_name: fullName,
-        phone,
         role: isSellerIntent ? 'seller' : 'buyer',
       },
     },
@@ -145,34 +139,37 @@ export async function signUp(formData: FormData) {
     return { error: 'Could not create account. Please try again.' }
   }
 
-  // If service role key is present and session wasn't auto-started due to email confirmation settings,
-  // auto-confirm and sign in so mobile users aren't stuck on signup
   if (!data.session && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       await adminDb.auth.admin.updateUserById(userId, { email_confirm: true })
       await supabase.auth.signInWithPassword({ email, password })
-    } catch {
-      // Continue if standard confirmation flow is enforced
-    }
+    } catch {}
   }
 
-  // Create or update profile record immediately
+  // Upsert core profile fields without phone number
   await adminDb.from('profiles').upsert(
     {
       id: userId,
-      email,
       full_name: fullName,
-      phone: phone || null,
-      district: 'Abuja',
       role: isSellerIntent ? 'seller' : 'buyer',
-      roles: isSellerIntent ? ['buyer', 'seller'] : ['buyer'],
-      is_seller: isSellerIntent,
-      verification_state: 'draft',
       tech_trust_status: 'unverified',
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'id' }
   )
+
+  try {
+    await adminDb
+      .from('profiles')
+      .update({
+        email,
+        district: 'Abuja',
+        roles: isSellerIntent ? ['buyer', 'seller'] : ['buyer'],
+        is_seller: isSellerIntent,
+        verification_state: 'draft',
+      })
+      .eq('id', userId)
+  } catch {}
 
   const destination = isSellerIntent ? '/seller/onboarding' : '/feed'
 
@@ -201,7 +198,7 @@ export async function resendVerificationEmail(email: string) {
     type: 'signup',
     email: cleanEmail,
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=/feed`,
+      emailRedirectTo: `${origin}/auth/callback`,
     },
   })
 
@@ -264,7 +261,6 @@ export async function updateUserPassword(formData: FormData) {
     return { error: error.message }
   }
 
-  // Record security audit event per specification
   try {
     const adminDb = getAdminClient()
     await adminDb.from('audit_events').insert({

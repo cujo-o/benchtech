@@ -35,13 +35,14 @@ function RegisterForm() {
     setError(null)
 
     try {
-      const supabase = createClient()
-      const redirectUrl = `${window.location.origin}/auth/callback?role=${role}`
+      // Save role in a cookie so redirectTo remains a clean URL
+      document.cookie = `bt_oauth_role=${role}; path=/; max-age=600; SameSite=Lax`
 
+      const supabase = createClient()
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
@@ -97,7 +98,7 @@ function RegisterForm() {
         </Link>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs grid grid-cols-1 lg:grid-cols-12">
-          {/* Left / Top Hardware Showcase (Pure Devices - No People) */}
+          {/* Left / Top Hardware Showcase */}
           <div className="lg:col-span-5 relative bg-slate-900 text-white p-5 sm:p-7 flex flex-col justify-between min-h-[160px] sm:min-h-[200px] lg:min-h-full overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -256,7 +257,7 @@ function RegisterForm() {
               <div className="border-t border-slate-200 dark:border-slate-800 w-full" />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3.5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label
                   htmlFor="fullName"
@@ -275,46 +276,25 @@ function RegisterForm() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
-                  >
-                    Email Address
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    required
-                    placeholder="you@example.com"
-                    className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="phone"
-                    className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
-                  >
-                    Phone Number
-                  </label>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    required
-                    placeholder="080 1234 5678"
-                    className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+                >
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  required
+                  placeholder="you@example.com"
+                  className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
 
               <div>

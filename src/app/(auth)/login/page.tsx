@@ -34,15 +34,16 @@ function LoginForm() {
     setError(null)
 
     try {
-      const supabase = createClient()
-      const redirectUrl = `${window.location.origin}/auth/callback${
-        nextUrl ? `?next=${encodeURIComponent(nextUrl)}` : ''
-      }`
+      document.cookie = `bt_oauth_role=buyer; path=/; max-age=600; SameSite=Lax`
+      if (nextUrl) {
+        document.cookie = `bt_oauth_next=${encodeURIComponent(nextUrl)}; path=/; max-age=600; SameSite=Lax`
+      }
 
+      const supabase = createClient()
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
@@ -95,7 +96,7 @@ function LoginForm() {
         </Link>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs grid grid-cols-1 lg:grid-cols-12">
-          {/* Left / Top Hardware Showcase (Pure Hardware - No People) */}
+          {/* Left / Top Hardware Showcase */}
           <div className="lg:col-span-5 relative bg-slate-900 text-white p-5 sm:p-7 flex flex-col justify-between min-h-[160px] sm:min-h-[200px] lg:min-h-full overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
