@@ -1,104 +1,137 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
-export async function login(formData: FormData) {
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createAdminClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+async function getOrigin() {
+  const headersList = await headers()
+  const host = headersList.get('x-forwarded-host') || headersList.get('host')
+  const proto = headersList.get('x-forwarded-proto') || 'https'
+  if (host) {
+    return `${proto}://${host}`
+  }
+  return process.env.NEXT_PUBLIC_SITE_URL || 'https://shopbenchtech.com'
+}
+
+export async function signIn(formData: FormData) {
+  const email = ((formData.get('email') as string) || '').trim().toLowerCase()
+  const password = (formData.get('password') as string) || ''
+  const nextUrl = (formData.get('next') as string) || ''
+
+  if (!email || !password) {
+    return { error: 'Please enter both your email address and password.' }
+  }
+
   const supabase = await createClient()
-
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  if (error) {
-    return { error: error.message }
+  if (error || !data.user) {
+    return { error: error?.message || 'Invalid email or password.' }
   }
 
-  // Check multi-role array alongside fallback role
-  const { data: profile } = await supabase
+  // Ensure profile record exists and check role for routing
+  const adminDb = getAdminClient()
+  const { data: profile } = await adminDb
     .from('profiles')
-    .select('role, roles')
+    .select('role, roles, is_admin, is_seller, business_name, verification_state, tech_trust_status')
     .eq('id', data.user.id)
     .maybeSingle()
 
-  const userRoles: string[] = profile?.roles || (profile?.role ? [profile.role] : ['buyer'])
-  const isAdmin = userRoles.includes('admin')
-  const isSeller = userRoles.includes('seller')
-
-  revalidatePath('/', 'layout')
-
-  if (isAdmin) redirect('/admin/overview')
-  if (isSeller) redirect('/seller/dashboard')
-  redirect('/feed')
-}
-
-export async function registerBuyer(formData: FormData) {
-  const supabase = await createClient()
-  const headerList = await headers()
-  const origin = headerList.get('origin') || 'https://benchtech.vercel.app'
-
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const fullName = formData.get('fullName') as string
-  const phone = formData.get('phone') as string
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${origin}/api/auth/callback?next=/feed`,
-      data: {
-        full_name: fullName,
-        phone: phone,
+  if (!profile) {
+    await adminDb.from('profiles').upsert(
+      {
+        id: data.user.id,
+        email: data.user.email,
+        full_name: data.user.user_metadata?.full_name || email.split('@')[0],
         role: 'buyer',
         roles: ['buyer'],
+        updated_at: new Date().toISOString(),
       },
-    },
-  })
-
-  if (error) {
-    return { error: error.message }
+      { onConflict: 'id' }
+    )
   }
 
-  // If email confirmation is enabled in Supabase, session will be null initially
-  if (!data.session) {
-    return {
-      success: 'Account created! Please check your email to confirm your account before logging in.',
-      requiresVerification: true,
-    }
+  const roles: string[] = Array.isArray(profile?.roles)
+    ? profile.roles
+    : profile?.role
+    ? [profile.role]
+    : ['buyer']
+
+  const isAdmin =
+    profile?.role === 'admin' || profile?.is_admin === true || roles.includes('admin')
+  const isSeller =
+    profile?.role === 'seller' ||
+    profile?.is_seller === true ||
+    roles.includes('seller') ||
+    Boolean(profile?.business_name)
+
+  const hasCompletedOnboarding =
+    Boolean(profile?.business_name) ||
+    (profile?.verification_state && profile.verification_state !== 'draft') ||
+    profile?.tech_trust_status === 'verified' ||
+    profile?.tech_trust_status === 'pending'
+
+  let destination = '/feed'
+  if (nextUrl && nextUrl.startsWith('/')) {
+    destination = nextUrl
+  } else if (isAdmin) {
+    destination = '/admin'
+  } else if (isSeller) {
+    destination = hasCompletedOnboarding ? '/seller/dashboard' : '/seller/onboarding'
   }
 
   revalidatePath('/', 'layout')
-  redirect('/feed')
+  return { success: true, redirectTo: destination }
 }
 
-export async function registerSeller(formData: FormData) {
-  const supabase = await createClient()
-  const headerList = await headers()
-  const origin = headerList.get('origin') || 'https://benchtech.vercel.app'
+export async function signUp(formData: FormData) {
+  const fullName = ((formData.get('fullName') as string) || '').trim()
+  const email = ((formData.get('email') as string) || '').trim().toLowerCase()
+  const phone = ((formData.get('phone') as string) || '').trim()
+  const password = (formData.get('password') as string) || ''
+  const accountRole = ((formData.get('role') as string) || 'buyer').trim().toLowerCase()
 
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const businessName = formData.get('businessName') as string
-  const phone = formData.get('phone') as string
+  if (!fullName || !email || !password) {
+    return { error: 'Please fill in your name, email address, and password.' }
+  }
+
+  if (password.length < 6) {
+    return { error: 'Password must be at least 6 characters long.' }
+  }
+
+  const supabase = await createClient()
+  const adminDb = getAdminClient()
+  const origin = await getOrigin()
+
+  const isSellerIntent = accountRole === 'seller'
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/api/auth/callback?next=/seller/dashboard`,
+      emailRedirectTo: `${origin}/auth/callback?next=${
+        isSellerIntent ? '/seller/onboarding' : '/feed'
+      }`,
       data: {
-        full_name: businessName,
-        business_name: businessName,
-        phone: phone,
-        role: 'seller',
-        roles: ['buyer', 'seller'],
+        full_name: fullName,
+        phone,
+        role: isSellerIntent ? 'seller' : 'buyer',
       },
     },
   })
@@ -107,15 +140,47 @@ export async function registerSeller(formData: FormData) {
     return { error: error.message }
   }
 
-  if (!data.session) {
-    return {
-      success: 'Store account created! Please verify your email via the link sent to your inbox.',
-      requiresVerification: true,
+  const userId = data.user?.id
+  if (!userId) {
+    return { error: 'Could not create account. Please try again.' }
+  }
+
+  // If service role key is present and session wasn't auto-started due to email confirmation settings,
+  // auto-confirm and sign in so mobile users aren't stuck on signup
+  if (!data.session && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      await adminDb.auth.admin.updateUserById(userId, { email_confirm: true })
+      await supabase.auth.signInWithPassword({ email, password })
+    } catch {
+      // Continue if standard confirmation flow is enforced
     }
   }
 
+  // Create or update profile record immediately
+  await adminDb.from('profiles').upsert(
+    {
+      id: userId,
+      email,
+      full_name: fullName,
+      phone: phone || null,
+      district: 'Abuja',
+      role: isSellerIntent ? 'seller' : 'buyer',
+      roles: isSellerIntent ? ['buyer', 'seller'] : ['buyer'],
+      is_seller: isSellerIntent,
+      verification_state: 'draft',
+      tech_trust_status: 'unverified',
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' }
+  )
+
+  const destination = isSellerIntent ? '/seller/onboarding' : '/feed'
+
   revalidatePath('/', 'layout')
-  redirect('/seller/dashboard')
+  return {
+    success: true,
+    redirectTo: destination,
+  }
 }
 
 export async function signOut() {
@@ -125,35 +190,55 @@ export async function signOut() {
   redirect('/login')
 }
 
-// Request password reset email
-export async function requestPasswordReset(formData: FormData) {
-  const email = formData.get('email') as string
-  const headerList = await headers()
-  const origin = headerList.get('origin') || 'https://benchtech.vercel.app'
+export async function resendVerificationEmail(email: string) {
+  const cleanEmail = (email || '').trim().toLowerCase()
+  if (!cleanEmail) return { error: 'Email is required.' }
 
-  if (!email?.trim()) {
-    return { error: 'Please provide a valid email address.' }
+  const supabase = await createClient()
+  const origin = await getOrigin()
+
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email: cleanEmail,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback?next=/feed`,
+    },
+  })
+
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function requestPasswordReset(formData: FormData) {
+  const email = ((formData.get('email') as string) || '').trim().toLowerCase()
+  if (!email) {
+    return { error: 'Please enter your registered email address.' }
   }
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: `${origin}/api/auth/callback?next=/reset-password`,
+  const origin = await getOrigin()
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/reset-password`,
   })
 
   if (error) {
     return { error: error.message }
   }
 
-  return { success: 'Password reset link sent! Check your inbox.' }
+  return {
+    success: true,
+    message:
+      'Password recovery link sent. Please check your inbox (and spam folder) for an email from admin@shopbenchtech.com.',
+  }
 }
 
-// Update password with confirmation check
-export async function updatePassword(formData: FormData) {
-  const password = formData.get('password') as string
-  const confirmPassword = formData.get('confirmPassword') as string
+export async function updateUserPassword(formData: FormData) {
+  const password = (formData.get('password') as string) || ''
+  const confirmPassword = (formData.get('confirmPassword') as string) || ''
 
   if (!password || password.length < 6) {
-    return { error: 'Password must be at least 6 characters long.' }
+    return { error: 'New password must be at least 6 characters long.' }
   }
 
   if (password !== confirmPassword) {
@@ -161,34 +246,37 @@ export async function updatePassword(formData: FormData) {
   }
 
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return {
+      error: 'Your password recovery session has expired. Please request a new reset link.',
+    }
+  }
+
   const { error } = await supabase.auth.updateUser({
-    password: password,
+    password,
   })
 
   if (error) {
     return { error: error.message }
   }
 
-  return { success: 'Your password has been updated successfully.' }
-}
+  // Record security audit event per specification
+  try {
+    const adminDb = getAdminClient()
+    await adminDb.from('audit_events').insert({
+      actor_id: user.id,
+      action: 'password_changed',
+      target_type: 'user',
+      target_id: user.id,
+      result: 'success',
+      metadata: { recovery_sender: 'admin@shopbenchtech.com' },
+    })
+  } catch {}
 
-// Resend verification confirmation link
-export async function resendVerificationEmail(email: string) {
-  const headerList = await headers()
-  const origin = headerList.get('origin') || 'https://benchtech.vercel.app'
-  const supabase = await createClient()
-
-  const { error } = await supabase.auth.resend({
-    type: 'signup',
-    email: email.trim(),
-    options: {
-      emailRedirectTo: `${origin}/api/auth/callback?next=/feed`,
-    },
-  })
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  return { success: 'Verification email resent! Please check your inbox.' }
+  revalidatePath('/', 'layout')
+  return { success: true, redirectTo: '/feed' }
 }

@@ -33,48 +33,89 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
+  // Allow auth callback and password reset routes without interference
+  if (
+    pathname.startsWith('/auth/callback') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/forgot-password')
+  ) {
+    return supabaseResponse
+  }
+
   // 1. Unauthenticated users trying to access protected dashboards
   if (!user && (pathname.startsWith('/seller') || pathname.startsWith('/admin'))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('redirect', pathname)
+    url.searchParams.set('next', pathname)
     return NextResponse.redirect(url)
   }
 
   // 2. Role-based Route Protection
   if (user) {
-    // Use maybeSingle to prevent exceptions on fresh accounts
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, roles, is_admin, is_seller, business_name, verification_state, tech_trust_status')
       .eq('id', user.id)
       .maybeSingle()
 
-    const role = profile?.role || 'buyer'
+    const roles: string[] = Array.isArray(profile?.roles)
+      ? profile.roles
+      : profile?.role
+      ? [profile.role]
+      : ['buyer']
 
-    // Protect SuperAdmin routes
-    if (pathname.startsWith('/admin') && role !== 'admin') {
+    const isAdmin =
+      profile?.role === 'admin' || profile?.is_admin === true || roles.includes('admin')
+    const isSeller =
+      profile?.role === 'seller' ||
+      profile?.is_seller === true ||
+      roles.includes('seller') ||
+      Boolean(profile?.business_name)
+
+    // Protect Admin routes
+    if (pathname.startsWith('/admin') && !isAdmin) {
       const url = request.nextUrl.clone()
       url.pathname = '/feed'
       return NextResponse.redirect(url)
     }
 
-    // Protect Seller routes EXCEPT onboarding
+    // Protect Seller routes: if user is not yet a seller or has not submitted one-time onboarding, send to /seller/onboarding
+    const hasCompletedOnboarding =
+      Boolean(profile?.business_name) ||
+      (profile?.verification_state && profile.verification_state !== 'draft') ||
+      profile?.tech_trust_status === 'verified' ||
+      profile?.tech_trust_status === 'pending'
+
     if (
       pathname.startsWith('/seller') &&
-      pathname !== '/seller/onboarding' &&
-      role !== 'seller' &&
-      role !== 'admin'
+      !pathname.startsWith('/seller/onboarding') &&
+      !pathname.startsWith('/sellers') &&
+      !isAdmin &&
+      (!isSeller || !hasCompletedOnboarding)
     ) {
       const url = request.nextUrl.clone()
       url.pathname = '/seller/onboarding'
       return NextResponse.redirect(url)
     }
 
-    // Redirect logged-in users away from auth pages
+    // Redirect logged-in users away from /login and /register
     if (pathname === '/login' || pathname === '/register') {
+      const nextParam =
+        request.nextUrl.searchParams.get('next') ||
+        request.nextUrl.searchParams.get('redirect')
+
       const url = request.nextUrl.clone()
-      url.pathname = role === 'admin' ? '/admin/overview' : role === 'seller' ? '/seller/dashboard' : '/feed'
+      url.search = ''
+
+      if (nextParam && nextParam.startsWith('/')) {
+        url.pathname = nextParam
+      } else if (isAdmin) {
+        url.pathname = '/admin'
+      } else if (isSeller) {
+        url.pathname = hasCompletedOnboarding ? '/seller/dashboard' : '/seller/onboarding'
+      } else {
+        url.pathname = '/feed'
+      }
       return NextResponse.redirect(url)
     }
   }
