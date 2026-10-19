@@ -5,10 +5,8 @@ import { MobileSidebarDrawer } from "@/components/storefront/MobileSidebarDrawer
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { Button } from "@/components/ui/button";
 import { BenchTechLogo } from "@/components/BenchTechLogo";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   Search,
-  Bookmark,
   Store,
   LogOut,
   ShieldAlert,
@@ -32,7 +30,6 @@ export async function Navbar() {
 
   const userRoles: string[] =
     profile?.roles || (profile?.role ? [profile.role] : ["buyer"]);
-
   const isAdmin = userRoles.includes("admin") || profile?.role === "admin";
   const isSeller =
     Boolean(profile?.business_name) || userRoles.includes("seller") || isAdmin;
@@ -46,7 +43,7 @@ export async function Navbar() {
           <MobileSidebarDrawer profile={profile} />
 
           <Link href={user ? "/feed" : "/"} className="flex items-center gap-2.5 group">
-            <BenchTechLogo/>
+            <BenchTechLogo />
             <div className="hidden min-[480px]:block">
               <span className="font-black text-base sm:text-lg text-slate-900 dark:text-slate-100 tracking-tight leading-none block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
                 BenchTech
@@ -79,24 +76,16 @@ export async function Navbar() {
           </button>
         </form>
 
-        {/* Right: Actions, Cart Drawer & Account Controls */}
+        {/* Right: Cart Drawer & Account Controls (No Theme Toggle Button) */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* 1. Theme Toggle */}
-          <div className="shrink-0">
-            <ThemeToggle />
-          </div>
-
-          {/* 2. Cart Drawer */}
           <div className="shrink-0">
             <CartDrawer />
           </div>
 
-
-          {/* 4. Authenticated vs Guest Actions */}
           {user ? (
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200 dark:border-slate-800">
               {isAdmin && (
-                <Link href="/admin/advertising" className="hidden sm:block">
+                <Link href="/admin/verifications" className="hidden sm:block">
                   <Button
                     size="sm"
                     className="bg-slate-900 hover:bg-black text-white dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 dark:border dark:border-slate-700 text-xs h-8 px-2.5 gap-1.5 font-bold shadow-2xs rounded-xl transition"
@@ -126,7 +115,7 @@ export async function Navbar() {
                   type="submit"
                   title="Sign Out"
                   aria-label="Sign Out"
-                  className="p-2 text-slate-400 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition"
+                  className="p-2 text-slate-400 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
