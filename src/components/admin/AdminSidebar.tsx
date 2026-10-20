@@ -23,6 +23,12 @@ import {
   ExternalLink,
   LogOut,
   Store,
+  FileSpreadsheet,
+  Radar,
+  ScrollText,
+  Disc,
+  Settings,
+  MessageSquarePlus,
 } from 'lucide-react'
 
 interface AdminSidebarProps {
@@ -42,8 +48,9 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
   // Collapsible Mini-Category Accordions
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     trust: true,
+    catalog: true,
     commerce: true,
-    directory: true,
+    growth: true,
   })
 
   useEffect(() => {
@@ -79,7 +86,7 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
   const NAV_GROUPS = [
     {
       key: 'trust',
-      label: 'Trust & Moderation',
+      label: 'Trust & Security',
       items: [
         {
           label: 'Seller Verifications',
@@ -89,9 +96,9 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
           badgeColor: 'bg-blue-600 text-white',
         },
         {
-          label: 'Product Catalog',
-          href: '/admin/listings',
-          icon: Boxes,
+          label: 'Risk & Anti-Fraud',
+          href: '/admin/risk',
+          icon: Radar,
         },
         {
           label: 'Disputes & Cases',
@@ -99,6 +106,27 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
           icon: ShieldAlert,
           badge: counts.openDisputes,
           badgeColor: 'bg-red-600 text-white',
+        },
+        {
+          label: 'Audit Trail',
+          href: '/admin/audit',
+          icon: ScrollText,
+        },
+      ],
+    },
+    {
+      key: 'catalog',
+      label: 'Catalog & Sourcing',
+      items: [
+        {
+          label: 'Product Catalog',
+          href: '/admin/listings',
+          icon: Boxes,
+        },
+        {
+          label: 'Buyer Requests',
+          href: '/admin/requests',
+          icon: MessageSquarePlus,
         },
       ],
     },
@@ -121,20 +149,35 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
           badgeColor: 'bg-emerald-600 text-white',
         },
         {
-          label: 'Promotions & Ads',
-          href: '/admin/advertising',
-          icon: Megaphone,
+          label: 'Financial Ledger',
+          href: '/admin/finance',
+          icon: FileSpreadsheet,
         },
       ],
     },
     {
-      key: 'directory',
-      label: 'Accounts',
+      key: 'growth',
+      label: 'Growth & Settings',
       items: [
         {
           label: 'Users & Merchants',
           href: '/admin/users',
           icon: Users,
+        },
+        {
+          label: 'Promotions & Ads',
+          href: '/admin/advertising',
+          icon: Megaphone,
+        },
+        {
+          label: 'TechSpin Rewards',
+          href: '/admin/techspin',
+          icon: Disc,
+        },
+        {
+          label: 'Platform Settings',
+          href: '/admin/settings',
+          icon: Settings,
         },
       ],
     },
@@ -189,7 +232,6 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
 
         {/* Scrollable Navigation Links */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 space-y-3 [scrollbar-width:thin]">
-          {/* Overview Link */}
           <div>
             <Link
               href="/admin"
@@ -208,7 +250,6 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
             </Link>
           </div>
 
-          {/* Collapsible Category Groups */}
           {NAV_GROUPS.map((group) => {
             const isGroupOpen = openGroups[group.key]
             return (
@@ -330,7 +371,6 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
 
   return (
     <>
-      {/* Mobile Top Bar */}
       <div className="lg:hidden sticky top-0 z-40 h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <button
@@ -356,7 +396,6 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
         </Link>
       </div>
 
-      {/* Mobile Drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
@@ -377,7 +416,6 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
         </div>
       )}
 
-      {/* Desktop Sticky Collapsible Sidebar */}
       <aside
         className={`hidden lg:flex flex-col shrink-0 sticky top-0 h-screen border-r border-slate-200/80 dark:border-slate-800 transition-all duration-200 ${
           isCollapsed ? 'w-16' : 'w-64'

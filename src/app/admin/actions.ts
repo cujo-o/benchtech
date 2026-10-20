@@ -415,3 +415,171 @@ export async function adminCreditSellerAdWallet(formData: FormData) {
 
   revalidatePath('/admin/advertising')
 }
+
+/* =========================================================================
+   7. RISK, ANTI-FRAUD & RE-VERIFICATION ACTIONS
+   ========================================================================= */
+export async function adminTriggerSellerReverify(sellerId: string, reason: string) {
+  const { user, adminDb } = await requireAdmin()
+  const now = new Date().toISOString()
+
+  await adminDb
+    .from('profiles')
+    .update({
+      verification_state: 'reverify',
+      tech_trust_status: 'pending',
+      verification_feedback: reason,
+      updated_at: now,
+    })
+    .eq('id', sellerId)
+
+  await adminDb
+    .from('seller_verifications')
+    .update({
+      status: 'reverify',
+      action_required_note: reason,
+      updated_at: now,
+    })
+    .eq('seller_id', sellerId)
+
+  await adminDb.from('audit_events').insert({
+    actor_id: user.id,
+    action: 'admin_triggered_seller_reverify',
+    target_type: 'seller_verification',
+    target_id: sellerId,
+    result: 'reverify',
+    metadata: { reason },
+  })
+
+  revalidatePath('/admin/risk')
+  revalidatePath('/admin/verifications')
+  revalidatePath('/admin/users')
+}
+
+export async function adminSetSellerRestriction(
+  sellerId: string,
+  state: 'restricted' | 'suspended' | 'verified'
+) {
+  const { user, adminDb } = await requireAdmin()
+  const now = new Date().toISOString()
+
+  await adminDb
+    .from('profiles')
+    .update({
+      verification_state: state,
+      tech_trust_status: state === 'verified' ? 'verified' : 'unverified',
+      updated_at: now,
+    })
+    .eq('id', sellerId)
+
+  // If suspended, unpublish active listings
+  if (state === 'suspended') {
+    await adminDb
+      .from('products')
+      .update({ status: 'hidden', updated_at: now })
+      .eq('seller_id', sellerId)
+  }
+
+  await adminDb.from('audit_events').insert({
+    actor_id: user.id,
+    action: `admin_set_seller_${state}`,
+    target_type: 'profile',
+    target_id: sellerId,
+    result: state,
+  })
+
+  revalidatePath('/admin/risk')
+  revalidatePath('/admin/users')
+  revalidatePath('/admin/listings')
+}
+
+/* =========================================================================
+   8. BUYER SOURCING & REQUESTS ACTIONS
+   ========================================================================= */
+export async function adminUpdateBuyingRequestStatus(
+  requestId: string,
+  status: 'confirmed' | 'completed' | 'cancelled'
+) {
+  const { adminDb } = await requireAdmin()
+
+  await adminDb
+    .from('buying_requests')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', requestId)
+
+  revalidatePath('/admin/requests')
+}
+
+/* =========================================================================
+   9. TECHSPIN REWARDS CONFIGURATION ACTIONS
+   ========================================================================= */
+export async function adminCreateTechSpinPrize(formData: FormData) {
+  const { user, adminDb } = await requireAdmin()
+
+  const label = ((formData.get('label') as string) || '').trim()
+  const code = ((formData.get('code') as string) || '').trim().toUpperCase() || null
+  const color = ((formData.get('color') as string) || '#2563EB').trim()
+  const discountAmount = Number(formData.get('discountAmount') || 0)
+
+  if (!label) return
+
+  try {
+    await adminDb.from('techspin_prizes').insert({
+      label,
+      code,
+      color,
+      discount_amount: discountAmount,
+      is_active: true,
+    })
+  } catch {}
+
+  await adminDb.from('audit_events').insert({
+    actor_id: user.id,
+    action: 'admin_created_techspin_prize',
+    target_type: 'techspin',
+    target_id: code || label,
+    result: 'created',
+    metadata: { label, code, color, discountAmount },
+  })
+
+  revalidatePath('/admin/techspin')
+}
+
+export async function adminDeleteTechSpinPrize(prizeId: string) {
+  const { adminDb } = await requireAdmin()
+  try {
+    await adminDb.from('techspin_prizes').delete().eq('id', prizeId)
+  } catch {}
+  revalidatePath('/admin/techspin')
+}
+
+/* =========================================================================
+   10. PLATFORM ECONOMICS & TRUST SETTINGS ACTIONS
+   ========================================================================= */
+export async function adminSavePlatformSettings(formData: FormData) {
+  const { user, adminDb } = await requireAdmin()
+
+  const standardCommission = Number(formData.get('standardCommission') || 7.0)
+  const proCommission = Number(formData.get('proCommission') || 5.0)
+  const adSaleFee = Number(formData.get('adSaleFee') || 2.5)
+  const inspectionDays = Number(formData.get('inspectionDays') || 7)
+  const highValueThreshold = Number(formData.get('highValueThreshold') || 800000)
+
+  await adminDb.from('audit_events').insert({
+    actor_id: user.id,
+    action: 'admin_updated_platform_settings',
+    target_type: 'platform_settings',
+    target_id: 'global',
+    result: 'updated',
+    metadata: {
+      standardCommission,
+      proCommission,
+      adSaleFee,
+      inspectionDays,
+      highValueThreshold,
+    },
+  })
+
+  revalidatePath('/admin/settings')
+  revalidatePath('/admin')
+}

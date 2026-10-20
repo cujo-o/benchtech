@@ -1,153 +1,160 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Plus, Trash2, Check, Disc, RefreshCw } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import {
+  adminCreateTechSpinPrize,
+  adminDeleteTechSpinPrize,
+} from '@/app/admin/actions'
+import { Disc, Plus, Trash2 } from 'lucide-react'
 
-export default function AdminTechSpinPage() {
-  const [prizes, setPrizes] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [newLabel, setNewLabel] = useState('')
-  const [newCode, setNewCode] = useState('')
-  const [newColor, setNewColor] = useState('#2563eb')
+export const dynamic = 'force-dynamic'
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+function getAdminDb() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createAdminClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
 
-  const fetchPrizes = async () => {
-    setLoading(true)
-    const { data } = await supabase
+const DEFAULT_SEGMENTS = [
+  { id: 'def-1', label: 'Free Abuja Delivery', code: 'ABUJAFREE', color: '#2563EB', discount_amount: 2500 },
+  { id: 'def-2', label: '₦5,000 Off Laptop', code: 'TECH5K', color: '#7C3AED', discount_amount: 5000 },
+  { id: 'def-3', label: '₦2,000 Gadget Voucher', code: 'SPIN2K', color: '#059669', discount_amount: 2000 },
+  { id: 'def-4', label: 'Try Again Tomorrow', code: null, color: '#475569', discount_amount: 0 },
+]
+
+export default async function AdminTechSpinPage() {
+  const adminDb = getAdminDb()
+
+  let prizes: any[] = []
+  try {
+    const { data } = await adminDb
       .from('techspin_prizes')
       .select('*')
-      .order('created_at', { ascending: true })
-    if (data) setPrizes(data)
-    setLoading(false)
-  }
+      .order('created_at', { ascending: false })
+    if (data && data.length > 0) prizes = data
+  } catch {}
 
-  useEffect(() => {
-    fetchPrizes()
-  }, [])
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newLabel.trim()) return
-
-    await supabase.from('techspin_prizes').insert({
-      label: newLabel,
-      code: newCode.trim() ? newCode.trim().toUpperCase() : null,
-      color: newColor,
-      is_active: true,
-    })
-
-    setNewLabel('')
-    setNewCode('')
-    fetchPrizes()
-  }
-
-  const handleDelete = async (id: string) => {
-    await supabase.from('techspin_prizes').delete().eq('id', id)
-    fetchPrizes()
-  }
-
-  const handleToggle = async (id: string, current: boolean) => {
-    await supabase.from('techspin_prizes').update({ is_active: !current }).eq('id', id)
-    fetchPrizes()
-  }
+  const displayPrizes = prizes.length > 0 ? prizes : DEFAULT_SEGMENTS
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <div>
-          <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
-            <Disc className="w-5 h-5 text-blue-600" /> TechSpin Wheel Manager
+    <div className="space-y-6">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs">
+        <div className="flex items-center gap-2">
+          <Disc className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+            TechSpin Wheel &amp; Voucher Configuration
           </h1>
-          <p className="text-xs text-slate-500">
-            Control the exact rewards, voucher codes, and segment colors displayed on the buyer lucky wheel.
-          </p>
         </div>
-        <Button onClick={fetchPrizes} variant="outline" size="sm" className="text-xs font-bold gap-1.5">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh
-        </Button>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Configure daily reward wheel segments, checkout promo codes, and delivery fee waivers.
+        </p>
       </div>
 
-      {/* Add New Prize Form */}
-      <form onSubmit={handleAdd} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Add New Wheel Reward</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <Label className="text-xs font-bold text-slate-600">Reward Title</Label>
-            <Input
-              required
-              placeholder="e.g. ₦3,000 Off Gadgets"
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              className="text-xs h-9 mt-1 rounded-xl"
-            />
-          </div>
-          <div>
-            <Label className="text-xs font-bold text-slate-600">Promo Code (Leave blank for no code)</Label>
-            <Input
-              placeholder="e.g. SPIN-3000"
-              value={newCode}
-              onChange={(e) => setNewCode(e.target.value)}
-              className="text-xs h-9 mt-1 rounded-xl"
-            />
-          </div>
-          <div>
-            <Label className="text-xs font-bold text-slate-600">Segment Color</Label>
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="color"
-                value={newColor}
-                onChange={(e) => setNewColor(e.target.value)}
-                className="w-10 h-9 p-0.5 rounded-lg border border-slate-200 cursor-pointer"
-              />
-              <Button type="submit" size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700 text-xs font-bold h-9 rounded-xl gap-1">
-                <Plus className="w-3.5 h-3.5" /> Add Reward
-              </Button>
-            </div>
-          </div>
-        </div>
-      </form>
+      {/* Add New Segment Form */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+        <h2 className="text-sm font-black text-slate-900 dark:text-white">
+          Add Wheel Reward Segment
+        </h2>
 
-      {/* Prize Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="divide-y divide-slate-100">
-          {prizes.map((p) => (
-            <div key={p.id} className="p-3.5 px-4 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3">
-                <span className="w-5 h-5 rounded-full border border-slate-200 shadow-xs" style={{ backgroundColor: p.color }} />
-                <div>
-                  <p className="font-bold text-slate-900">{p.label}</p>
-                  <p className="text-[11px] font-mono text-slate-400">
-                    {p.code ? `Code: ${p.code}` : 'No code (Better luck / merchandise)'}
-                  </p>
+        <form
+          action={adminCreateTechSpinPrize}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
+        >
+          <input
+            type="text"
+            name="label"
+            required
+            placeholder="Label (e.g. ₦3,000 Off)"
+            className="h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+          />
+          <input
+            type="text"
+            name="code"
+            placeholder="Promo Code (e.g. SPIN3K)"
+            className="h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono uppercase"
+          />
+          <input
+            type="number"
+            name="discountAmount"
+            placeholder="Value in ₦ (e.g. 3000)"
+            className="h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+          />
+          <select
+            name="color"
+            className="h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+          >
+            <option value="#2563EB">Blue (#2563EB)</option>
+            <option value="#059669">Emerald (#059669)</option>
+            <option value="#7C3AED">Purple (#7C3AED)</option>
+            <option value="#D97706">Amber (#D97706)</option>
+            <option value="#475569">Slate (#475569)</option>
+          </select>
+
+          <Button
+            type="submit"
+            className="h-10 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Add Segment
+          </Button>
+        </form>
+      </div>
+
+      {/* Active Segments */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+        <h2 className="text-sm font-black text-slate-900 dark:text-white">
+          Active Wheel Segments ({displayPrizes.length})
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {displayPrizes.map((prize) => (
+            <div
+              key={prize.id}
+              className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-col justify-between space-y-3 text-xs"
+            >
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span
+                    className="w-4 h-4 rounded-full border border-white/20"
+                    style={{ backgroundColor: prize.color || '#2563EB' }}
+                  />
+                  {prize.code ? (
+                    <Badge className="font-mono text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                      {prize.code}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px]">
+                      No Prize
+                    </Badge>
+                  )}
                 </div>
+                <p className="font-black text-sm text-slate-900 dark:text-white pt-1">
+                  {prize.label}
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Discount Value: ₦{Number(prize.discount_amount || 0).toLocaleString()}
+                </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleToggle(p.id, p.is_active)}
-                  className={`px-2.5 py-1 rounded-full font-bold text-[10px] transition ${
-                    p.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
-                  }`}
+              {!String(prize.id).startsWith('def-') && (
+                <form
+                  action={async () => {
+                    'use server'
+                    await adminDeleteTechSpinPrize(prize.id)
+                  }}
                 >
-                  {p.is_active ? 'Active' : 'Disabled'}
-                </button>
-
-                <button
-                  onClick={() => handleDelete(p.id)}
-                  className="p-1.5 text-slate-400 hover:text-red-600 transition"
-                  title="Delete prize"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                  <Button
+                    type="submit"
+                    size="xs"
+                    variant="ghost"
+                    className="w-full text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg font-bold cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                  </Button>
+                </form>
+              )}
             </div>
           ))}
         </div>
