@@ -1,145 +1,226 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { updatePayoutStatus } from '@/app/admin/actions'
 import {
-  Wallet,
-  Building2,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  ArrowLeft,
-  ShieldCheck,
-} from 'lucide-react'
-import Link from 'next/link'
+  adminSettleSellerBalance,
+  adminReleaseOrderPayout,
+} from '@/app/admin/actions'
+import { Wallet, Landmark, CheckCircle2, Clock } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
+function getAdminDb() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createAdminClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
 export default async function AdminPayoutsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const adminDb = getAdminDb()
 
-  if (!user) redirect('/login?next=/admin/payouts')
+  const [{ data: sellers }, { data: heldOrders }] = await Promise.all([
+    adminDb
+      .from('profiles')
+      .select('*')
+      .gt('available_payout', 0)
+      .order('available_payout', { ascending: false }),
+    adminDb
+      .from('orders')
+      .select('*, product:products(title), seller:profiles!orders_seller_id_fkey(business_name, full_name, bank_name, account_number, account_name)')
+      .eq('payout_status', 'on_hold')
+      .order('created_at', { ascending: false }),
+  ])
 
-  const { data: requests } = await supabase
-    .from('payout_requests')
-    .select('*, profiles(business_name, full_name, phone_number, district)')
-    .order('created_at', { ascending: false })
+  const payableSellers = sellers || []
+  const pendingOrders = heldOrders || []
 
-  const payoutList = requests || []
-  const pendingTotal = payoutList
-    .filter((p) => p.status === 'pending')
-    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0)
+  const totalPayableNow = payableSellers.reduce(
+    (sum, s) => sum + Number(s.available_payout || 0),
+    0
+  )
+  const totalHeldInProtection = pendingOrders.reduce(
+    (sum, o) => sum + Number(o.seller_payout || 0),
+    0
+  )
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full text-slate-900 dark:text-slate-100">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <Link href="/admin/overview" className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-emerald-600" />
-              Bank Payout Settlement Console
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Wallet className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+              Seller Payouts &amp; Bank Settlements
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Review seller withdrawal requests and authorize bank disbursements.
-            </p>
           </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Disburse available seller balances and manage orders in the buyer inspection window.
+          </p>
         </div>
 
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center gap-3">
-          <Wallet className="w-5 h-5 text-emerald-600 shrink-0" />
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase block">Pending Settlement</span>
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">
+              Ready to Disburse
+            </span>
             <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-              ₦{pendingTotal.toLocaleString()}
+              ₦{totalPayableNow.toLocaleString()}
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">
+              Inspection Hold
+            </span>
+            <span className="text-sm font-black text-amber-600 dark:text-amber-400">
+              ₦{totalHeldInProtection.toLocaleString()}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Payout Requests Table */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xs space-y-4">
+      {/* Section 1: Sellers with Available Balance Ready for Bank Transfer */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+          <h2 className="text-sm font-black text-slate-900 dark:text-white">
+            Sellers Ready for Bank Transfer ({payableSellers.length})
+          </h2>
+          <p className="text-xs text-slate-400">
+            Transfer the net balance to the seller&apos;s verified bank account and mark as settled.
+          </p>
+        </div>
+
+        {payableSellers.length > 0 ? (
+          <div className="space-y-3">
+            {payableSellers.map((seller) => (
+              <div
+                key={seller.id}
+                className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs"
+              >
+                <div className="space-y-1">
+                  <p className="font-black text-sm text-slate-900 dark:text-white">
+                    {seller.business_name || seller.full_name || 'Seller'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-slate-500">
+                    <Landmark className="w-3.5 h-3.5 text-blue-600" />
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {seller.bank_name || 'No Bank'}
+                    </span>
+                    <span>•</span>
+                    <span className="font-mono font-bold">
+                      {seller.account_number || 'No Account Number'}
+                    </span>
+                    <span>•</span>
+                    <span>{seller.account_name || seller.full_name}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                      Withdrawable Balance
+                    </span>
+                    <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                      ₦{Number(seller.available_payout || 0).toLocaleString()}
+                    </span>
+                  </div>
+
+                  <form
+                    action={async () => {
+                      'use server'
+                      await adminSettleSellerBalance(seller.id)
+                    }}
+                  >
+                    <Button
+                      type="submit"
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl h-9 px-4 gap-1.5 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Mark Paid</span>
+                    </Button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400 py-8 text-center">
+            No sellers currently have pending withdrawal balances.
+          </p>
+        )}
+      </div>
+
+      {/* Section 2: Orders Currently in Buyer Protection Hold */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+          <h2 className="text-sm font-black text-slate-900 dark:text-white">
+            Orders in Inspection Window ({pendingOrders.length})
+          </h2>
+          <p className="text-xs text-slate-400">
+            Orders awaiting completion of the 7-day buyer inspection window or early payout release.
+          </p>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs whitespace-nowrap">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
-                <th className="pb-3">Seller Store</th>
-                <th className="pb-3">Amount</th>
-                <th className="pb-3">Bank Details</th>
-                <th className="pb-3">District</th>
-                <th className="pb-3">Status</th>
-                <th className="pb-3">Requested</th>
-                <th className="pb-3 text-right">Action</th>
+                <th className="pb-3 pr-4">Order</th>
+                <th className="pb-3 px-4">Seller</th>
+                <th className="pb-3 px-4">Bank Account</th>
+                <th className="pb-3 px-4">Net Payout</th>
+                <th className="pb-3 px-4">Release Date</th>
+                <th className="pb-3 pl-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {payoutList.length > 0 ? (
-                payoutList.map((p) => {
-                  const sellerName = p.profiles?.business_name || p.profiles?.full_name || 'Vendor'
-
-                  return (
-                    <tr key={p.id} className="text-slate-700 dark:text-slate-300">
-                      <td className="py-3.5 font-bold text-slate-900 dark:text-slate-100">
-                        {sellerName}
-                      </td>
-                      <td className="py-3.5 font-black text-sm text-emerald-600 dark:text-emerald-400">
-                        ₦{Number(p.amount).toLocaleString()}
-                      </td>
-                      <td className="py-3.5">
-                        <span className="font-bold block text-slate-900 dark:text-slate-100">{p.bank_name}</span>
-                        <span className="font-mono text-slate-500 text-[11px]">{p.account_number} • {p.account_name}</span>
-                      </td>
-                      <td className="py-3.5 text-slate-500">{p.profiles?.district || 'Abuja'}</td>
-                      <td className="py-3.5">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          p.status === 'processed'
-                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300'
-                            : p.status === 'declined'
-                            ? 'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-300'
-                            : 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300'
-                        }`}>
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-slate-400">
-                        {new Date(p.created_at).toLocaleDateString('en-NG')}
-                      </td>
-                      <td className="py-3.5 text-right">
-                        {p.status === 'pending' ? (
-                          <div className="flex items-center justify-end gap-1.5">
-                            <form action={async () => {
-                              'use server'
-                              await updatePayoutStatus(p.id, 'processed')
-                            }}>
-                              <Button size="sm" type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] h-8 px-2.5 rounded-lg cursor-pointer">
-                                Disburse
-                              </Button>
-                            </form>
-                            <form action={async () => {
-                              'use server'
-                              await updatePayoutStatus(p.id, 'declined')
-                            }}>
-                              <Button size="sm" variant="ghost" type="submit" className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-[11px] h-8 px-2 rounded-lg cursor-pointer">
-                                Decline
-                              </Button>
-                            </form>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 capitalize">{p.status}</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })
-              ) : (
+              {pendingOrders.map((o) => (
+                <tr key={o.id} className="text-slate-700 dark:text-slate-300">
+                  <td className="py-3.5 pr-4 font-mono font-bold text-slate-900 dark:text-white">
+                    {o.order_number || o.id.slice(0, 8)}
+                  </td>
+                  <td className="py-3.5 px-4 font-bold">
+                    {o.seller?.business_name || o.seller?.full_name || 'Vendor'}
+                  </td>
+                  <td className="py-3.5 px-4 font-mono text-[11px]">
+                    {o.seller?.bank_name
+                      ? `${o.seller.bank_name} • ${o.seller.account_number}`
+                      : 'Not Linked'}
+                  </td>
+                  <td className="py-3.5 px-4 font-black text-emerald-600 dark:text-emerald-400">
+                    ₦{Number(o.seller_payout || 0).toLocaleString()}
+                  </td>
+                  <td className="py-3.5 px-4 text-slate-400">
+                    {o.protection_ends_at
+                      ? new Date(o.protection_ends_at).toLocaleDateString('en-NG')
+                      : 'Pending delivery'}
+                  </td>
+                  <td className="py-3.5 pl-4 text-right">
+                    <form
+                      action={async () => {
+                        'use server'
+                        await adminReleaseOrderPayout(o.id)
+                      }}
+                    >
+                      <Button
+                        type="submit"
+                        size="xs"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg px-3 cursor-pointer"
+                      >
+                        Release to Wallet
+                      </Button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+              {pendingOrders.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    No payout requests submitted yet.
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                    No orders currently held in inspection.
                   </td>
                 </tr>
               )}
