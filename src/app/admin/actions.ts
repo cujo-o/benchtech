@@ -85,7 +85,6 @@ export async function adminReleaseOrderPayout(orderId: string) {
 
   const payoutAmount = Number(order.seller_payout || order.amount || 0)
 
-  // Credit Seller's available_payout balance
   const { data: sellerProfile } = await adminDb
     .from('profiles')
     .select('available_payout')
@@ -268,6 +267,7 @@ export async function adminToggleProPlan(targetUserId: string, makePro: boolean)
     .eq('id', targetUserId)
 
   revalidatePath('/admin/users')
+  revalidatePath('/admin/techpass')
 }
 
 /* =========================================================================
@@ -285,8 +285,11 @@ export async function adminUpdateProductStatus(
     .eq('id', productId)
 
   revalidatePath('/admin/listings')
+  revalidatePath('/admin/products')
+  revalidatePath('/admin/reports')
   revalidatePath('/products')
   revalidatePath('/feed')
+  return { success: true }
 }
 
 export async function adminToggleProductFeatured(
@@ -308,7 +311,9 @@ export async function adminToggleProductFeatured(
     .eq('id', productId)
 
   revalidatePath('/admin/listings')
+  revalidatePath('/admin/products')
   revalidatePath('/feed')
+  return { success: true }
 }
 
 export async function adminDeleteProduct(productId: string) {
@@ -316,8 +321,10 @@ export async function adminDeleteProduct(productId: string) {
   await adminDb.from('products').delete().eq('id', productId)
 
   revalidatePath('/admin/listings')
+  revalidatePath('/admin/products')
   revalidatePath('/products')
   revalidatePath('/feed')
+  return { success: true }
 }
 
 /* =========================================================================
@@ -472,7 +479,6 @@ export async function adminSetSellerRestriction(
     })
     .eq('id', sellerId)
 
-  // If suspended, unpublish active listings
   if (state === 'suspended') {
     await adminDb
       .from('products')
@@ -582,4 +588,147 @@ export async function adminSavePlatformSettings(formData: FormData) {
 
   revalidatePath('/admin/settings')
   revalidatePath('/admin')
+}
+
+/* =========================================================================
+   11. COMPATIBILITY EXPORTS FOR EXISTING ADMIN PAGES
+   (/admin/products, /admin/reports, /admin/techpass)
+   ========================================================================= */
+export async function toggleProductStatus(
+  productIdOrFormData: string | FormData,
+  nextStatus?: string
+) {
+  const { adminDb } = await requireAdmin()
+
+  let productId = ''
+  let targetStatus = nextStatus
+
+  if (typeof productIdOrFormData === 'string') {
+    productId = productIdOrFormData
+  } else if (productIdOrFormData instanceof FormData) {
+    productId =
+      (productIdOrFormData.get('productId') as string) ||
+      (productIdOrFormData.get('id') as string) ||
+      ''
+    targetStatus =
+      (productIdOrFormData.get('status') as string) ||
+      (productIdOrFormData.get('nextStatus') as string) ||
+      undefined
+  }
+
+  if (!productId) return { error: 'Product ID required' }
+
+  if (!targetStatus) {
+    const { data: current } = await adminDb
+      .from('products')
+      .select('status')
+      .eq('id', productId)
+      .maybeSingle()
+
+    targetStatus = current?.status === 'published' ? 'hidden' : 'published'
+  }
+
+  await adminDb
+    .from('products')
+    .update({
+      status: targetStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', productId)
+
+  revalidatePath('/admin/products')
+  revalidatePath('/admin/listings')
+  revalidatePath('/admin/reports')
+  revalidatePath('/products')
+  revalidatePath('/feed')
+  return { success: true }
+}
+
+export async function updateSellerSubscription(
+  sellerIdOrData:
+    | string
+    | FormData
+    | {
+        sellerId?: string
+        userId?: string
+        plan?: string
+        tier?: string
+        promoCredits?: number
+      },
+  planArg?: string,
+  creditsArg?: number
+) {
+  const { user, adminDb } = await requireAdmin()
+
+  let sellerId = ''
+  let plan = planArg || 'pro'
+  let promoCredits = creditsArg
+
+  if (typeof sellerIdOrData === 'string') {
+    sellerId = sellerIdOrData
+  } else if (sellerIdOrData instanceof FormData) {
+    sellerId =
+      (sellerIdOrData.get('sellerId') as string) ||
+      (sellerIdOrData.get('userId') as string) ||
+      ''
+    plan =
+      (sellerIdOrData.get('plan') as string) ||
+      (sellerIdOrData.get('tier') as string) ||
+      'pro'
+    if (sellerIdOrData.get('promoCredits')) {
+      promoCredits = Number(sellerIdOrData.get('promoCredits'))
+    }
+  } else if (sellerIdOrData && typeof sellerIdOrData === 'object') {
+    sellerId = sellerIdOrData.sellerId || sellerIdOrData.userId || ''
+    plan = sellerIdOrData.plan || sellerIdOrData.tier || 'pro'
+    promoCredits = sellerIdOrData.promoCredits
+  }
+
+  if (!sellerId) return { error: 'Seller ID required' }
+
+  const normalizedTier =
+    plan === 'professional' || plan === 'pro' || plan === 'standard'
+      ? 'pro'
+      : 'free'
+
+  await adminDb
+    .from('profiles')
+    .update({
+      seller_plan: normalizedTier,
+      subscription_tier: normalizedTier,
+      subscription_plan: plan,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sellerId)
+
+  if (typeof promoCredits === 'number' && promoCredits > 0) {
+    const { data: wallet } = await adminDb
+      .from('ad_wallets')
+      .select('balance')
+      .eq('seller_id', sellerId)
+      .maybeSingle()
+
+    await adminDb.from('ad_wallets').upsert(
+      {
+        seller_id: sellerId,
+        balance: Number(wallet?.balance || 0) + promoCredits,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'seller_id' }
+    )
+  }
+
+  await adminDb.from('audit_events').insert({
+    actor_id: user.id,
+    action: 'admin_updated_seller_subscription',
+    target_type: 'profile',
+    target_id: sellerId,
+    result: normalizedTier,
+    metadata: { plan, promoCredits },
+  })
+
+  revalidatePath('/admin/techpass')
+  revalidatePath('/admin/users')
+  revalidatePath('/admin')
+  return { success: true }
 }
