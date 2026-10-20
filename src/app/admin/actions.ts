@@ -44,7 +44,7 @@ async function requireAdmin() {
 /* =========================================================================
    1. ORDERS & ESCROW SETTLEMENT ACTIONS
    ========================================================================= */
-export async function adminVerifyOrderDelivery(orderId: string) {
+export async function adminVerifyOrderDelivery(orderId: string): Promise<void> {
   const { user, adminDb } = await requireAdmin()
   const now = new Date()
   const protectionEnds = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -72,7 +72,7 @@ export async function adminVerifyOrderDelivery(orderId: string) {
   revalidatePath('/admin')
 }
 
-export async function adminReleaseOrderPayout(orderId: string) {
+export async function adminReleaseOrderPayout(orderId: string): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
   const { data: order } = await adminDb
@@ -125,7 +125,7 @@ export async function adminReleaseOrderPayout(orderId: string) {
   revalidatePath('/admin')
 }
 
-export async function adminRefundOrder(orderId: string) {
+export async function adminRefundOrder(orderId: string): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
   await adminDb
@@ -154,7 +154,7 @@ export async function adminRefundOrder(orderId: string) {
 /* =========================================================================
    2. SELLER BANK PAYOUT SETTLEMENT ACTIONS
    ========================================================================= */
-export async function adminSettleSellerBalance(sellerId: string) {
+export async function adminSettleSellerBalance(sellerId: string): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
   const { data: seller } = await adminDb
@@ -193,7 +193,7 @@ export async function adminSettleSellerBalance(sellerId: string) {
 export async function adminUpdateUserRole(
   targetUserId: string,
   role: 'buyer' | 'seller' | 'admin'
-) {
+): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
   const updates: Record<string, any> = {
@@ -226,7 +226,7 @@ export async function adminUpdateUserRole(
 export async function adminToggleSellerVerify(
   targetUserId: string,
   verify: boolean
-) {
+): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
   await adminDb
@@ -254,7 +254,10 @@ export async function adminToggleSellerVerify(
   revalidatePath('/sellers')
 }
 
-export async function adminToggleProPlan(targetUserId: string, makePro: boolean) {
+export async function adminToggleProPlan(
+  targetUserId: string,
+  makePro: boolean
+): Promise<void> {
   const { adminDb } = await requireAdmin()
 
   await adminDb
@@ -276,7 +279,7 @@ export async function adminToggleProPlan(targetUserId: string, makePro: boolean)
 export async function adminUpdateProductStatus(
   productId: string,
   status: 'published' | 'hidden'
-) {
+): Promise<void> {
   const { adminDb } = await requireAdmin()
 
   await adminDb
@@ -289,13 +292,12 @@ export async function adminUpdateProductStatus(
   revalidatePath('/admin/reports')
   revalidatePath('/products')
   revalidatePath('/feed')
-  return { success: true }
 }
 
 export async function adminToggleProductFeatured(
   productId: string,
   featured: boolean
-) {
+): Promise<void> {
   const { adminDb } = await requireAdmin()
   const featuredUntil = featured
     ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
@@ -313,10 +315,9 @@ export async function adminToggleProductFeatured(
   revalidatePath('/admin/listings')
   revalidatePath('/admin/products')
   revalidatePath('/feed')
-  return { success: true }
 }
 
-export async function adminDeleteProduct(productId: string) {
+export async function adminDeleteProduct(productId: string): Promise<void> {
   const { adminDb } = await requireAdmin()
   await adminDb.from('products').delete().eq('id', productId)
 
@@ -324,7 +325,6 @@ export async function adminDeleteProduct(productId: string) {
   revalidatePath('/admin/products')
   revalidatePath('/products')
   revalidatePath('/feed')
-  return { success: true }
 }
 
 /* =========================================================================
@@ -334,7 +334,7 @@ export async function adminResolveDispute(
   disputeId: string,
   orderId: string,
   resolution: 'release_to_seller' | 'refund_buyer'
-) {
+): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
   await adminDb
@@ -375,7 +375,7 @@ export async function adminResolveDispute(
 export async function adminToggleAdCampaign(
   campaignId: string,
   nextStatus: 'active' | 'paused'
-) {
+): Promise<void> {
   const { adminDb } = await requireAdmin()
 
   await adminDb
@@ -386,7 +386,7 @@ export async function adminToggleAdCampaign(
   revalidatePath('/admin/advertising')
 }
 
-export async function adminCreditSellerAdWallet(formData: FormData) {
+export async function adminCreditSellerAdWallet(formData: FormData): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
   const sellerId = (formData.get('sellerId') as string) || ''
@@ -426,7 +426,10 @@ export async function adminCreditSellerAdWallet(formData: FormData) {
 /* =========================================================================
    7. RISK, ANTI-FRAUD & RE-VERIFICATION ACTIONS
    ========================================================================= */
-export async function adminTriggerSellerReverify(sellerId: string, reason: string) {
+export async function adminTriggerSellerReverify(
+  sellerId: string,
+  reason: string
+): Promise<void> {
   const { user, adminDb } = await requireAdmin()
   const now = new Date().toISOString()
 
@@ -466,7 +469,7 @@ export async function adminTriggerSellerReverify(sellerId: string, reason: strin
 export async function adminSetSellerRestriction(
   sellerId: string,
   state: 'restricted' | 'suspended' | 'verified'
-) {
+): Promise<void> {
   const { user, adminDb } = await requireAdmin()
   const now = new Date().toISOString()
 
@@ -505,7 +508,7 @@ export async function adminSetSellerRestriction(
 export async function adminUpdateBuyingRequestStatus(
   requestId: string,
   status: 'confirmed' | 'completed' | 'cancelled'
-) {
+): Promise<void> {
   const { adminDb } = await requireAdmin()
 
   await adminDb
@@ -519,7 +522,7 @@ export async function adminUpdateBuyingRequestStatus(
 /* =========================================================================
    9. TECHSPIN REWARDS CONFIGURATION ACTIONS
    ========================================================================= */
-export async function adminCreateTechSpinPrize(formData: FormData) {
+export async function adminCreateTechSpinPrize(formData: FormData): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
   const label = ((formData.get('label') as string) || '').trim()
@@ -551,7 +554,7 @@ export async function adminCreateTechSpinPrize(formData: FormData) {
   revalidatePath('/admin/techspin')
 }
 
-export async function adminDeleteTechSpinPrize(prizeId: string) {
+export async function adminDeleteTechSpinPrize(prizeId: string): Promise<void> {
   const { adminDb } = await requireAdmin()
   try {
     await adminDb.from('techspin_prizes').delete().eq('id', prizeId)
@@ -562,7 +565,7 @@ export async function adminDeleteTechSpinPrize(prizeId: string) {
 /* =========================================================================
    10. PLATFORM ECONOMICS & TRUST SETTINGS ACTIONS
    ========================================================================= */
-export async function adminSavePlatformSettings(formData: FormData) {
+export async function adminSavePlatformSettings(formData: FormData): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
   const standardCommission = Number(formData.get('standardCommission') || 7.0)
@@ -597,7 +600,7 @@ export async function adminSavePlatformSettings(formData: FormData) {
 export async function toggleProductStatus(
   productIdOrFormData: string | FormData,
   nextStatus?: string
-) {
+): Promise<void> {
   const { adminDb } = await requireAdmin()
 
   let productId = ''
@@ -616,7 +619,7 @@ export async function toggleProductStatus(
       undefined
   }
 
-  if (!productId) return { error: 'Product ID required' }
+  if (!productId) return
 
   if (!targetStatus) {
     const { data: current } = await adminDb
@@ -641,7 +644,6 @@ export async function toggleProductStatus(
   revalidatePath('/admin/reports')
   revalidatePath('/products')
   revalidatePath('/feed')
-  return { success: true }
 }
 
 export async function updateSellerSubscription(
