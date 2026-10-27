@@ -388,8 +388,8 @@ export default async function DeliveryDashboardPage({
                         </form>
 
                         <DeliveryExceptionModal
-                          jobId={order.id}
-                          jobNumber={orderRef}
+                          orderId={order.id}
+                          orderRef={orderRef}
                         />
                       </div>
                     </div>
