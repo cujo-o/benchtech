@@ -46,7 +46,7 @@ export function BuyerSidebar() {
     '/settings',
   ].some((route) => pathname.startsWith(route))
 
-  const [isAccountOpen, setIsAccountOpen] = useState(isAccountRoute || true)
+  const [isAccountOpen, setIsAccountOpen] = useState<boolean>(isAccountRoute)
 
   const updateSavedCount = useCallback(() => {
     try {

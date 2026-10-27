@@ -51,7 +51,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
     '/recently-viewed',
     '/settings',
   ].some((route) => pathname.startsWith(route))
-  const [isAccountOpen, setIsAccountOpen] = useState(isAccountRoute || true)
+  const [isAccountOpen, setIsAccountOpen] = useState<boolean>(isAccountRoute || true)
 
   const updateSavedCount = useCallback(() => {
     try {
