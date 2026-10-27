@@ -13,15 +13,18 @@ import {
   Phone,
 } from 'lucide-react'
 
-interface DispatchModalProps {
-  orderId: string
+export interface DispatchModalProps {
+  order?: any
+  orderId?: string
   orderNumber?: string
   buyerName?: string
   deliveryArea?: string
   deliveryAddress?: string
+  [key: string]: any
 }
 
 export function DispatchModal({
+  order,
   orderId,
   orderNumber,
   buyerName,
@@ -36,6 +39,23 @@ export function DispatchModal({
     jobNumber?: string
   } | null>(null)
 
+  const resolvedOrderId = orderId || order?.id || ''
+  const resolvedOrderNumber =
+    orderNumber ||
+    order?.order_number ||
+    order?.payment_reference ||
+    resolvedOrderId.slice(0, 8)
+  const resolvedBuyerName =
+    buyerName || order?.buyer?.full_name || order?.buyer_name || 'Buyer'
+  const resolvedDeliveryArea =
+    deliveryArea || order?.delivery_area || order?.buyer?.district || ''
+  const resolvedDeliveryAddress =
+    deliveryAddress ||
+    order?.delivery_address ||
+    order?.buyer?.street_address ||
+    resolvedDeliveryArea ||
+    'Abuja'
+
   const [pickupAddress, setPickupAddress] = useState('')
   const [courierName, setCourierName] = useState('')
   const [courierPhone, setCourierPhone] = useState('')
@@ -43,11 +63,16 @@ export function DispatchModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!resolvedOrderId) {
+      setError('Order identifier is missing.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     const res = await createDeliveryJobFromOrder({
-      orderId,
+      orderId: resolvedOrderId,
       pickupAddress,
       courierName,
       courierPhone,
@@ -63,7 +88,8 @@ export function DispatchModal({
 
     setDispatchedData({
       otp: res.otp,
-      jobNumber: res.jobNumber || `JOB-${orderId.slice(0, 8).toUpperCase()}`,
+      jobNumber:
+        res.jobNumber || `JOB-${resolvedOrderId.slice(0, 8).toUpperCase()}`,
     })
   }
 
@@ -88,7 +114,7 @@ export function DispatchModal({
                   Dispatch Hardware Order
                 </h3>
                 <p className="text-[11px] text-slate-400 font-mono">
-                  Order #{orderNumber || orderId.slice(0, 8)}
+                  Order #{resolvedOrderNumber}
                 </p>
               </div>
               <button
@@ -143,11 +169,11 @@ export function DispatchModal({
                     Dropoff Destination
                   </span>
                   <p className="font-bold text-slate-900 dark:text-white">
-                    {buyerName || 'Buyer'}
+                    {resolvedBuyerName}
                   </p>
                   <p className="text-slate-500 flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                    <span>{deliveryAddress || deliveryArea || 'Abuja'}</span>
+                    <span>{resolvedDeliveryAddress}</span>
                   </p>
                 </div>
 
