@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { BenchTechLogo } from '@/components/BenchTechLogo'
 import {
   Menu,
   X,
@@ -30,6 +31,7 @@ import {
   Clock,
   Store,
   ShieldAlert,
+  Settings,
 } from 'lucide-react'
 
 export function MobileSidebarDrawer({ profile }: { profile: any }) {
@@ -38,7 +40,6 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
   const [savedCount, setSavedCount] = useState<number>(0)
   const pathname = usePathname()
 
-  // Accordion Group States
   const [isShopOpen, setIsShopOpen] = useState(true)
   const [isCompareBuildOpen, setIsCompareBuildOpen] = useState(true)
 
@@ -48,10 +49,10 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
     '/wallet',
     '/price-alerts',
     '/recently-viewed',
+    '/settings',
   ].some((route) => pathname.startsWith(route))
-  const [isAccountOpen, setIsAccountOpen] = useState(isAccountRoute)
+  const [isAccountOpen, setIsAccountOpen] = useState(isAccountRoute || true)
 
-  // Sync Saved Items Count from localStorage (Zero DB latency)
   const updateSavedCount = useCallback(() => {
     try {
       const savedRaw =
@@ -73,23 +74,19 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
   useEffect(() => {
     setMounted(true)
     updateSavedCount()
-
     const handleSync = () => updateSavedCount()
     window.addEventListener('storage', handleSync)
     window.addEventListener('savedItemsUpdated', handleSync)
-
     return () => {
       window.removeEventListener('storage', handleSync)
       window.removeEventListener('savedItemsUpdated', handleSync)
     }
   }, [updateSavedCount])
 
-  // Close drawer on route change
   useEffect(() => {
     setIsOpen(false)
   }, [pathname])
 
-  // Prevent background scroll when drawer is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
@@ -108,28 +105,28 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
     return pathname.startsWith(href)
   }
 
-  // Seller and Admin permissions
   const userRoles: string[] = profile?.roles || (profile?.role ? [profile.role] : [])
-  const isAdmin = profile?.role === 'admin' || profile?.is_admin === true || userRoles.includes('admin')
-  const isSeller = Boolean(profile?.business_name) || profile?.is_seller === true || userRoles.includes('seller') || isAdmin
+  const isAdmin =
+    profile?.role === 'admin' || profile?.is_admin === true || userRoles.includes('admin')
+  const isSeller =
+    Boolean(profile?.business_name) ||
+    profile?.is_seller === true ||
+    userRoles.includes('seller') ||
+    isAdmin
   const sellerHref = isSeller ? '/seller' : '/seller/onboarding'
 
   const drawerContent = (
     <div className="fixed inset-0 z-[9999] lg:hidden">
-      {/* Backdrop */}
       <div
         onClick={() => setIsOpen(false)}
         className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
       />
 
-      {/* Slide-out Drawer */}
       <aside className="fixed inset-y-0 left-0 w-72 max-w-[85vw] h-dvh bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-[10000] shadow-2xl flex flex-col justify-between animate-in slide-in-from-left duration-200 select-none">
         {/* Header */}
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 text-white w-7 h-7 rounded-lg flex items-center justify-center font-black text-sm shadow-xs">
-              B
-            </div>
+          <div className="flex items-center gap-2.5">
+            <BenchTechLogo className="w-8 h-8" />
             <div>
               <span className="font-black text-base text-slate-900 dark:text-slate-100 tracking-tight leading-none block">
                 BenchTech
@@ -139,6 +136,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
               </span>
             </div>
           </div>
+
           <button
             type="button"
             onClick={() => setIsOpen(false)}
@@ -161,7 +159,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
               <div className="flex items-center gap-2 truncate">
                 <Store className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span className="truncate">
-                  {isSeller ? (profile?.business_name || 'Seller Dashboard') : 'Become a Seller'}
+                  {isSeller ? profile?.business_name || 'Seller Hub' : 'Become a Seller'}
                 </span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
@@ -185,10 +183,9 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
           {/* 1. PRIMARY SECTION */}
           <div className="space-y-1">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
-              Primary
+              Marketplace
             </span>
 
-            {/* Home */}
             <Link
               href="/feed"
               onClick={() => setIsOpen(false)}
@@ -202,7 +199,6 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
               <span>Home</span>
             </Link>
 
-            {/* Shop Accordion */}
             <div className="space-y-0.5">
               <button
                 type="button"
@@ -232,7 +228,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
                     }`}
                   >
                     <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
-                    <span>Shop by Category</span>
+                    <span>All Categories</span>
                   </Link>
 
                   <Link
@@ -258,7 +254,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
                     }`}
                   >
                     <Megaphone className="w-3.5 h-3.5 shrink-0" />
-                    <span>Request a Gadget</span>
+                    <span>Request a Device</span>
                   </Link>
 
                   <Link
@@ -274,15 +270,11 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
                       <Tag className="w-3.5 h-3.5 shrink-0" />
                       <span>Deals &amp; Offers</span>
                     </div>
-                    <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase leading-none">
-                      Hot
-                    </span>
                   </Link>
                 </div>
               )}
             </div>
 
-            {/* Find My Tech (AI) */}
             <Link
               href="/assistant"
               onClick={() => setIsOpen(false)}
@@ -293,15 +285,11 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
               }`}
             >
               <div className="flex items-center gap-3">
-                <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
-                <span>Find My Tech</span>
+                <Sparkles className="w-4 h-4 text-blue-500 shrink-0" />
+                <span>Tech Advisor</span>
               </div>
-              <span className="bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase leading-none">
-                AI
-              </span>
             </Link>
 
-            {/* Compare & Build Accordion */}
             <div className="space-y-0.5">
               <button
                 type="button"
@@ -331,7 +319,7 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
                     }`}
                   >
                     <Scale className="w-3.5 h-3.5 shrink-0" />
-                    <span>Compare Tech</span>
+                    <span>Compare Specs</span>
                   </Link>
 
                   <Link
@@ -350,7 +338,6 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
               )}
             </div>
 
-            {/* TechSpin */}
             <Link
               href="/techspin"
               onClick={() => setIsOpen(false)}
@@ -361,11 +348,11 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
               }`}
             >
               <Disc className="w-4 h-4 text-slate-500 shrink-0" />
-              <span>TechSpin</span>
+              <span>Daily Rewards</span>
             </Link>
           </div>
 
-          {/* 2. ACCOUNT SECTION (No Direct Messaging) */}
+          {/* 2. ACCOUNT SECTION */}
           <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
               Account
@@ -460,6 +447,19 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
                   <Wallet className="w-3.5 h-3.5 shrink-0" />
                   <span>My Wallet</span>
                 </Link>
+
+                <Link
+                  href="/settings"
+                  onClick={() => setIsOpen(false)}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                    isActive('/settings')
+                      ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                  }`}
+                >
+                  <Settings className="w-3.5 h-3.5 shrink-0" />
+                  <span>Account Settings &amp; Theme</span>
+                </Link>
               </div>
             )}
           </div>
@@ -495,7 +495,6 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
 
   return (
     <div className="lg:hidden">
-      {/* Mobile Hamburger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(true)}
@@ -505,7 +504,6 @@ export function MobileSidebarDrawer({ profile }: { profile: any }) {
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Portal Mount */}
       {isOpen && mounted ? createPortal(drawerContent, document.body) : null}
     </div>
   )

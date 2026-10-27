@@ -26,6 +26,7 @@ import {
   Bell,
   Wallet,
   Clock,
+  Settings,
 } from 'lucide-react'
 
 export function BuyerSidebar() {
@@ -33,7 +34,6 @@ export function BuyerSidebar() {
   const [savedCount, setSavedCount] = useState<number>(0)
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false)
 
-  // Accordion Group States
   const [isShopOpen, setIsShopOpen] = useState(true)
   const [isCompareBuildOpen, setIsCompareBuildOpen] = useState(true)
 
@@ -43,10 +43,11 @@ export function BuyerSidebar() {
     '/wallet',
     '/price-alerts',
     '/recently-viewed',
+    '/settings',
   ].some((route) => pathname.startsWith(route))
-  const [isAccountOpen, setIsAccountOpen] = useState(isAccountRoute)
 
-  // Sync saved count from localStorage without network overhead
+  const [isAccountOpen, setIsAccountOpen] = useState(isAccountRoute || true)
+
   const updateSavedCount = useCallback(() => {
     try {
       const savedRaw =
@@ -67,7 +68,6 @@ export function BuyerSidebar() {
 
   useEffect(() => {
     updateSavedCount()
-
     try {
       const stored = localStorage.getItem('benchtech_sidebar_collapsed')
       if (stored !== null) {
@@ -78,7 +78,6 @@ export function BuyerSidebar() {
     const handleSync = () => updateSavedCount()
     window.addEventListener('storage', handleSync)
     window.addEventListener('savedItemsUpdated', handleSync)
-
     return () => {
       window.removeEventListener('storage', handleSync)
       window.removeEventListener('savedItemsUpdated', handleSync)
@@ -106,7 +105,6 @@ export function BuyerSidebar() {
         isCollapsed ? 'w-16 p-2' : 'w-60 xl:w-64 p-3.5'
       }`}
     >
-      {/* 1. Navigation Header & Collapse Button */}
       <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80 mb-2">
         {!isCollapsed && (
           <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
@@ -130,14 +128,11 @@ export function BuyerSidebar() {
         </button>
       </div>
 
-      {/* 2. Scrollable Body */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-4 pr-0.5 [scrollbar-width:thin]">
         {isCollapsed ? (
-          /* COLLAPSED ICON RAIL MODE */
           <div className="space-y-2">
             <Link
               href="/feed"
-              prefetch={true}
               title="Home"
               className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
                 isActive('/feed')
@@ -150,10 +145,9 @@ export function BuyerSidebar() {
 
             <Link
               href="/products"
-              prefetch={true}
-              title="Shop by Category"
+              title="Catalog"
               className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
-                isActive('/products') || isActive('/categories')
+                isActive('/products')
                   ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
               }`}
@@ -163,31 +157,26 @@ export function BuyerSidebar() {
 
             <Link
               href="/deals"
-              prefetch={true}
-              title="Deals & Offers"
+              title="Deals"
               className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
             >
               <Tag className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
             </Link>
 
             <Link
               href="/assistant"
-              prefetch={true}
-              title="Find My Tech (AI)"
+              title="Find My Tech"
               className={`w-full flex items-center justify-center p-2.5 rounded-xl relative transition ${
                 isActive('/assistant')
                   ? 'bg-blue-600 text-white'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
               }`}
             >
-              <Sparkles className="w-4 h-4 text-purple-500" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
+              <Sparkles className="w-4 h-4" />
             </Link>
 
             <Link
               href="/compare"
-              prefetch={true}
               title="Compare Tech"
               className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
                 isActive('/compare') || isActive('/build')
@@ -198,24 +187,10 @@ export function BuyerSidebar() {
               <Layers className="w-4 h-4" />
             </Link>
 
-            <Link
-              href="/techspin"
-              prefetch={true}
-              title="TechSpin"
-              className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
-                isActive('/techspin')
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-              }`}
-            >
-              <Disc className="w-4 h-4" />
-            </Link>
-
             <div className="my-2 border-t border-slate-100 dark:border-slate-800/80" />
 
             <Link
               href="/orders"
-              prefetch={true}
               title="My Orders"
               className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
             >
@@ -224,7 +199,6 @@ export function BuyerSidebar() {
 
             <Link
               href="/saved"
-              prefetch={true}
               title="Saved Items"
               className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 relative transition"
             >
@@ -235,19 +209,19 @@ export function BuyerSidebar() {
             </Link>
 
             <Link
-              href="/wallet"
-              prefetch={true}
-              title="My Wallet"
-              className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
+              href="/settings"
+              title="Account Settings"
+              className={`w-full flex items-center justify-center p-2.5 rounded-xl transition ${
+                isActive('/settings')
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
             >
-              <Wallet className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </Link>
-
-            <div className="my-2 border-t border-slate-100 dark:border-slate-800/80" />
 
             <Link
               href="/help"
-              prefetch={true}
               title="Help & Support"
               className="w-full flex items-center justify-center p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
             >
@@ -255,17 +229,15 @@ export function BuyerSidebar() {
             </Link>
           </div>
         ) : (
-          /* EXPANDED FULL VIEW MODE */
           <div className="space-y-4">
             {/* PRIMARY */}
             <div className="space-y-1">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
-                Primary
+                Marketplace
               </span>
 
               <Link
                 href="/feed"
-                prefetch={true}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
                   isActive('/feed')
                     ? 'bg-blue-600 text-white shadow-xs'
@@ -276,7 +248,7 @@ export function BuyerSidebar() {
                 <span>Home</span>
               </Link>
 
-              {/* Shop Collapsible Accordion */}
+              {/* Shop Accordion */}
               <div className="space-y-0.5">
                 <button
                   type="button"
@@ -298,7 +270,6 @@ export function BuyerSidebar() {
                   <div className="pl-3 space-y-0.5">
                     <Link
                       href="/products"
-                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/products')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -306,12 +277,11 @@ export function BuyerSidebar() {
                       }`}
                     >
                       <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
-                      <span>Shop by Category</span>
+                      <span>All Categories</span>
                     </Link>
 
                     <Link
                       href="/sellers"
-                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/sellers')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -324,7 +294,6 @@ export function BuyerSidebar() {
 
                     <Link
                       href="/requests/new"
-                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/requests')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -332,12 +301,11 @@ export function BuyerSidebar() {
                       }`}
                     >
                       <Megaphone className="w-3.5 h-3.5 shrink-0" />
-                      <span>Request a Gadget</span>
+                      <span>Request a Device</span>
                     </Link>
 
                     <Link
                       href="/deals"
-                      prefetch={true}
                       className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/deals')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -348,18 +316,13 @@ export function BuyerSidebar() {
                         <Tag className="w-3.5 h-3.5 shrink-0" />
                         <span>Deals &amp; Offers</span>
                       </div>
-                      <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase leading-none">
-                        Hot
-                      </span>
                     </Link>
                   </div>
                 )}
               </div>
 
-              {/* Find My Tech (AI) */}
               <Link
                 href="/assistant"
-                prefetch={true}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition ${
                   isActive('/assistant')
                     ? 'bg-blue-600 text-white'
@@ -367,12 +330,9 @@ export function BuyerSidebar() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
-                  <span>Find My Tech</span>
+                  <Sparkles className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span>Tech Advisor</span>
                 </div>
-                <span className="bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase leading-none">
-                  AI
-                </span>
               </Link>
 
               {/* Compare & Build Accordion */}
@@ -397,7 +357,6 @@ export function BuyerSidebar() {
                   <div className="pl-3 space-y-0.5">
                     <Link
                       href="/compare"
-                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/compare')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -405,12 +364,11 @@ export function BuyerSidebar() {
                       }`}
                     >
                       <Scale className="w-3.5 h-3.5 shrink-0" />
-                      <span>Compare Tech</span>
+                      <span>Compare Specs</span>
                     </Link>
 
                     <Link
                       href="/build"
-                      prefetch={true}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                         isActive('/build')
                           ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -424,10 +382,8 @@ export function BuyerSidebar() {
                 )}
               </div>
 
-              {/* TechSpin */}
               <Link
                 href="/techspin"
-                prefetch={true}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
                   isActive('/techspin')
                     ? 'bg-blue-600 text-white'
@@ -435,11 +391,11 @@ export function BuyerSidebar() {
                 }`}
               >
                 <Disc className="w-4 h-4 text-slate-500 shrink-0" />
-                <span>TechSpin</span>
+                <span>Daily Rewards</span>
               </Link>
             </div>
 
-            {/* ACCOUNT (No Messaging) */}
+            {/* ACCOUNT */}
             <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 block">
                 Account
@@ -465,7 +421,6 @@ export function BuyerSidebar() {
                 <div className="pl-3 space-y-0.5">
                   <Link
                     href="/orders"
-                    prefetch={true}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/orders')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -478,7 +433,6 @@ export function BuyerSidebar() {
 
                   <Link
                     href="/saved"
-                    prefetch={true}
                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/saved')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -498,7 +452,6 @@ export function BuyerSidebar() {
 
                   <Link
                     href="/recently-viewed"
-                    prefetch={true}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/recently-viewed')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -511,7 +464,6 @@ export function BuyerSidebar() {
 
                   <Link
                     href="/price-alerts"
-                    prefetch={true}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/price-alerts')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -524,7 +476,6 @@ export function BuyerSidebar() {
 
                   <Link
                     href="/wallet"
-                    prefetch={true}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
                       isActive('/wallet')
                         ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
@@ -533,6 +484,18 @@ export function BuyerSidebar() {
                   >
                     <Wallet className="w-3.5 h-3.5 shrink-0" />
                     <span>My Wallet</span>
+                  </Link>
+
+                  <Link
+                    href="/settings"
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                      isActive('/settings')
+                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <Settings className="w-3.5 h-3.5 shrink-0" />
+                    <span>Account Settings</span>
                   </Link>
                 </div>
               )}
@@ -546,7 +509,6 @@ export function BuyerSidebar() {
 
               <Link
                 href="/help"
-                prefetch={true}
                 className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition ${
                   isActive('/help')
                     ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold'
