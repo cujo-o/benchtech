@@ -1,400 +1,308 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createBrowserClient } from '@supabase/ssr'
 import { useCompareStore } from '@/lib/store/useCompareStore'
+import { formatSpecLabel } from '@/lib/specs/categorySpecs'
 import { Button } from '@/components/ui/button'
-import {
-  Scale,
-  X,
-  Plus,
-  ArrowLeft,
-  Sparkles,
-  Bot,
-  Search,
-  Minus,
-  Loader2,
-} from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { AddToCartButton } from '@/components/cart/AddToCartButton'
+import { Scale, X, Plus, Trash2, ExternalLink, Package } from 'lucide-react'
 
-export function CompareClient() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const {
-    items: storeItems,
-    removeItem,
-    addItem,
-    clearCompare,
-  } = useCompareStore()
+function resolveFirstImage(images: any): string | null {
+  if (!images) return null
+  if (Array.isArray(images)) return images[0] || null
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images)
+      if (Array.isArray(parsed)) return parsed[0] || null
+    } catch {
+      return images.startsWith('http') ? images : null
+    }
+  }
+  return null
+}
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
-  const [loading, setLoading] = useState(true)
-  const [products, setProducts] = useState<any[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<any[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-
-  // 1. Determine IDs from either URL params or Zustand store
-  const urlIds = searchParams.get('ids')?.split(',').filter(Boolean) || []
-  const targetIds = urlIds.length > 0 ? urlIds : storeItems.map((i) => i.id)
-
-  // 2. Fetch full specifications for all compared gadgets
-  useEffect(() => {
-    async function loadComparedProducts() {
-      if (targetIds.length === 0) {
-        setProducts([])
-        setLoading(false)
-        return
+function parseProductSpecs(specs: any): Record<string, string> {
+  if (!specs) return {}
+  if (typeof specs === 'object' && !Array.isArray(specs)) {
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(specs)) {
+      if (v !== null && v !== undefined && String(v).trim() !== '') {
+        out[k] = String(v)
       }
-
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .in('id', targetIds)
-
-      if (!error && data) {
-        setProducts(data)
-      }
-      setLoading(false)
     }
-
-    loadComparedProducts()
-  }, [searchParams.get('ids'), storeItems.length])
-
-  // 3. Search and Add products into the matrix
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query)
-    if (!query.trim()) {
-      setSearchResults([])
-      return
-    }
-
-    setIsSearching(true)
-    const { data } = await supabase
-      .from('products')
-      .select('id, title, brand, price, images, condition, specs, category')
-      .ilike('title', `%${query}%`)
-      .limit(5)
-
-    setSearchResults(data || [])
-    setIsSearching(false)
+    return out
   }
-
-  const handleAddProduct = (item: any) => {
-    if (products.length >= 4) {
-      alert('You can compare a maximum of 4 gadgets at a time.')
-      return
-    }
-
-    addItem({
-      ...item,
-      images: item.images || [],
-    } as any)
-
-    const newIds = [...products.map((p) => p.id), item.id]
-    router.replace(`/compare?ids=${newIds.join(',')}`)
-    setSearchQuery('')
-    setSearchResults([])
-  }
-
-  const handleRemoveProduct = (id: string) => {
-    removeItem(id)
-    const filtered = products.filter((p) => p.id !== id)
-    setProducts(filtered)
-    if (filtered.length > 0) {
-      router.replace(`/compare?ids=${filtered.map((p) => p.id).join(',')}`)
-    } else {
-      router.replace('/compare')
+  if (typeof specs === 'string') {
+    try {
+      return parseProductSpecs(JSON.parse(specs))
+    } catch {
+      return {}
     }
   }
+  return {}
+}
 
-  // Extract unique technical spec keys across compared gadgets
-  const allSpecKeys = Array.from(
-    new Set(
-      products.flatMap((p) =>
-        p.specs && typeof p.specs === 'object' ? Object.keys(p.specs) : []
-      )
+export function CompareClient({
+  initialProducts = [],
+}: {
+  initialProducts?: any[]
+}) {
+  const { items: storeItems, removeItem, clearCompare } = useCompareStore()
+
+  // Merge store items with server-loaded items so full database specs are always present
+  const products =
+    initialProducts.length > 0
+      ? initialProducts
+      : storeItems
+
+  if (products.length === 0) {
+    return (
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center max-w-lg mx-auto my-8 space-y-4 shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
+          <Scale className="w-6 h-6" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-lg font-black text-slate-900 dark:text-white">
+            No Devices Selected for Comparison
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Select up to 4 products from the catalog or your seller listings to compare every technical specification side by side.
+          </p>
+        </div>
+        <Link href="/products" className="inline-block">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-6">
+            Browse Products to Compare
+          </Button>
+        </Link>
+      </div>
     )
-  )
+  }
+
+  // Dynamically collect EVERY spec key present on any of the compared products
+  const allSpecKeysSet = new Set<string>()
+  const parsedSpecsByProduct = new Map<string, Record<string, string>>()
+
+  for (const prod of products) {
+    const parsed = parseProductSpecs(prod.specs || prod.specifications)
+    // Also surface top-level hardware columns if present
+    if (prod.storage && !parsed.storage) parsed.storage = String(prod.storage)
+    if (prod.ram && !parsed.ram) parsed.ram = String(prod.ram)
+    if (prod.battery_health && !parsed.battery_health)
+      parsed.battery_health = String(prod.battery_health)
+    if (prod.processor && !parsed.processor)
+      parsed.processor = String(prod.processor)
+
+    parsedSpecsByProduct.set(prod.id, parsed)
+    Object.keys(parsed).forEach((k) => allSpecKeysSet.add(k))
+  }
+
+  const allSpecKeys = Array.from(allSpecKeysSet)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto w-full">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <Link
-            href="/feed"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 mb-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Feed
-          </Link>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-            Compare Tech
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            See the differences. Choose with confidence.
+    <div className="space-y-6">
+      {/* Header Bar */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Scale className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+              Side-by-Side Hardware Comparison
+            </h1>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Comparing {products.length} of 4 maximum devices across all recorded specifications.
           </p>
         </div>
 
-        {products.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              clearCompare()
-              setProducts([])
-              router.replace('/compare')
-            }}
-            className="text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-          >
-            Clear All
-          </Button>
-        )}
-      </div>
-
-      {/* Search & Add Bar */}
-      <div className="relative max-w-xl">
-        <div className="relative flex items-center">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search and add gadgets to compare..."
-            className="w-full text-xs h-11 pl-10 pr-20 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600 shadow-2xs"
-          />
-          {isSearching && (
-            <Loader2 className="w-4 h-4 animate-spin text-slate-400 absolute right-4" />
-          )}
-        </div>
-
-        {/* Search Results Dropdown */}
-        {searchResults.length > 0 && (
-          <div className="absolute top-12 left-0 right-0 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl z-30 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
-            {searchResults.map((result) => {
-              const alreadyIn = products.some((p) => p.id === result.id)
-              return (
-                <div
-                  key={result.id}
-                  className="p-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden shrink-0">
-                      {result.images?.[0] && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={result.images[0]}
-                          alt={result.title}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100 line-clamp-1">
-                        {result.title}
-                      </div>
-                      <div className="text-[11px] font-black text-blue-600">
-                        ₦{Number(result.price).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    disabled={alreadyIn}
-                    onClick={() => handleAddProduct(result)}
-                    className="h-8 text-xs font-bold rounded-xl"
-                  >
-                    {alreadyIn ? 'Added' : 'Add to Compare'}
-                  </Button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {loading ? (
-        <div className="min-h-[300px] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        </div>
-      ) : products.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-4 shadow-2xs">
-          <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950 text-blue-600 rounded-2xl flex items-center justify-center mx-auto">
-            <Scale className="w-7 h-7" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              No gadgets in comparison
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-              Search above or browse the feed and tap &quot;Compare Specs&quot; to inspect gadgets side by side.
-            </p>
-          </div>
-          <Link href="/feed">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-xs font-bold rounded-xl">
-              Browse Marketplace
+        <div className="flex items-center gap-2">
+          <Link href="/products">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs font-bold rounded-xl h-9 border-slate-200 dark:border-slate-700 gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Device
             </Button>
           </Link>
+          {storeItems.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={clearCompare}
+              className="text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl h-9 gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Clear Tray
+            </Button>
+          )}
         </div>
-      ) : (
-        /* Comparison Table */
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800">
-                  <th className="p-5 bg-slate-50/50 dark:bg-slate-800/40 w-44 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Product
-                  </th>
-                  {products.map((item) => (
-                    <th
-                      key={item.id}
-                      className="p-5 align-top w-64 min-w-[220px]"
-                    >
-                      <div className="space-y-3 relative">
+      </div>
+
+      {/* Comparison Matrix Table */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xs overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse min-w-[640px]">
+          <thead>
+            <tr className="border-b border-slate-200 dark:border-slate-800">
+              <th className="p-4 sm:p-5 w-44 bg-slate-50/70 dark:bg-slate-800/40 font-black uppercase text-[10px] tracking-wider text-slate-400 align-top">
+                Device Overview
+              </th>
+              {products.map((prod) => {
+                const img = resolveFirstImage(prod.images)
+                return (
+                  <th
+                    key={prod.id}
+                    className="p-4 sm:p-5 min-w-[200px] max-w-[260px] align-top border-l border-slate-100 dark:border-slate-800"
+                  >
+                    <div className="space-y-3">
+                      <div className="relative aspect-[4/3] w-full rounded-2xl bg-slate-100 dark:bg-slate-800 p-3 flex items-center justify-center overflow-hidden">
                         <button
-                          onClick={() => handleRemoveProduct(item.id)}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-slate-100 dark:bg-slate-800 hover:bg-red-50 hover:text-red-600 rounded-full flex items-center justify-center text-slate-400 transition"
+                          type="button"
+                          onClick={() => removeItem(prod.id)}
+                          title="Remove from comparison"
+                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 dark:bg-slate-900/90 text-slate-500 hover:text-red-600 flex items-center justify-center shadow-2xs cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={img}
+                            alt={prod.title}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <Package className="w-6 h-6 text-slate-400" />
+                        )}
+                      </div>
 
-                        <div className="w-full aspect-square bg-slate-50 dark:bg-slate-800/50 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 relative">
-                          {item.images?.[0] ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={item.images[0]}
-                              alt={item.title}
-                              className="w-full h-full object-contain p-2"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">
-                              No image
-                            </div>
-                          )}
-                        </div>
+                      <div className="space-y-1">
+                        <Badge variant="outline" className="text-[9px] uppercase font-bold">
+                          {prod.category || 'Hardware'}
+                        </Badge>
+                        <Link
+                          href={`/products/${prod.id}`}
+                          className="font-black text-sm text-slate-900 dark:text-white hover:text-blue-600 line-clamp-2 block"
+                        >
+                          {prod.title}
+                        </Link>
+                        <p className="text-base font-black text-blue-600 dark:text-blue-400">
+                          ₦{Number(prod.price || 0).toLocaleString()}
+                        </p>
+                      </div>
 
-                        <div>
-                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
-                            {item.brand || 'Device'}
-                          </span>
-                          <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 leading-snug line-clamp-2">
-                            {item.title}
-                          </h3>
-                          <div className="text-base font-black text-slate-900 dark:text-slate-100 mt-1">
-                            ₦{Number(item.price).toLocaleString()}
-                          </div>
-                        </div>
-
-                        <Link href={`/products/${item.id}`} className="block">
-                          <Button className="w-full text-xs h-9 rounded-xl bg-blue-600 hover:bg-blue-700 font-bold">
-                            View Details
+                      <div className="flex items-center gap-2 pt-1">
+                        <AddToCartButton product={prod} variant="full" />
+                        <Link href={`/products/${prod.id}`}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 px-2.5 rounded-xl border-slate-200 dark:border-slate-700"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
                           </Button>
                         </Link>
                       </div>
-                    </th>
-                  ))}
+                    </div>
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
 
-                  {products.length < 4 && (
-                    <th className="p-5 align-middle w-64 min-w-[200px] border-l border-dashed border-slate-200 dark:border-slate-800">
-                      <div className="text-center space-y-2 py-8">
-                        <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center mx-auto text-slate-400">
-                          <Plus className="w-5 h-5" />
-                        </div>
-                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                          Add Another
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          Search above to fill slot
-                        </p>
-                      </div>
-                    </th>
-                  )}
-                </tr>
-              </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {/* Core Universal Rows */}
+            <tr>
+              <td className="p-3.5 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 font-bold text-slate-500 dark:text-slate-400">
+                Brand
+              </td>
+              {products.map((prod) => (
+                <td
+                  key={prod.id}
+                  className="p-3.5 sm:p-4 font-bold text-slate-900 dark:text-white border-l border-slate-100 dark:border-slate-800"
+                >
+                  {prod.brand || '—'}
+                </td>
+              ))}
+            </tr>
 
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                <tr>
-                  <td className="p-4 bg-slate-50/50 dark:bg-slate-800/40 font-bold text-slate-500 uppercase text-[10px] tracking-wider">
-                    Condition
-                  </td>
-                  {products.map((item) => (
+            <tr>
+              <td className="p-3.5 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 font-bold text-slate-500 dark:text-slate-400">
+                Model
+              </td>
+              {products.map((prod) => (
+                <td
+                  key={prod.id}
+                  className="p-3.5 sm:p-4 font-semibold text-slate-800 dark:text-slate-200 border-l border-slate-100 dark:border-slate-800"
+                >
+                  {prod.model || parsedSpecsByProduct.get(prod.id)?.model || '—'}
+                </td>
+              ))}
+            </tr>
+
+            <tr>
+              <td className="p-3.5 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 font-bold text-slate-500 dark:text-slate-400">
+                Condition
+              </td>
+              {products.map((prod) => (
+                <td
+                  key={prod.id}
+                  className="p-3.5 sm:p-4 capitalize font-bold text-emerald-600 dark:text-emerald-400 border-l border-slate-100 dark:border-slate-800"
+                >
+                  {prod.condition?.replace(/_/g, ' ') || 'Used'}
+                </td>
+              ))}
+            </tr>
+
+            <tr>
+              <td className="p-3.5 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 font-bold text-slate-500 dark:text-slate-400">
+                Abuja Location
+              </td>
+              {products.map((prod) => (
+                <td
+                  key={prod.id}
+                  className="p-3.5 sm:p-4 text-slate-700 dark:text-slate-300 border-l border-slate-100 dark:border-slate-800"
+                >
+                  {prod.location || prod.profiles?.district || 'Abuja'}
+                </td>
+              ))}
+            </tr>
+
+            {/* Dynamic Complete Spec Rows Across All Compared Products */}
+            {allSpecKeys.map((specKey) => (
+              <tr key={specKey}>
+                <td className="p-3.5 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 font-bold text-slate-500 dark:text-slate-400">
+                  {formatSpecLabel(specKey)}
+                </td>
+                {products.map((prod) => {
+                  const val = parsedSpecsByProduct.get(prod.id)?.[specKey]
+                  return (
                     <td
-                      key={item.id}
-                      className="p-4 font-bold text-slate-800 dark:text-slate-200 capitalize"
+                      key={prod.id}
+                      className="p-3.5 sm:p-4 font-semibold text-slate-900 dark:text-slate-100 border-l border-slate-100 dark:border-slate-800"
                     >
-                      {item.condition?.replace('_', ' ') || 'Good'}
+                      {val || <span className="text-slate-400 font-normal">—</span>}
                     </td>
-                  ))}
-                  {products.length < 4 && <td />}
-                </tr>
+                  )
+                })}
+              </tr>
+            ))}
 
-                <tr>
-                  <td className="p-4 bg-slate-50/50 dark:bg-slate-800/40 font-bold text-slate-500 uppercase text-[10px] tracking-wider">
-                    Location
-                  </td>
-                  {products.map((item) => (
-                    <td key={item.id} className="p-4 text-slate-600 dark:text-slate-400">
-                      {item.location || 'Abuja'}
-                    </td>
-                  ))}
-                  {products.length < 4 && <td />}
-                </tr>
-
-                {allSpecKeys.map((key) => (
-                  <tr key={key}>
-                    <td className="p-4 bg-slate-50/50 dark:bg-slate-800/40 font-bold text-slate-500 uppercase text-[10px] tracking-wider">
-                      {key.replace(/_/g, ' ')}
-                    </td>
-                    {products.map((item) => (
-                      <td
-                        key={item.id}
-                        className="p-4 text-slate-800 dark:text-slate-200 font-medium"
-                      >
-                        {item.specs?.[key] ? (
-                          String(item.specs[key])
-                        ) : (
-                          <Minus className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
-                        )}
-                      </td>
-                    ))}
-                    {products.length < 4 && <td />}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* AI Recommendation Banner */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-indigo-950/40 border border-blue-100 dark:border-indigo-900/50 rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-2xs">
-        <div className="flex items-center gap-4 text-center sm:text-left">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
-            <Bot className="w-6 h-6" />
-          </div>
-          <div>
-            <h4 className="text-base font-black text-slate-900 dark:text-slate-100">
-              Not sure which one is better?
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Ask BenchTech AI to analyze specs, value for money, and battery life for your workflow.
-            </p>
-          </div>
-        </div>
-
-        <Link href="/assistant" className="shrink-0 w-full sm:w-auto">
-          <Button className="w-full sm:w-auto h-11 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-2 shadow-sm">
-            <Sparkles className="w-3.5 h-3.5" /> Get AI Recommendation
-          </Button>
-        </Link>
+            {/* Full Description Row so no important detail is left out */}
+            <tr>
+              <td className="p-3.5 sm:p-4 bg-slate-50/70 dark:bg-slate-800/40 font-bold text-slate-500 dark:text-slate-400 align-top">
+                Key Details &amp; Summary
+              </td>
+              {products.map((prod) => (
+                <td
+                  key={prod.id}
+                  className="p-3.5 sm:p-4 text-slate-600 dark:text-slate-300 leading-relaxed border-l border-slate-100 dark:border-slate-800 align-top whitespace-pre-line"
+                >
+                  {prod.description || '—'}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   )

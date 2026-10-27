@@ -3,6 +3,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { BenchTechLogo } from '@/components/BenchTechLogo'
+import { signOut } from '@/app/(auth)/actions'
+import { Button } from '@/components/ui/button'
+import { createBrowserClient } from '@supabase/ssr'
+import { playNotificationTone } from '@/lib/notificationSound'
 import {
   LayoutDashboard,
   Boxes,
@@ -29,12 +34,10 @@ import {
   ExternalLink,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   CalendarClock,
 } from 'lucide-react'
-import { signOut } from '@/app/(auth)/actions'
-import { Button } from '@/components/ui/button'
-import { createBrowserClient } from '@supabase/ssr'
-import { playNotificationTone } from '@/lib/notificationSound'
 
 interface SellerSidebarProps {
   profile: any
@@ -48,13 +51,25 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
   const previousCountRef = useRef<number>(0)
   const isInitialLoad = useRef<boolean>(true)
 
+  // Collapsible Category Accordions
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    catalog: true,
+    finance: true,
+    pro: true,
+    account: true,
+  })
+
   const isPro =
     profile?.seller_plan === 'pro' ||
     profile?.subscription_tier === 'pro' ||
     profile?.subscription_plan === 'professional'
 
-  const userRoles: string[] = profile?.roles || (profile?.role ? [profile.role] : [])
-  const isAdmin = profile?.is_admin === true || profile?.role === 'admin' || userRoles.includes('admin')
+  const userRoles: string[] =
+    profile?.roles || (profile?.role ? [profile.role] : [])
+  const isAdmin =
+    profile?.is_admin === true ||
+    profile?.role === 'admin' ||
+    userRoles.includes('admin')
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -62,12 +77,35 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
   )
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem('benchtech_seller_sidebar_collapsed')
+      if (saved !== null) setIsCollapsed(saved === 'true')
+    } catch {}
+  }, [])
+
+  useEffect(() => {
     setMobileOpen(false)
   }, [pathname])
 
+  const toggleSidebarCollapse = () => {
+    const next = !isCollapsed
+    setIsCollapsed(next)
+    try {
+      localStorage.setItem('benchtech_seller_sidebar_collapsed', String(next))
+    } catch {}
+  }
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
   const checkUnread = useCallback(async () => {
     if (!profile?.id) return
-    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+    if (
+      typeof document !== 'undefined' &&
+      document.visibilityState !== 'visible'
+    )
+      return
 
     try {
       const { count, error } = await supabase
@@ -84,370 +122,427 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         setUnreadCount(count)
       }
       isInitialLoad.current = false
-    } catch {
-      // Ignore network errors
-    }
+    } catch {}
   }, [profile?.id, supabase])
 
   useEffect(() => {
     checkUnread()
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        checkUnread()
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        checkUnread()
-      }
-    }, 60000)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-      clearInterval(interval)
-    }
+    const interval = setInterval(checkUnread, 60000)
+    return () => clearInterval(interval)
   }, [checkUnread])
 
-  const CORE_NAV = [
-    { label: 'Dashboard', href: '/seller', icon: LayoutDashboard },
-    { label: 'My Storefront', href: '/seller/store', icon: Store },
-    { label: 'Product Listings', href: '/seller/listings', icon: Boxes },
-    { label: 'Add New Listing', href: '/seller/listings/new', icon: PackagePlus },
-    { label: 'Orders', href: '/seller/orders', icon: ClipboardList },
-    { label: 'Messages', href: '/seller/enquiries', icon: MessageSquare },
+  const NAV_GROUPS = [
     {
-      label: 'Promotions & Ads',
-      href: '/seller/promotions',
-      icon: Megaphone,
-      badge: 'Ads',
-      badgeColor: 'bg-blue-600 text-white',
+      key: 'catalog',
+      label: 'Store & Catalog',
+      items: [
+        { label: 'My Storefront', href: '/seller/store', icon: Store },
+        { label: 'Product Listings', href: '/seller/listings', icon: Boxes },
+        {
+          label: 'Add New Listing',
+          href: '/seller/listings/new',
+          icon: PackagePlus,
+        },
+        {
+          label: 'Promotions & Ads',
+          href: '/seller/promotions',
+          icon: Megaphone,
+          badge: 'Ads',
+          badgeColor: 'bg-blue-600 text-white',
+        },
+      ],
     },
-    { label: 'Payouts & Wallet', href: '/seller/wallet', icon: Wallet },
     {
-      label: 'Payout Schedule',
-      href: '/seller/payouts',
-      icon: CalendarClock,
-      badge: 'Runs',
-      badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+      key: 'finance',
+      label: 'Orders & Finance',
+      items: [
+        { label: 'Orders', href: '/seller/orders', icon: ClipboardList },
+        {
+          label: 'Buyer Enquiries',
+          href: '/seller/enquiries',
+          icon: MessageSquare,
+          unread: unreadCount,
+        },
+        { label: 'Wallet & Payouts', href: '/seller/wallet', icon: Wallet },
+        {
+          label: 'Payout Schedule',
+          href: '/seller/payouts',
+          icon: CalendarClock,
+        },
+      ],
+    },
+    {
+      key: 'pro',
+      label: 'Pro Business Suite',
+      isProGroup: true,
+      items: [
+        {
+          label: 'Inventory Manager',
+          href: '/seller/inventory',
+          icon: Boxes,
+          pro: true,
+        },
+        {
+          label: 'Bulk CSV Upload',
+          href: '/seller/bulk-upload',
+          icon: Upload,
+          pro: true,
+        },
+        {
+          label: 'Store Analytics',
+          href: '/seller/analytics',
+          icon: BarChart3,
+          pro: true,
+        },
+        {
+          label: 'Sales Reports',
+          href: '/seller/reports',
+          icon: FileText,
+          pro: true,
+        },
+        {
+          label: 'Customer Directory',
+          href: '/seller/customers',
+          icon: Users,
+          pro: true,
+        },
+      ],
+    },
+    {
+      key: 'account',
+      label: 'Account & Settings',
+      items: [
+        {
+          label: 'Verification Status',
+          href: '/seller/onboarding',
+          icon: ShieldCheck,
+          badge:
+            profile?.tech_trust_status === 'verified' ? 'Verified' : 'Verify',
+          badgeColor:
+            profile?.tech_trust_status === 'verified'
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+              : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+        },
+        {
+          label: 'Plan & Billing',
+          href: '/seller/subscription',
+          icon: CreditCard,
+        },
+        {
+          label: 'Store Settings & Theme',
+          href: '/seller/settings',
+          icon: Settings,
+        },
+        { label: 'Seller Support', href: '/seller/support', icon: HelpCircle },
+      ],
     },
   ]
 
-  const PRO_NAV = [
-    { label: 'Bulk Upload', href: '/seller/bulk-upload', icon: Upload, pro: true },
-    { label: 'Inventory', href: '/seller/inventory', icon: Boxes, pro: true },
-    { label: 'Analytics', href: '/seller/analytics', icon: BarChart3, pro: true },
-    { label: 'Sales Reports', href: '/seller/reports', icon: FileText, pro: true },
-    { label: 'Customers', href: '/seller/customers', icon: Users, pro: true },
-  ]
+  const renderSidebarContent = (
+    onLinkClick?: () => void,
+    forceExpanded = false
+  ) => {
+    const collapsed = forceExpanded ? false : isCollapsed
+    const isDashboardActive =
+      pathname === '/seller' || pathname === '/seller/dashboard'
 
-  const SETTINGS_NAV = [
-    {
-      label: 'Store Verification',
-      href: '/seller/verify',
-      icon: ShieldCheck,
-      badge: profile?.tech_trust_status === 'verified' ? 'Verified' : 'Get Verified',
-    },
-    { label: 'Subscription & Plan', href: '/seller/subscription', icon: CreditCard },
-    { label: 'Store Settings', href: '/seller/settings', icon: Settings },
-    { label: 'Help & Support', href: '/help', icon: HelpCircle },
-  ]
-
-  const SidebarBody = ({ onLinkClick }: { onLinkClick?: () => void }) => (
-    <div className="flex flex-col h-full justify-between bg-[#f8fafc] dark:bg-slate-900 text-slate-700 dark:text-slate-300 transition-colors">
-      <div className="p-3.5 border-b border-slate-200/70 dark:border-slate-800 flex items-center justify-between shrink-0">
-        {!isCollapsed ? (
-          <Link href="/seller" onClick={onLinkClick} className="flex flex-col group min-w-0">
-            <div className="flex items-center gap-1.5 truncate">
-              <span className="font-black text-sm tracking-tight text-slate-900 dark:text-slate-100 group-hover:text-blue-600 transition">
-                ShopBenchTech
-              </span>
-              {isPro && (
-                <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                  PRO
+    return (
+      <div className="flex flex-col h-full justify-between bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 select-none transition-colors">
+        {/* Top Brand Header */}
+        <div className="p-3.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0">
+          {!collapsed ? (
+            <Link
+              href="/seller/dashboard"
+              onClick={onLinkClick}
+              className="flex items-center gap-2.5 min-w-0"
+            >
+              <BenchTechLogo className="w-8 h-8" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white truncate">
+                    {profile?.business_name || 'Seller Hub'}
+                  </span>
+                  {isPro && (
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
+                      PRO
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-400 font-semibold block">
+                  Merchant Workspace
                 </span>
+              </div>
+            </Link>
+          ) : (
+            <Link href="/seller/dashboard" className="mx-auto">
+              <BenchTechLogo className="w-8 h-8" />
+            </Link>
+          )}
+
+          {!forceExpanded && (
+            <button
+              type="button"
+              onClick={toggleSidebarCollapse}
+              className={`hidden lg:flex p-1.5 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer ${
+                collapsed ? 'mx-auto mt-2' : 'ml-auto'
+              }`}
+              title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+            >
+              {collapsed ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
               )}
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium">Seller Hub</span>
-          </Link>
-        ) : (
-          <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 mx-auto">
-            {(profile?.business_name || profile?.full_name || 'S')?.[0]?.toUpperCase()}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`hidden lg:flex p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition ${
-            isCollapsed ? 'mx-auto mt-2' : 'ml-auto'
-          }`}
-          title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-          aria-label={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-        >
-          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-3 py-3 space-y-4 [scrollbar-width:thin] [scrollbar-color:#94a3b8_transparent] dark:[scrollbar-color:#475569_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
-        <div className="space-y-0.5">
-          {!isCollapsed && (
-            <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1">
-              Store Essentials
-            </span>
+            </button>
           )}
-          {CORE_NAV.map((item) => {
-            const Icon = item.icon
-            const isActive =
-              pathname === item.href ||
-              (item.href === '/seller' && pathname === '/seller/dashboard')
-
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={onLinkClick}
-                title={isCollapsed ? item.label : undefined}
-                className={`flex items-center rounded-xl text-xs font-semibold transition relative group ${
-                  isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-1.5'
-                } ${
-                  isActive
-                    ? 'bg-blue-600 text-white font-bold shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-800'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
-                </div>
-
-                {!isCollapsed && item.label === 'Messages' && unreadCount > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-
-                {!isCollapsed && item.badge && item.label !== 'Messages' && (
-                  <span
-                    className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${
-                      item.badgeColor || 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-
-                {isCollapsed && item.label === 'Messages' && unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-600" />
-                )}
-              </Link>
-            )
-          })}
         </div>
 
-        <div className="space-y-0.5">
-          {!isCollapsed && (
-            <span className="text-[9px] uppercase font-bold tracking-wider text-purple-700 dark:text-purple-400 px-2 flex items-center justify-between mb-1">
-              <span>Pro Business Tools</span>
-              {isPro && <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />}
-            </span>
-          )}
-          {PRO_NAV.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={onLinkClick}
-                title={isCollapsed ? item.label : undefined}
-                className={`flex items-center rounded-xl text-xs font-semibold transition relative group ${
-                  isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-1.5'
-                } ${
-                  isActive
-                    ? 'bg-blue-600 text-white font-bold shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-800'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
-                </div>
-
-                {!isCollapsed && !isPro && (
-                  <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                    Pro
-                  </span>
-                )}
-              </Link>
-            )
-          })}
-        </div>
-
-        <div className="space-y-0.5">
-          {!isCollapsed && (
-            <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 px-2 block mb-1">
-              Store &amp; Verification
-            </span>
-          )}
-          {SETTINGS_NAV.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={onLinkClick}
-                title={isCollapsed ? item.label : undefined}
-                className={`flex items-center rounded-xl text-xs font-semibold transition relative group ${
-                  isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-1.5'
-                } ${
-                  isActive
-                    ? 'bg-blue-600 text-white font-bold shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-800'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
-                </div>
-
-                {!isCollapsed && item.badge && (
-                  <span
-                    className={`text-[8px] font-bold px-1.5 py-0.2 rounded-md ${
-                      item.badge === 'Verified'
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                        : 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="p-2 sm:p-3 border-t border-slate-200/70 dark:border-slate-800 space-y-2 shrink-0 bg-[#f8fafc] dark:bg-slate-900">
-        {!isCollapsed && !isPro && (
-          <div className="bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-900 rounded-xl p-2.5 space-y-1 shadow-2xs">
-            <span className="text-[11px] font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1">
-              <Crown className="w-3 h-3 text-blue-600" /> Upgrade to Pro
-            </span>
-            <Link href="/seller/subscription" onClick={onLinkClick} className="block">
-              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] h-6 rounded-lg cursor-pointer">
-                Upgrade ₦5k/mo
-              </Button>
+        {/* Scrollable Navigation Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2.5 space-y-3 [scrollbar-width:thin]">
+          {/* Overview Link */}
+          <div>
+            <Link
+              href="/seller/dashboard"
+              onClick={onLinkClick}
+              title={collapsed ? 'Dashboard' : undefined}
+              className={`flex items-center rounded-xl text-xs font-bold transition ${
+                collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2.5'
+              } ${
+                isDashboardActive
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/70'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 shrink-0" />
+              {!collapsed && <span>Dashboard</span>}
             </Link>
           </div>
-        )}
 
-        <Link
-          href="/products"
-          onClick={onLinkClick}
-          title={isCollapsed ? 'Switch to Buyer View' : undefined}
-          className={`flex items-center rounded-xl transition bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 shadow-2xs group ${
-            isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-2 text-xs font-bold'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <ExternalLink className="w-3.5 h-3.5 text-blue-600 group-hover:scale-105 transition shrink-0" />
-            {!isCollapsed && <span>Switch to Buyer View</span>}
-          </div>
-          {!isCollapsed && <ArrowRight className="w-3 h-3 text-slate-400 group-hover:translate-x-0.5 transition shrink-0" />}
-        </Link>
+          {/* Collapsible Category Groups */}
+          {NAV_GROUPS.map((group) => {
+            const isOpen = openGroups[group.key]
+            return (
+              <div
+                key={group.key}
+                className="pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1"
+              >
+                {!collapsed && (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.key)}
+                    className="w-full flex items-center justify-between px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span>{group.label}</span>
+                      {group.isProGroup && (
+                        <Crown className="w-3 h-3 text-amber-500 fill-amber-400" />
+                      )}
+                    </span>
+                    {isOpen ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                )}
 
-        {isAdmin && (
+                {(collapsed || isOpen) && (
+                  <div className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const Icon = item.icon
+                      const active = pathname === item.href
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={onLinkClick}
+                          title={collapsed ? item.label : undefined}
+                          className={`relative flex items-center rounded-xl text-xs font-semibold transition ${
+                            collapsed
+                              ? 'justify-center p-2.5'
+                              : 'justify-between px-3 py-2'
+                          } ${
+                            active
+                              ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold'
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Icon className="w-4 h-4 shrink-0" />
+                            {!collapsed && (
+                              <span className="truncate">{item.label}</span>
+                            )}
+                          </div>
+
+                          {!collapsed &&
+                          'unread' in item &&
+                          item.unread &&
+                          item.unread > 0 ? (
+                            <span className="bg-red-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                              {item.unread > 9 ? '9+' : item.unread}
+                            </span>
+                          ) : null}
+
+                          {!collapsed && 'badge' in item && item.badge ? (
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${
+                                item.badgeColor ||
+                                'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          ) : null}
+
+                          {!collapsed && 'pro' in item && item.pro && !isPro ? (
+                            <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                              Pro
+                            </span>
+                          ) : null}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Bottom Workspace Switcher & Sign Out */}
+        <div className="p-2.5 border-t border-slate-200/80 dark:border-slate-800 space-y-1.5 shrink-0">
+          {!collapsed && !isPro && (
+            <Link
+              href="/seller/subscription"
+              onClick={onLinkClick}
+              className="flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold shadow-2xs hover:opacity-95 transition"
+            >
+              <span className="flex items-center gap-1.5">
+                <Crown className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                <span>Upgrade to Pro</span>
+              </span>
+              <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-md">
+                ₦5k/mo
+              </span>
+            </Link>
+          )}
+
           <Link
-            href="/admin/advertising"
+            href="/feed"
             onClick={onLinkClick}
-            title={isCollapsed ? 'Admin Console' : undefined}
-            className={`flex items-center rounded-xl transition bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/50 ${
-              isCollapsed ? 'justify-center p-2.5' : 'justify-between px-2.5 py-1.5 text-xs font-bold'
+            title={collapsed ? 'Switch to Buyer View' : undefined}
+            className={`flex items-center rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700 transition ${
+              collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2'
             }`}
           >
             <div className="flex items-center gap-2">
-              <ShieldAlert className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-              {!isCollapsed && <span>Admin Console</span>}
+              <ExternalLink className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              {!collapsed && <span>Switch to Buyer View</span>}
             </div>
-            {!isCollapsed && <ArrowRight className="w-3 h-3 shrink-0" />}
+            {!collapsed && <ArrowRight className="w-3 h-3 text-slate-400" />}
           </Link>
-        )}
 
-        <form action={signOut}>
-          <Button
-            variant="ghost"
-            size="sm"
-            type="submit"
-            title={isCollapsed ? 'Log Out' : undefined}
-            className={`w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 gap-2 h-7 rounded-xl font-bold cursor-pointer ${
-              isCollapsed ? 'justify-center p-0' : 'justify-start px-2.5 text-xs'
-            }`}
-          >
-            <LogOut className="w-3.5 h-3.5 shrink-0" />
-            {!isCollapsed && <span>Log Out</span>}
-          </Button>
-        </form>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={onLinkClick}
+              title={collapsed ? 'Admin Console' : undefined}
+              className={`flex items-center rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition ${
+                collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                {!collapsed && <span>Admin Console</span>}
+              </div>
+              {!collapsed && <ArrowRight className="w-3 h-3 shrink-0" />}
+            </Link>
+          )}
+
+          <form action={signOut}>
+            <Button
+              variant="ghost"
+              size="sm"
+              type="submit"
+              title={collapsed ? 'Log Out' : undefined}
+              className={`w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 gap-2 h-8 rounded-xl font-bold cursor-pointer ${
+                collapsed ? 'justify-center p-0' : 'justify-start px-3 text-xs'
+              }`}
+            >
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              {!collapsed && <span>Log Out</span>}
+            </Button>
+          </form>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <>
-      <div className="lg:hidden sticky top-0 z-40 px-3.5 h-14 flex items-center justify-between w-full shadow-2xs border-b bg-[#f8fafc] dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-2">
+      {/* Mobile Sticky Top Header */}
+      <div className="lg:hidden sticky top-0 z-40 px-4 h-14 flex items-center justify-between w-full border-b bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
-            className="p-1.5 text-slate-600 dark:text-slate-300 rounded-xl focus:outline-none"
+            className="p-2 -ml-1 text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
             aria-label="Open seller menu"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-black text-sm tracking-tight text-slate-900 dark:text-slate-100">
-            ShopBenchTech
+          <BenchTechLogo className="w-7 h-7" />
+          <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white truncate max-w-[160px]">
+            {profile?.business_name || 'Seller Hub'}
           </span>
         </div>
 
-        <Link
-          href="/products"
-          className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-        >
-          Buyer View <ExternalLink className="w-3 h-3" />
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/seller/settings"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            title="Store Settings & Theme"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
+          <Link
+            href="/feed"
+            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+          >
+            <span>Storefront</span>
+            <ExternalLink className="w-3 h-3" />
+          </Link>
+        </div>
       </div>
 
+      {/* Mobile Slide-Out Drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="relative w-72 max-w-[82vw] h-full z-10 shadow-2xl flex flex-col bg-[#f8fafc] dark:bg-slate-900">
+          <aside className="relative w-72 max-w-[85vw] h-dvh z-10 shadow-2xl border-r border-slate-200 dark:border-slate-800 animate-in slide-in-from-left duration-200">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute top-3.5 right-3 p-1 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg"
+              className="absolute top-3.5 right-3 p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg z-20"
               aria-label="Close menu"
             >
               <X className="w-5 h-5" />
             </button>
-            <SidebarBody onLinkClick={() => setMobileOpen(false)} />
-          </div>
+            {renderSidebarContent(() => setMobileOpen(false), true)}
+          </aside>
         </div>
       )}
 
+      {/* Desktop Collapsible Sidebar */}
       <aside
-        className={`hidden lg:flex flex-col shrink-0 sticky top-0 h-screen overflow-hidden border-r border-slate-200/70 dark:border-slate-800 bg-[#f8fafc] dark:bg-slate-900 transition-all duration-200 ${
-          isCollapsed ? 'w-16' : 'w-60 xl:w-64'
+        className={`hidden lg:flex flex-col shrink-0 sticky top-0 h-screen overflow-hidden border-r border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 transition-all duration-200 ${
+          isCollapsed ? 'w-16' : 'w-64'
         }`}
       >
-        <SidebarBody />
+        {renderSidebarContent()}
       </aside>
     </>
   )

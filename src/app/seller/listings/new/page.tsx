@@ -1,604 +1,820 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import imageCompression from 'browser-image-compression'
 import { createClient } from '@/lib/supabase/client'
+import { createProductListingAction } from '../actions'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import {
-  UploadCloud,
+  ArrowLeft,
+  Upload,
   X,
   Loader2,
-  AlertTriangle,
-  Zap,
-  ArrowRight,
-  ArrowLeft,
-  Sparkles,
+  ShieldCheck,
+  AlertCircle,
+  CheckCircle2,
+  Smartphone,
+  Laptop,
+  Gamepad2,
+  Monitor,
+  Headphones,
+  Cpu,
+  FileText,
 } from 'lucide-react'
 
-const CATEGORIES = [
-  { id: 'phones', label: 'Phones' },
-  { id: 'laptops', label: 'Laptops' },
-  { id: 'tablets', label: 'Tablets' },
-  { id: 'cameras', label: 'Cameras' },
-  { id: 'gaming', label: 'Gaming Consoles' },
-  { id: 'accessories', label: 'Accessories' },
-  { id: 'monitors', label: 'Monitors' },
+type CategoryKey =
+  | 'phones'
+  | 'laptops'
+  | 'gaming'
+  | 'monitors'
+  | 'accessories'
+  | 'components'
+
+const CATEGORIES: Array<{
+  id: CategoryKey
+  label: string
+  icon: any
+}> = [
+  { id: 'phones', label: 'Phones & Tablets', icon: Smartphone },
+  { id: 'laptops', label: 'Laptops & Macs', icon: Laptop },
+  { id: 'gaming', label: 'Consoles & Gaming', icon: Gamepad2 },
+  { id: 'monitors', label: 'Monitors & Displays', icon: Monitor },
+  { id: 'accessories', label: 'Audio & Accessories', icon: Headphones },
+  { id: 'components', label: 'PC Parts & Storage', icon: Cpu },
 ]
 
-export default function NewListingPage() {
+const CONDITIONS = [
+  { id: 'brand_new', label: 'Brand New (Sealed)' },
+  { id: 'open_box', label: 'Open Box' },
+  { id: 'uk_used', label: 'Foreign Used (Clean)' },
+  { id: 'fairly_used', label: 'Direct Used' },
+]
+
+export default function NewSellerListingPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [initializing, setInitializing] = useState(true)
-  const [loading, setLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  // Core Product Fields
+  const [category, setCategory] = useState<CategoryKey>('phones')
+  const [title, setTitle] = useState('')
+  const [brand, setBrand] = useState('')
+  const [model, setModel] = useState('')
+  const [condition, setCondition] = useState('uk_used')
+  const [price, setPrice] = useState('')
+  const [quantity, setQuantity] = useState('1')
+  const [description, setDescription] = useState('')
 
-  // Seller Quota State
-  const [currentPlan, setCurrentPlan] = useState<string>('free')
-  const [maxListings, setMaxListings] = useState<number>(5)
-  const [maxImages, setMaxImages] = useState<number>(10)
-  const [activeCount, setActiveCount] = useState<number>(0)
-  const [isCapped, setIsCapped] = useState<boolean>(false)
+  // Per-Product Verification Fields
+  const [serialOrImei, setSerialOrImei] = useState('')
+  const [repairHistory, setRepairHistory] = useState('No prior repairs')
+  const [warrantyInfo, setWarrantyInfo] = useState('7-Day Inspection + Store Warranty')
+  const [ownershipProofUrl, setOwnershipProofUrl] = useState('')
+  const [uploadingProof, setUploadingProof] = useState(false)
 
-  // Form Fields State
-  const [selectedCategory, setSelectedCategory] = useState('phones')
-  const [files, setFiles] = useState<File[]>([])
-  const [previews, setPreviews] = useState<string[]>([])
-  const [specs, setSpecs] = useState<Record<string, string>>({})
+  // Category-Specific Hardware Specs
+  const [storage, setStorage] = useState('')
+  const [ram, setRam] = useState('')
+  const [batteryHealth, setBatteryHealth] = useState('')
+  const [color, setColor] = useState('')
+  const [lockStatus, setLockStatus] = useState('Factory Unlocked')
+  const [processor, setProcessor] = useState('')
+  const [gpu, setGpu] = useState('Integrated Graphics')
+  const [displaySize, setDisplaySize] = useState('')
+  const [includedAccessories, setIncludedAccessories] = useState('')
 
-  // 1. Fetch Profile Quotas and Active Listings Count on Mount
-  useEffect(() => {
-    async function checkQuota() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
+  // Photos State
+  const [images, setImages] = useState<string[]>([])
+  const [uploadingImages, setUploadingImages] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-        if (!user) {
-          router.push('/login?next=/seller/listings/new')
-          return
-        }
+  const numericPrice = Number(price) || 0
+  const isHighValue = numericPrice >= 800000
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('subscription_plan, subscription_tier, max_listings, max_images_per_listing')
-          .eq('id', user.id)
-          .maybeSingle()
+  async function uploadFileToStorage(file: File, folder: string): Promise<string> {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error('You must be signed in to upload files.')
 
-        const plan = profile?.subscription_plan || profile?.subscription_tier || 'free'
-        const allowedListings = profile?.max_listings || 5
-        const allowedImages = profile?.max_images_per_listing || 10
+    const isImage = file.type.startsWith('image/')
+    const fileToUpload = isImage
+      ? await imageCompression(file, {
+          maxSizeMB: 0.6,
+          maxWidthOrHeight: 1600,
+          useWebWorker: true,
+        })
+      : file
 
-        setCurrentPlan(plan)
-        setMaxListings(allowedListings)
-        setMaxImages(allowedImages)
+    const ext = file.name.split('.').pop() || 'jpg'
+    const filePath = `${folder}/${user.id}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 7)}.${ext}`
 
-        const { count } = await supabase
-          .from('products')
-          .select('*', { count: 'exact', head: true })
-          .eq('seller_id', user.id)
-          .neq('status', 'archived')
+    // Try 'products' bucket first, fallback to 'product-media'
+    let bucketName = 'products'
+    const { error: firstErr } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, fileToUpload, { upsert: true })
 
-        const currentTotal = count || 0
-        setActiveCount(currentTotal)
-
-        if (currentTotal >= allowedListings) {
-          setIsCapped(true)
-        }
-      } catch (err: any) {
-        console.error('Failed to load seller quota:', err)
-      } finally {
-        setInitializing(false)
-      }
+    if (firstErr) {
+      bucketName = 'product-media'
+      const { error: secondErr } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, fileToUpload, { upsert: true })
+      if (secondErr) throw secondErr
     }
 
-    checkQuota()
-  }, [supabase, router])
-
-  function handleSpecChange(key: string, value: string) {
-    setSpecs((prev) => ({ ...prev, [key]: value }))
+    const { data: pubData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(filePath)
+    return pubData.publicUrl
   }
 
-  // 2. Validate Image Quota
-  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.files) return
-    const incomingFiles = Array.from(e.target.files)
+  async function handleImageFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const fileList = e.target.files
+    if (!fileList || fileList.length === 0) return
 
-    if (files.length + incomingFiles.length > maxImages) {
-      setErrorMessage(
-        `Your ${currentPlan.toUpperCase()} plan allows a maximum of ${maxImages} images per gadget. Please upgrade to add more photos.`
+    setUploadingImages(true)
+    setError(null)
+
+    try {
+      const uploadedUrls: string[] = []
+      for (const file of Array.from(fileList).slice(0, 8 - images.length)) {
+        const url = await uploadFileToStorage(file, 'listings')
+        uploadedUrls.push(url)
+      }
+      setImages((prev) => [...prev, ...uploadedUrls])
+    } catch (err: any) {
+      setError(err?.message || 'Failed to upload image. Please try again.')
+    } finally {
+      setUploadingImages(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleOwnershipProofUpload(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingProof(true)
+    setError(null)
+
+    try {
+      const url = await uploadFileToStorage(file, 'product-evidence')
+      setOwnershipProofUrl(url)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to upload proof document.')
+    } finally {
+      setUploadingProof(false)
+    }
+  }
+
+  function removeImage(index: number) {
+    setImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (submitting || uploadingImages) return
+
+    setError(null)
+
+    if (images.length === 0) {
+      setError('Please upload at least one real photo of the item.')
+      return
+    }
+
+    if ((category === 'phones' || category === 'laptops' || category === 'gaming') && !serialOrImei.trim()) {
+      setError(
+        category === 'phones'
+          ? 'Please enter the device IMEI or Serial Number for product verification.'
+          : 'Please enter the device Serial Number for product verification.'
       )
       return
     }
 
-    setErrorMessage(null)
-    setFiles((prev) => [...prev, ...incomingFiles])
+    setSubmitting(true)
 
-    const newPreviews = incomingFiles.map((f) => URL.createObjectURL(f))
-    setPreviews((prev) => [...prev, ...newPreviews])
-  }
+    const specs: Record<string, string> = {}
+    if (storage) specs.storage = storage
+    if (ram) specs.ram = ram
+    if (batteryHealth) specs.battery_health = batteryHealth
+    if (color) specs.color = color
+    if (category === 'phones' && lockStatus) specs.lock_status = lockStatus
+    if (category === 'laptops') {
+      if (processor) specs.processor = processor
+      if (gpu) specs.gpu = gpu
+      if (displaySize) specs.display = displaySize
+    }
+    if (includedAccessories) specs.accessories = includedAccessories
 
-  function removeImage(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index))
-    setPreviews((prev) => prev.filter((_, i) => i !== index))
-  }
+    const res = await createProductListingAction({
+      title,
+      category,
+      brand,
+      model,
+      condition,
+      price: numericPrice,
+      quantity: Number(quantity) || 1,
+      description,
+      images,
+      serialOrImei,
+      ownershipProofUrl: ownershipProofUrl || undefined,
+      warrantyInfo,
+      repairHistory,
+      specs,
+    })
 
-  // 3. Handle Submit with Image Asset Caching
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setLoading(true)
-    setErrorMessage(null)
-
-    const form = new FormData(e.currentTarget)
-    const title = form.get('title') as string
-    const brand = form.get('brand') as string
-    const model = form.get('model') as string
-    const price = parseFloat(form.get('price') as string)
-    const condition = form.get('condition') as string
-    const location = (form.get('location') as string) || 'Abuja'
-
-    if (files.length === 0) {
-      setErrorMessage('Please upload at least one image of the product.')
-      setLoading(false)
+    if (res?.error) {
+      setError(res.error)
+      setSubmitting(false)
       return
     }
 
-    if (files.length > maxImages) {
-      setErrorMessage(`You cannot upload more than ${maxImages} images on the ${currentPlan}.`)
-      setLoading(false)
-      return
-    }
-
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
-      const { count: freshCount } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .eq('seller_id', user.id)
-        .neq('status', 'archived')
-
-      if ((freshCount || 0) >= maxListings) {
-        setIsCapped(true)
-        throw new Error(
-          `You have reached your limit of ${maxListings} active listings for the ${currentPlan} plan. Please upgrade your store.`
-        )
-      }
-
-      // Compress and upload images with 1-Year Cache-Control
-      const uploadedImageUrls: string[] = []
-
-      for (const file of files) {
-        const compressedFile = await imageCompression(file, {
-          maxSizeMB: 0.35,
-          maxWidthOrHeight: 1280,
-          useWebWorker: true,
-        })
-
-        const fileExt = file.name.split('.').pop()
-        const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-
-        // Upload with 1-year immutable cache header
-        const { error: uploadError } = await supabase.storage
-          .from('product-media')
-          .upload(filePath, compressedFile, {
-            cacheControl: '31536000',
-            upsert: false,
-          })
-
-        if (uploadError) throw uploadError
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from('product-media').getPublicUrl(filePath)
-
-        uploadedImageUrls.push(publicUrl)
-      }
-
-      // Insert listing into database
-      const { error: insertError } = await supabase.from('products').insert({
-        seller_id: user.id,
-        category: selectedCategory,
-        title,
-        brand,
-        model,
-        price,
-        condition,
-        location,
-        images: uploadedImageUrls,
-        status: 'published',
-        specs,
-      })
-
-      if (insertError) throw insertError
-
-      router.push('/seller/dashboard')
-      router.refresh()
-    } catch (err: unknown) {
-      const error = err as Error
-      setErrorMessage(error.message || 'Failed to create listing')
-      setLoading(false)
-    }
-  }
-
-  if (initializing) {
-    return (
-      <div className="min-h-[450px] flex flex-col items-center justify-center space-y-3">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <p className="text-xs text-slate-400 font-medium">Verifying store listing quota...</p>
-      </div>
-    )
-  }
-
-  if (isCapped) {
-    return (
-      <div className="max-w-2xl mx-auto py-12 px-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-8 shadow-2xs text-center space-y-6">
-          <div className="w-14 h-14 bg-amber-50 dark:bg-amber-950/60 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
-            <AlertTriangle className="w-7 h-7" />
-          </div>
-
-          <div className="space-y-2">
-            <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-              Listing Quota Reached
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-              Your store has published{' '}
-              <span className="font-bold text-slate-900 dark:text-slate-100">
-                {activeCount} of {maxListings}
-              </span>{' '}
-              allowed listings on the{' '}
-              <span className="font-bold uppercase text-blue-600 dark:text-blue-400">{currentPlan}</span> plan. Upgrade
-              your store plan to post more gadgets to Abuja buyers.
-            </p>
-          </div>
-
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-2xl max-w-md mx-auto flex items-center justify-between text-xs">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">Need more inventory slots?</span>
-            <span className="font-bold text-blue-600 dark:text-blue-400">Pro Plan gives 25 slots</span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <Link href="/seller/listings">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto text-xs h-11 rounded-xl border-slate-200 dark:border-slate-700 gap-1.5 font-bold"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Listings
-              </Button>
-            </Link>
-            <Link href="/seller/subscription">
-              <Button className="w-full sm:w-auto text-xs h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white gap-2 font-bold shadow-xs">
-                <Zap className="w-4 h-4 text-amber-300 fill-amber-300" /> Upgrade Store Tier{' '}
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
+    router.push('/seller/listings')
+    router.refresh()
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 p-4 sm:p-6">
-      {/* Header with Live Plan Quota Details */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Add New Listing</h1>
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded-md border border-blue-200 dark:border-blue-800 capitalize">
-              {currentPlan} Tier
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Slot <span className="font-bold text-slate-700 dark:text-slate-300">{activeCount + 1}</span> of{' '}
-            <span className="font-bold text-slate-700 dark:text-slate-300">{maxListings}</span> • Max {maxImages} images allowed.
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Top Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs">
+        <div className="space-y-1">
+          <Link
+            href="/seller/listings"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 mb-1"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Listings</span>
+          </Link>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+            Create New Product Listing
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Provide accurate hardware specifications, real device photos, and serial verification details.
           </p>
         </div>
 
-        <Link href="/seller/listings">
-          <Button variant="ghost" size="sm" className="text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100">
-            Cancel
-          </Button>
-        </Link>
+        <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold px-3 py-1 rounded-xl w-fit flex items-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Per-Product Verification Active</span>
+        </Badge>
       </div>
 
-      {errorMessage && (
-        <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs rounded-xl font-medium">
-          {errorMessage}
+      {error && (
+        <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs font-semibold text-red-700 dark:text-red-300 flex items-center gap-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+          <span>{error}</span>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Core Details */}
-        <Card className="rounded-2xl border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
-          <CardHeader>
-            <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">Product Details</CardTitle>
-            <CardDescription className="text-xs text-slate-400">
-              Select the exact category to load device-specific fields.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        {/* 1. Category Selector */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <h2 className="text-sm font-black text-slate-900 dark:text-white">
+            1. Select Hardware Category
+          </h2>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {CATEGORIES.map((cat) => {
+              const Icon = cat.icon
+              const active = category === cat.id
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setCategory(cat.id)}
+                  className={`p-3.5 rounded-2xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
+                    active
+                      ? 'border-2 border-blue-600 bg-blue-50/50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
+                      : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 font-semibold hover:border-slate-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="text-xs truncate">{cat.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 2. Basic Product Information & Pricing */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <h2 className="text-sm font-black text-slate-900 dark:text-white">
+            2. Device Identity &amp; Pricing
+          </h2>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Listing Title
+            </label>
+            <input
+              type="text"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={
+                category === 'phones'
+                  ? 'e.g. iPhone 14 Pro Max 256GB Factory Unlocked'
+                  : category === 'laptops'
+                  ? 'e.g. MacBook Pro 14 M2 Pro 16GB RAM 512GB SSD'
+                  : 'e.g. Sony PlayStation 5 Slim Disc Edition + 2 Pads'
+              }
+              className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Category</Label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Brand
+              </label>
+              <input
+                type="text"
+                required
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder="e.g. Apple, Samsung, HP, Dell, Sony"
+                className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Exact Model
+              </label>
+              <input
+                type="text"
+                required
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder="e.g. A2894 / Latitude 7420"
+                className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Condition
+              </label>
               <select
-                value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value)
-                  setSpecs({})
-                }}
-                className="w-full mt-1.5 h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600"
+                value={condition}
+                onChange={(e) => setCondition(e.target.value)}
+                className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {CATEGORIES.map((c) => (
+                {CONDITIONS.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.label}
                   </option>
                 ))}
               </select>
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="title" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Listing Title
-              </Label>
-              <Input
-                id="title"
-                name="title"
-                placeholder="e.g. iPhone 15 Pro Max - 256GB - Blue Titanium"
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Selling Price (₦)
+              </label>
+              <input
+                type="number"
                 required
-                className="mt-1 text-xs rounded-xl"
+                min={1000}
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="e.g. 450000"
+                className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs font-black focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="brand" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Brand
-                </Label>
-                <Input
-                  id="brand"
-                  name="brand"
-                  placeholder="e.g. Apple, Dell, Sony"
-                  required
-                  className="mt-1 text-xs rounded-xl"
-                />
-              </div>
-              <div>
-                <Label htmlFor="model" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Model
-                </Label>
-                <Input
-                  id="model"
-                  name="model"
-                  placeholder="e.g. A2849, XPS 15"
-                  required
-                  className="mt-1 text-xs rounded-xl"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Available Units in Stock
+              </label>
+              <input
+                type="number"
+                required
+                min={1}
+                max={100}
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
+          </div>
+        </div>
 
-            <div className="grid grid-cols-2 gap-4">
+        {/* 3. Category-Specific Technical Specifications */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">
+              3. Hardware Specifications
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Used for buyer side-by-side spec comparisons and delivery inspection checks.
+            </p>
+          </div>
+
+          {category === 'phones' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="price" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Price (NGN)
-                </Label>
-                <Input
-                  id="price"
-                  name="price"
-                  type="number"
-                  min="0"
-                  placeholder="1250000"
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Storage Capacity
+                </label>
+                <input
+                  type="text"
                   required
-                  className="mt-1 text-xs rounded-xl font-bold text-slate-900 dark:text-slate-100"
+                  value={storage}
+                  onChange={(e) => setStorage(e.target.value)}
+                  placeholder="e.g. 256GB"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
                 />
               </div>
+
               <div>
-                <Label htmlFor="condition" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Condition
-                </Label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  RAM
+                </label>
+                <input
+                  type="text"
+                  value={ram}
+                  onChange={(e) => setRam(e.target.value)}
+                  placeholder="e.g. 8GB"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Battery Health (%)
+                </label>
+                <input
+                  type="text"
+                  value={batteryHealth}
+                  onChange={(e) => setBatteryHealth(e.target.value)}
+                  placeholder="e.g. 92%"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Color
+                </label>
+                <input
+                  type="text"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  placeholder="e.g. Space Black"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Network / Activation Status
+                </label>
                 <select
-                  id="condition"
-                  name="condition"
-                  className="w-full mt-1 h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600"
+                  value={lockStatus}
+                  onChange={(e) => setLockStatus(e.target.value)}
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
                 >
-                  <option value="brand_new">Brand New (Sealed)</option>
-                  <option value="open_box">Open Box / Mint</option>
-                  <option value="fairly_used">Clean Fairly Used</option>
-                  <option value="refurbished">Refurbished</option>
+                  <option value="Factory Unlocked (Physical SIM + eSIM)">
+                    Factory Unlocked (Physical SIM + eSIM)
+                  </option>
+                  <option value="Factory Unlocked (eSIM Only)">
+                    Factory Unlocked (eSIM Only)
+                  </option>
+                  <option value="Factory Unlocked (Physical Dual SIM)">
+                    Factory Unlocked (Physical Dual SIM)
+                  </option>
+                  <option value="Carrier Locked / Wi-Fi Only">
+                    Carrier Locked / Wi-Fi Only
+                  </option>
                 </select>
               </div>
             </div>
+          )}
 
-            <div>
-              <Label htmlFor="location" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Item Location (Abuja Hub / Plaza)
-              </Label>
-              <Input
-                id="location"
-                name="location"
-                defaultValue="Banex Plaza, Wuse 2"
-                placeholder="e.g. Banex Plaza, Emab Plaza, Wuse 2, Garki"
-                required
-                className="mt-1 text-xs rounded-xl"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dynamic Category Specifications */}
-        <Card className="rounded-2xl border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
-          <CardHeader>
-            <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
-              Technical Specifications ({selectedCategory})
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-400">
-              Powers the side-by-side comparison matrix and filter catalog.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {selectedCategory === 'phones' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Storage Capacity</Label>
-                  <Input
-                    placeholder="e.g. 256GB"
-                    onChange={(e) => handleSpecChange('storage', e.target.value)}
-                    className="mt-1 text-xs rounded-xl"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Battery Health (%)</Label>
-                  <Input
-                    placeholder="e.g. 89%"
-                    onChange={(e) => handleSpecChange('battery_health', e.target.value)}
-                    className="mt-1 text-xs rounded-xl"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">RAM</Label>
-                  <Input
-                    placeholder="e.g. 8GB"
-                    onChange={(e) => handleSpecChange('ram', e.target.value)}
-                    className="mt-1 text-xs rounded-xl"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">SIM Status</Label>
-                  <Input
-                    placeholder="e.g. Physical + eSIM"
-                    onChange={(e) => handleSpecChange('sim_status', e.target.value)}
-                    className="mt-1 text-xs rounded-xl"
-                  />
-                </div>
-              </div>
-            )}
-
-            {selectedCategory === 'laptops' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Processor / Chip</Label>
-                  <Input
-                    placeholder="e.g. Apple M2 or Core i7-13700H"
-                    onChange={(e) => handleSpecChange('processor', e.target.value)}
-                    className="mt-1 text-xs rounded-xl"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">RAM</Label>
-                  <Input
-                    placeholder="e.g. 16GB"
-                    onChange={(e) => handleSpecChange('ram', e.target.value)}
-                    className="mt-1 text-xs rounded-xl"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Storage (SSD/HDD)</Label>
-                  <Input
-                    placeholder="e.g. 512GB NVMe SSD"
-                    onChange={(e) => handleSpecChange('storage', e.target.value)}
-                    className="mt-1 text-xs rounded-xl"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Graphics / GPU</Label>
-                  <Input
-                    placeholder="e.g. RTX 4060 8GB"
-                    onChange={(e) => handleSpecChange('gpu', e.target.value)}
-                    className="mt-1 text-xs rounded-xl"
-                  />
-                </div>
-              </div>
-            )}
-
-            {selectedCategory !== 'phones' && selectedCategory !== 'laptops' && (
+          {category === 'laptops' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Primary Specifications</Label>
-                <Input
-                  placeholder="e.g. 4K 144Hz, Wireless, Output Wattage"
-                  onChange={(e) => handleSpecChange('primary_spec', e.target.value)}
-                  className="mt-1 text-xs rounded-xl"
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Processor (CPU)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={processor}
+                  onChange={(e) => setProcessor(e.target.value)}
+                  placeholder="e.g. Intel Core i7 12th Gen / Apple M2"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
                 />
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Media Upload Area with 1-Year Cache */}
-        <Card className="rounded-2xl border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">Product Images</CardTitle>
-              <span className="text-xs font-bold text-slate-500">
-                {files.length} / {maxImages} Photos
-              </span>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Memory (RAM)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={ram}
+                  onChange={(e) => setRam(e.target.value)}
+                  placeholder="e.g. 16GB DDR5"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Storage (SSD)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={storage}
+                  onChange={(e) => setStorage(e.target.value)}
+                  placeholder="e.g. 512GB NVMe SSD"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Graphics (GPU)
+                </label>
+                <input
+                  type="text"
+                  value={gpu}
+                  onChange={(e) => setGpu(e.target.value)}
+                  placeholder="e.g. RTX 4060 8GB / Intel Iris Xe"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Display Size &amp; Resolution
+                </label>
+                <input
+                  type="text"
+                  value={displaySize}
+                  onChange={(e) => setDisplaySize(e.target.value)}
+                  placeholder="e.g. 14-inch FHD+ IPS"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Battery Health / Cycle Count
+                </label>
+                <input
+                  type="text"
+                  value={batteryHealth}
+                  onChange={(e) => setBatteryHealth(e.target.value)}
+                  placeholder="e.g. 89% (4+ hours backup)"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
             </div>
-            <CardDescription className="text-xs text-slate-400">
-              Photos are compressed before upload and served with 1-year browser caching to reduce data usage.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer relative">
+          )}
+
+          {category !== 'phones' && category !== 'laptops' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Key Specification / Capacity
+                </label>
+                <input
+                  type="text"
+                  value={storage}
+                  onChange={(e) => setStorage(e.target.value)}
+                  placeholder="e.g. 1TB SSD / 144Hz 4K IPS / Bluetooth 5.3"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Included Accessories / Box Contents
+                </label>
+                <input
+                  type="text"
+                  value={includedAccessories}
+                  onChange={(e) => setIncludedAccessories(e.target.value)}
+                  placeholder="e.g. 2 Wireless Controllers, HDMI 2.1 Cable, Original Box"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Per-Product Verification & Ownership Evidence */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                4. Product Verification &amp; Authenticity Proof
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Serial/IMEI numbers are checked against duplicate listings. Only the last 4 digits are shown to buyers.
+              </p>
+            </div>
+            {isHighValue && (
+              <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 text-[10px] font-bold">
+                High-Value Listing (≥ ₦800,000) — Proof Recommended
+              </Badge>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                {category === 'phones' ? 'IMEI / Serial Number' : 'Serial Number'}
+              </label>
+              <input
+                type="text"
+                value={serialOrImei}
+                onChange={(e) => setSerialOrImei(e.target.value)}
+                placeholder={category === 'phones' ? '15-digit IMEI or Serial' : 'Device Serial Number'}
+                className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Repair History
+              </label>
+              <select
+                value={repairHistory}
+                onChange={(e) => setRepairHistory(e.target.value)}
+                className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+              >
+                <option value="No prior repairs (All original parts)">
+                  No prior repairs (All original parts)
+                </option>
+                <option value="Battery replaced">Battery replaced</option>
+                <option value="Screen replaced">Screen replaced</option>
+                <option value="Manufacturer refurbished">Manufacturer refurbished</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Warranty Coverage
+              </label>
+              <input
+                type="text"
+                value={warrantyInfo}
+                onChange={(e) => setWarrantyInfo(e.target.value)}
+                placeholder="e.g. 7-Day Inspection + 30-Day Store Warranty"
+                className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium"
+              />
+            </div>
+          </div>
+
+          {/* Ownership / Purchase Proof Upload */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5 text-xs">
+              <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                <span>Ownership / Purchase Proof or Serial Screen Photo (Optional)</span>
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Upload invoice, receipt, or a photo of the device&apos;s About screen to earn the Product Verified badge. Kept strictly private.
+              </p>
+            </div>
+
+            <label className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-blue-500 text-xs font-bold cursor-pointer shrink-0 transition text-center">
               <input
                 type="file"
-                multiple
-                accept="image/*"
-                onChange={handleImageSelect}
-                disabled={files.length >= maxImages}
-                className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={handleOwnershipProofUpload}
               />
-              <UploadCloud className="w-8 h-8 mx-auto text-slate-400 mb-2" />
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                {files.length >= maxImages
-                  ? `Maximum photo quota reached (${maxImages}/${maxImages})`
-                  : 'Click to upload photos or drag and drop'}
-              </p>
-              <p className="text-[11px] text-slate-400 mt-1">PNG, JPG, WEBP up to 10MB each</p>
-            </div>
+              {uploadingProof ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                  Uploading...
+                </span>
+              ) : ownershipProofUrl ? (
+                <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Evidence Attached
+                </span>
+              ) : (
+                <span>Attach Proof</span>
+              )}
+            </label>
+          </div>
+        </div>
 
-            {previews.length > 0 && (
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 pt-2">
-                {previews.map((src, i) => (
-                  <div
-                    key={i}
-                    className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 group"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt="Upload preview" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(i)}
-                      className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition shadow-xs"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+        {/* 5. Real Hardware Photos & Description */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
+          <div>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">
+              5. Real Device Photos &amp; Condition Notes
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Upload up to 8 clear photos of the actual hardware (front, back, edges, and screen).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {images.map((url, idx) => (
+              <div
+                key={idx}
+                className="relative aspect-square rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center p-2"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Device photo ${idx + 1}`}
+                  className="max-h-full max-w-full object-contain"
+                />
+                {idx === 0 && (
+                  <span className="absolute bottom-2 left-2 bg-blue-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md">
+                    Main Photo
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeImage(idx)}
+                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-slate-900/80 text-white flex items-center justify-center hover:bg-red-600 transition cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            ))}
 
-        <Button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 h-11 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Compressing &amp; Publishing...
-            </>
-          ) : (
-            'Publish Listing'
-          )}
-        </Button>
+            {images.length < 8 && (
+              <label className="aspect-square rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 bg-slate-50/60 dark:bg-slate-800/30 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition p-4 text-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleImageFilesChange}
+                />
+                {uploadingImages ? (
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                ) : (
+                  <Upload className="w-6 h-6 text-slate-400" />
+                )}
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {uploadingImages ? 'Uploading...' : 'Add Photos'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {images.length}/8 uploaded
+                </span>
+              </label>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Detailed Condition &amp; Package Notes
+            </label>
+            <textarea
+              rows={4}
+              required
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe physical condition, battery performance, included charger/accessories, and any minor scratches..."
+              className="w-full p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-[11px] text-slate-400">
+              Your verified seller status is already active — no additional identity documents required.
+            </p>
+            <Button
+              type="submit"
+              disabled={submitting || uploadingImages}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-11 px-8 cursor-pointer gap-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Publishing Listing...</span>
+                </>
+              ) : (
+                <span>Publish Product Listing</span>
+              )}
+            </Button>
+          </div>
+        </div>
       </form>
     </div>
   )
