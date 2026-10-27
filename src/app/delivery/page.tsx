@@ -1,15 +1,15 @@
-import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Navbar } from '@/components/Navbar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DeliveryExceptionModal } from './DeliveryExceptionModal'
 import {
-  toggleDeliveryOnlineStatus,
-  acceptDeliveryJob,
-  confirmPickup,
-  verifyDeliveryCompletion,
+  claimDeliveryOrderAction,
+  verifyDeliveryHandoverAction,
 } from '@/app/actions/delivery'
+import { DeliveryExceptionModal } from './DeliveryExceptionModal'
 import {
   Truck,
   MapPin,
@@ -17,282 +17,397 @@ import {
   Package,
   CheckCircle2,
   Clock,
-  Wallet,
-  ArrowRight,
+  Store,
+  User,
+  ShieldCheck,
   AlertTriangle,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DeliveryPortalPage() {
+export const metadata = {
+  title: 'Delivery & Logistics Hub | BenchTech Abuja',
+}
+
+function getAdminDb() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createAdminClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+export default async function DeliveryDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const params = await searchParams
+  const activeTab = params?.tab || 'active'
+
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/delivery')
 
-  const { data: profile } = await supabase
+  if (!user) {
+    redirect('/login?next=/delivery')
+  }
+
+  const adminDb = getAdminDb()
+  const { data: profile } = await adminDb
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  const isDelivery = profile?.is_delivery || profile?.role === 'delivery' || profile?.is_admin
-  if (!isDelivery) {
+  const roles: string[] = Array.isArray(profile?.roles)
+    ? profile.roles
+    : profile?.role
+    ? [profile.role]
+    : []
+
+  const isAdmin =
+    profile?.role === 'admin' || profile?.is_admin === true || roles.includes('admin')
+  const isDeliverer =
+    profile?.role === 'delivery' ||
+    profile?.is_delivery === true ||
+    roles.includes('delivery') ||
+    isAdmin
+
+  if (!isDeliverer) {
     redirect('/feed')
   }
 
-  // Fetch Jobs: Assigned to this driver & Available unassigned jobs in Abuja
-  const [{ data: myJobs }, { data: availableJobs }] = await Promise.all([
-    supabase
-      .from('delivery_jobs')
-      .select('*, order:orders(*)')
-      .eq('delivery_person_id', user.id)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('delivery_jobs')
-      .select('*, order:orders(*)')
-      .eq('status', 'new')
-      .is('delivery_person_id', null)
-      .order('created_at', { ascending: false }),
-  ])
+  const { data: orders } = await adminDb
+    .from('orders')
+    .select(`
+      *,
+      product:products(id, title, price, condition),
+      buyer:profiles!orders_buyer_id_fkey(full_name, phone, district, street_address),
+      seller:profiles!orders_seller_id_fkey(business_name, full_name, phone, district, street_address)
+    `)
+    .neq('order_status', 'cancelled')
+    .neq('order_status', 'refunded')
+    .order('created_at', { ascending: false })
 
-  const activeJob = (myJobs || []).find((j) =>
-    ['accepted', 'pickup_pending', 'in_transit'].includes(j.status)
+  const allOrders = orders || []
+
+  // Categorize deliveries
+  const myActiveDeliveries = allOrders.filter(
+    (o) =>
+      o.delivery_status !== 'verified' &&
+      (o.courier_id === user.id ||
+        (isAdmin && o.delivery_status === 'dispatched'))
   )
-  const completedJobs = (myJobs || []).filter((j) => j.status === 'delivered')
-  const openQueue = availableJobs || []
+
+  const availablePool = allOrders.filter(
+    (o) =>
+      o.delivery_status !== 'verified' &&
+      !o.courier_id
+  )
+
+  const completedDeliveries = allOrders.filter(
+    (o) =>
+      o.delivery_status === 'verified' &&
+      (isAdmin || o.courier_id === user.id)
+  )
+
+  const displayedOrders =
+    activeTab === 'available'
+      ? availablePool
+      : activeTab === 'completed'
+      ? completedDeliveries
+      : myActiveDeliveries.length > 0
+      ? myActiveDeliveries
+      : availablePool
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        {/* Driver Status & Instant Earnings Card */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-black">
-              <Truck className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black">{profile.full_name || 'Delivery Partner'}</h1>
-                <Badge
-                  className={
-                    profile.is_online ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-700'
-                  }
-                >
-                  {profile.is_online ? 'Active • Online' : 'Offline'}
-                </Badge>
+      <main className="max-w-6xl w-full mx-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6">
+        {/* Header */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-2xl bg-sky-600 text-white">
+                <Truck className="w-5 h-5" />
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                BenchTech Logistics Fleet • Abuja Central
-              </p>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                Abuja Delivery &amp; Handover Hub
+              </h1>
+              <Badge className="bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300 border border-sky-200 dark:border-sky-800 text-[10px] font-bold">
+                {profile?.full_name || 'Authorized Deliverer'}
+              </Badge>
             </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Coordinate hardware pickups from verified sellers, oversee buyer inspection, and confirm handover OTPs.
+            </p>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Available Earnings
-              </span>
-              <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                ₦{Number(profile.delivery_earnings || 0).toLocaleString()}
-              </span>
-            </div>
-
-            <form
-              action={async () => {
-                'use server'
-                await toggleDeliveryOnlineStatus(!profile.is_online)
-              }}
-            >
+          {isAdmin && (
+            <Link href="/admin/deliveries">
               <Button
                 size="sm"
-                variant={profile.is_online ? 'outline' : 'default'}
-                className="rounded-xl text-xs font-bold"
+                variant="outline"
+                className="text-xs font-bold rounded-xl h-9 border-slate-200 dark:border-slate-700 cursor-pointer"
               >
-                {profile.is_online ? 'Go Offline' : 'Go Online'}
+                Admin Dispatch View
               </Button>
-            </form>
-          </div>
-        </div>
-
-        {/* Active Delivery Workflow */}
-        {activeJob ? (
-          <div className="bg-linear-to-b from-blue-900 to-indigo-950 text-white p-6 sm:p-7 rounded-3xl border border-blue-800 shadow-xl space-y-5">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                <h2 className="text-base font-black">Active Delivery #{activeJob.job_number}</h2>
-              </div>
-              <span className="text-xs font-bold bg-white/10 px-3 py-1 rounded-full capitalize">
-                Status: {activeJob.status.replace('_', ' ')}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                <span className="text-[10px] text-blue-300 font-bold uppercase block">
-                  1. Pickup Address
-                </span>
-                <p className="font-bold text-white text-sm">{activeJob.pickup_address}</p>
-                <p className="text-slate-300">Contact: {activeJob.pickup_phone}</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                <span className="text-[10px] text-emerald-300 font-bold uppercase block">
-                  2. Buyer Dropoff Address
-                </span>
-                <p className="font-bold text-white text-sm">{activeJob.dropoff_address}</p>
-                <p className="text-slate-300">Contact: {activeJob.dropoff_phone}</p>
-              </div>
-            </div>
-
-            {/* Workflow Controls: Pickup vs Complete Delivery */}
-            <div className="pt-2 space-y-3">
-              {activeJob.status === 'accepted' || activeJob.status === 'pickup_pending' ? (
-                <form
-                  action={async () => {
-                    'use server'
-                    await confirmPickup(activeJob.id)
-                  }}
-                >
-                  <Button className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs h-11 rounded-xl shadow-md cursor-pointer">
-                    Confirm Pickup from Seller → Start Transit
-                  </Button>
-                </form>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-xs text-blue-200">
-                    Hand device to buyer for physical check. Request the 6-digit confirmation OTP
-                    from the buyer to verify delivery and release your ₦
-                    {Number(activeJob.delivery_partner_earning).toLocaleString()} earning immediately.
-                  </p>
-                  <form
-                    action={async (formData: FormData) => {
-                      'use server'
-                      const otp = formData.get('otp') as string
-                      await verifyDeliveryCompletion(activeJob.id, otp)
-                    }}
-                    className="flex gap-2"
-                  >
-                    <input
-                      type="text"
-                      name="otp"
-                      required
-                      placeholder="Enter 6-digit Buyer OTP..."
-                      className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-xs text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono font-bold"
-                    />
-                    <Button
-                      type="submit"
-                      className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs px-5 rounded-xl cursor-pointer"
-                    >
-                      Verify &amp; Release ₦
-                      {Number(activeJob.delivery_partner_earning).toLocaleString()}
-                    </Button>
-                  </form>
-                </div>
-              )}
-
-              {/* Exception Modal & Fee Info */}
-              <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                <DeliveryExceptionModal
-                  jobId={activeJob.id}
-                  jobNumber={activeJob.job_number}
-                />
-                <span className="text-[11px] text-blue-200">
-                  Fee:{' '}
-                  <strong>
-                    ₦{Number(activeJob.delivery_partner_earning).toLocaleString()}
-                  </strong>{' '}
-                  upon verification
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="p-5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-200 flex items-center justify-between">
-            <span>You have no active runs right now. Select an available job below to start.</span>
-          </div>
-        )}
-
-        {/* Available Dispatch Radar Queue */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-black uppercase tracking-wider text-slate-400">
-            Available Jobs in Abuja
-          </h2>
-
-          {openQueue.length > 0 ? (
-            openQueue.map((job) => (
-              <div
-                key={job.id}
-                className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-xs">{job.job_number}</span>
-                    <Badge variant="outline" className="text-[10px]">
-                      {job.package_description}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    From <strong>{job.pickup_address}</strong> to{' '}
-                    <strong>{job.dropoff_address}</strong>
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                    ₦{Number(job.delivery_partner_earning).toLocaleString()}
-                  </span>
-                  <form
-                    action={async () => {
-                      'use server'
-                      await acceptDeliveryJob(job.id)
-                    }}
-                  >
-                    <Button
-                      size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-9 px-4 cursor-pointer"
-                    >
-                      Accept Job
-                    </Button>
-                  </form>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="py-10 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs text-slate-400">
-              No new delivery requests waiting in queue.
-            </div>
+            </Link>
           )}
         </div>
 
-        {/* Completed Deliveries History */}
-        <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-          <h2 className="text-sm font-black uppercase tracking-wider text-slate-400">
-            Completed Deliveries ({completedJobs.length})
-          </h2>
-
-          <div className="space-y-2">
-            {completedJobs.map((j) => (
-              <div
-                key={j.id}
-                className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs"
-              >
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">
-                    {j.job_number}
-                  </span>
-                  <span className="text-slate-400 ml-2">Delivered to {j.dropoff_district}</span>
-                </div>
-                <span className="font-black text-emerald-600">
-                  +₦{Number(j.delivery_partner_earning).toLocaleString()} (Paid)
-                </span>
-              </div>
-            ))}
+        {/* KPI Cards */}
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">
+              My Active Runs
+            </span>
+            <p className="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 mt-1">
+              {myActiveDeliveries.length}
+            </p>
           </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">
+              Unassigned Pickups
+            </span>
+            <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+              {availablePool.length}
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">
+              Verified Handovers
+            </span>
+            <p className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+              {completedDeliveries.length}
+            </p>
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {[
+            { id: 'active', label: `Active Runs (${myActiveDeliveries.length})` },
+            { id: 'available', label: `Available Pickups (${availablePool.length})` },
+            { id: 'completed', label: `Completed (${completedDeliveries.length})` },
+          ].map((tab) => (
+            <Link key={tab.id} href={`/delivery?tab=${tab.id}`}>
+              <button
+                type="button"
+                className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition cursor-pointer ${
+                  activeTab === tab.id
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                {tab.label}
+              </button>
+            </Link>
+          ))}
+        </div>
+
+        {/* Delivery Cards */}
+        <div className="space-y-4">
+          {displayedOrders.length > 0 ? (
+            displayedOrders.map((order) => {
+              const orderRef =
+                order.order_number || order.payment_reference || order.id.slice(0, 8)
+              const isVerified = order.delivery_status === 'verified'
+              const isAssignedToMe = order.courier_id === user.id
+
+              return (
+                <div
+                  key={order.id}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-5"
+                >
+                  {/* Top Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-xs sm:text-sm text-slate-900 dark:text-white">
+                        #{orderRef}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        • {new Date(order.created_at).toLocaleDateString('en-NG')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {order.delivery_exception && (
+                        <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 text-[10px] font-bold">
+                          <AlertTriangle className="w-3 h-3 mr-1" />
+                          {order.delivery_exception}
+                        </Badge>
+                      )}
+                      <Badge
+                        className={`text-[10px] font-bold capitalize ${
+                          isVerified
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                            : 'bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
+                        }`}
+                      >
+                        {order.delivery_status?.replace(/_/g, ' ') || 'Awaiting Pickup'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Pickup & Dropoff Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    {/* 1. Hardware Item */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
+                      <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
+                        <Package className="w-3 h-3" /> Hardware Item
+                      </span>
+                      <p className="font-bold text-slate-900 dark:text-white">
+                        {order.product?.title || 'Hardware Device'}
+                      </p>
+                      <p className="text-slate-500 capitalize">
+                        Condition: {order.product?.condition?.replace(/_/g, ' ') || 'Used'} • Method:{' '}
+                        {order.delivery_method || 'Delivery'}
+                      </p>
+                    </div>
+
+                    {/* 2. Seller Pickup Location */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
+                      <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                        <Store className="w-3 h-3" /> 1. Pickup from Seller
+                      </span>
+                      <p className="font-bold text-slate-900 dark:text-white">
+                        {order.seller?.business_name || order.seller?.full_name || 'Vendor Store'}
+                      </p>
+                      <p className="text-slate-500 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 shrink-0" />
+                        <span>
+                          {order.seller?.street_address
+                            ? `${order.seller.street_address}, `
+                            : ''}
+                          {order.seller?.district || 'Abuja'}
+                        </span>
+                      </p>
+                      {order.seller?.phone && (
+                        <a
+                          href={`tel:${order.seller.phone}`}
+                          className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold pt-1 hover:underline"
+                        >
+                          <Phone className="w-3 h-3" /> Call Seller ({order.seller.phone})
+                        </a>
+                      )}
+                    </div>
+
+                    {/* 3. Buyer Drop-off Location */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
+                      <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <User className="w-3 h-3" /> 2. Deliver to Buyer
+                      </span>
+                      <p className="font-bold text-slate-900 dark:text-white">
+                        {order.buyer?.full_name || 'Buyer'}
+                      </p>
+                      <p className="text-slate-500 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 shrink-0" />
+                        <span>
+                          {order.delivery_address ||
+                            order.buyer?.street_address ||
+                            order.delivery_area ||
+                            order.buyer?.district ||
+                            'Abuja'}
+                        </span>
+                      </p>
+                      {order.buyer?.phone && (
+                        <a
+                          href={`tel:${order.buyer.phone}`}
+                          className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold pt-1 hover:underline"
+                        >
+                          <Phone className="w-3 h-3" /> Call Buyer ({order.buyer.phone})
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Bar: Claim Run OR Verify Handover OTP */}
+                  {!isVerified && (
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      {!isAssignedToMe && !order.courier_id ? (
+                        <form
+                          action={async () => {
+                            'use server'
+                            await claimDeliveryOrderAction(order.id)
+                          }}
+                        >
+                          <Button
+                            type="submit"
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl h-9 px-4 gap-1.5 cursor-pointer"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>Accept &amp; Claim Delivery Run</span>
+                          </Button>
+                        </form>
+                      ) : (
+                        <div className="text-xs text-slate-500">
+                          Assigned Courier:{' '}
+                          <strong className="text-slate-900 dark:text-white">
+                            {order.courier_name || 'You'}
+                          </strong>
+                        </div>
+                      )}
+
+                      {/* OTP Verification Form + Exception Modal */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <form
+                          action={async (fd) => {
+                            'use server'
+                            await verifyDeliveryHandoverAction(fd)
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <input type="hidden" name="orderId" value={order.id} />
+                          <input
+                            type="text"
+                            name="otp"
+                            maxLength={8}
+                            placeholder={
+                              order.delivery_otp
+                                ? 'Enter 6-digit Buyer OTP'
+                                : 'OTP (or leave blank)'
+                            }
+                            className="h-9 w-40 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold"
+                          />
+                          <Button
+                            type="submit"
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl h-9 px-4 gap-1.5 cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Verify Handover</span>
+                          </Button>
+                        </form>
+
+                        <DeliveryExceptionModal
+                          jobId={order.id}
+                          jobNumber={orderRef}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          ) : (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-2">
+              <Truck className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                No delivery runs in this view
+              </p>
+              <p className="text-xs text-slate-400">
+                Check the &quot;Available Pickups&quot; tab to claim new Abuja dispatch jobs.
+              </p>
+            </div>
+          )}
         </div>
       </main>
     </div>

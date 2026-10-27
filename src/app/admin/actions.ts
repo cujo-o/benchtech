@@ -186,26 +186,33 @@ export async function adminSettleSellerBalance(sellerId: string): Promise<void> 
   revalidatePath('/admin/payouts')
   revalidatePath('/admin')
 }
-
 /* =========================================================================
-   3. USERS & MERCHANTS MANAGEMENT ACTIONS
+   3. USERS, MERCHANTS & DELIVERERS MANAGEMENT ACTIONS
    ========================================================================= */
 export async function adminUpdateUserRole(
   targetUserId: string,
-  role: 'buyer' | 'seller' | 'admin'
+  role: 'buyer' | 'seller' | 'delivery' | 'admin'
 ): Promise<void> {
   const { user, adminDb } = await requireAdmin()
 
+  const { data: existing } = await adminDb
+    .from('profiles')
+    .select('roles, is_seller, is_delivery')
+    .eq('id', targetUserId)
+    .maybeSingle()
+
+  const currentRoles: string[] = Array.isArray(existing?.roles)
+    ? existing.roles
+    : ['buyer']
+
+  const updatedRoles = Array.from(new Set([...currentRoles, 'buyer', role]))
+
   const updates: Record<string, any> = {
     role,
+    roles: updatedRoles,
     is_admin: role === 'admin',
-    is_seller: role === 'seller' || role === 'admin',
-    roles:
-      role === 'admin'
-        ? ['buyer', 'seller', 'admin']
-        : role === 'seller'
-        ? ['buyer', 'seller']
-        : ['buyer'],
+    is_seller: role === 'seller' || role === 'admin' || Boolean(existing?.is_seller),
+    is_delivery: role === 'delivery' || Boolean(existing?.is_delivery),
     updated_at: new Date().toISOString(),
   }
 
@@ -220,6 +227,64 @@ export async function adminUpdateUserRole(
   })
 
   revalidatePath('/admin/users')
+  revalidatePath('/admin/deliveries')
+  revalidatePath('/delivery')
+  revalidatePath('/admin')
+}
+
+export async function adminToggleDeliverer(
+  targetUserId: string,
+  makeDeliverer: boolean
+): Promise<void> {
+  const { user, adminDb } = await requireAdmin()
+
+  const { data: existing } = await adminDb
+    .from('profiles')
+    .select('role, roles')
+    .eq('id', targetUserId)
+    .maybeSingle()
+
+  const currentRoles: string[] = Array.isArray(existing?.roles)
+    ? existing.roles
+    : existing?.role
+    ? [existing.role]
+    : ['buyer']
+
+  const nextRoles = makeDeliverer
+    ? Array.from(new Set([...currentRoles, 'buyer', 'delivery']))
+    : currentRoles.filter((r) => r !== 'delivery')
+
+  const nextPrimaryRole = makeDeliverer
+    ? existing?.role === 'admin'
+      ? 'admin'
+      : 'delivery'
+    : existing?.role === 'delivery'
+    ? nextRoles.includes('seller')
+      ? 'seller'
+      : 'buyer'
+    : existing?.role || 'buyer'
+
+  await adminDb
+    .from('profiles')
+    .update({
+      role: nextPrimaryRole,
+      roles: nextRoles,
+      is_delivery: makeDeliverer,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', targetUserId)
+
+  await adminDb.from('audit_events').insert({
+    actor_id: user.id,
+    action: makeDeliverer ? 'admin_granted_deliverer_role' : 'admin_revoked_deliverer_role',
+    target_type: 'profile',
+    target_id: targetUserId,
+    result: makeDeliverer ? 'delivery' : nextPrimaryRole,
+  })
+
+  revalidatePath('/admin/users')
+  revalidatePath('/admin/deliveries')
+  revalidatePath('/delivery')
   revalidatePath('/admin')
 }
 

@@ -1,218 +1,235 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { updateProduct } from './actions'
+import { notFound, redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { updateSellerListingAction } from './actions'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save } from 'lucide-react'
 
-export default function EditListingPage() {
-  const params = useParams()
-  const router = useRouter()
-  const productId = params.id as string
+export const dynamic = 'force-dynamic'
 
-  const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  
-  const [product, setProduct] = useState<{
-    title: string
-    brand: string
-    model: string
-    price: number
-    condition: string
-    location: string
-    category: string
-    specs: Record<string, string>
-    images: string[]
-  } | null>(null)
+export default async function EditSellerListingPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  const [specs, setSpecs] = useState<Record<string, string>>({})
-  const supabase = createClient()
+  if (!user) redirect('/login')
 
-  useEffect(() => {
-    async function loadItem() {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', productId)
-        .single()
+  const { data: product } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', id)
+    .eq('seller_id', user.id)
+    .maybeSingle()
 
-      if (error || !data) {
-        router.push('/seller/listings')
-        return
-      }
+  if (!product) notFound()
 
-      setProduct(data)
-      setSpecs(data.specs || {})
-      setFetching(false)
-    }
-
-    loadItem()
-  }, [productId, router, supabase])
-
-  function handleSpecChange(key: string, val: string) {
-    setSpecs((prev) => ({ ...prev, [key]: val }))
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setLoading(true)
-    setErrorMessage(null)
-
-    const form = new FormData(e.currentTarget)
-    const res = await updateProduct(productId, form, specs)
-
-    if (res?.error) {
-      setErrorMessage(res.error)
-      setLoading(false)
-    }
-  }
-
-  if (fetching) {
-    return (
-      <div className="flex items-center justify-center p-12 text-slate-500">
-        <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading product details...
-      </div>
-    )
+  async function handleFormAction(formData: FormData): Promise<void> {
+    'use server'
+    await updateSellerListingAction(formData)
+    redirect('/seller/listings')
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/seller/listings">
-          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
-          </Button>
+    <div className="max-w-3xl mx-auto space-y-6">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs">
+        <Link
+          href="/seller/listings"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-blue-600 mb-2"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Listings</span>
         </Link>
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Edit Listing</h1>
-          <p className="text-xs text-slate-500">Update pricing, condition, or hardware specs</p>
-        </div>
+        <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+          Edit Product Listing
+        </h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Update pricing, stock quantity, and hardware specifications.
+        </p>
       </div>
 
-      {errorMessage && (
-        <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200">
-          {errorMessage}
+      <form
+        action={handleFormAction}
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xs space-y-5 text-xs"
+      >
+        <input type="hidden" name="productId" value={product.id} />
+
+        <div>
+          <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+            Product Title
+          </label>
+          <input
+            type="text"
+            name="title"
+            defaultValue={product.title}
+            required
+            className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+          />
         </div>
-      )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Product Details</CardTitle>
-            <CardDescription className="text-xs">Category: <span className="font-bold capitalize">{product?.category}</span></CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="title" className="text-xs font-semibold">Title</Label>
-              <Input id="title" name="title" defaultValue={product?.title} required className="mt-1 h-10 text-xs" />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Brand
+            </label>
+            <input
+              type="text"
+              name="brand"
+              defaultValue={product.brand || ''}
+              className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+            />
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="brand" className="text-xs font-semibold">Brand</Label>
-                <Input id="brand" name="brand" defaultValue={product?.brand} required className="mt-1 h-10 text-xs" />
-              </div>
-              <div>
-                <Label htmlFor="model" className="text-xs font-semibold">Model</Label>
-                <Input id="model" name="model" defaultValue={product?.model} required className="mt-1 h-10 text-xs" />
-              </div>
-            </div>
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Model
+            </label>
+            <input
+              type="text"
+              name="model"
+              defaultValue={product.model || product.specs?.model || ''}
+              className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+            />
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="price" className="text-xs font-semibold">Price (NGN)</Label>
-                <Input id="price" name="price" type="number" defaultValue={product?.price} required className="mt-1 h-10 text-xs" />
-              </div>
-              <div>
-                <Label htmlFor="condition" className="text-xs font-semibold">Condition</Label>
-                <select
-                  id="condition"
-                  name="condition"
-                  defaultValue={product?.condition}
-                  className="w-full mt-1 h-10 px-3 rounded-md border border-slate-200 bg-white text-xs"
-                >
-                  <option value="brand_new">Brand New</option>
-                  <option value="open_box">Open Box</option>
-                  <option value="fairly_used">Fairly Used</option>
-                </select>
-              </div>
-            </div>
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Condition
+            </label>
+            <select
+              name="condition"
+              defaultValue={product.condition || 'uk_used'}
+              className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+            >
+              <option value="brand_new">Brand New (Sealed)</option>
+              <option value="open_box">Open Box</option>
+              <option value="uk_used">Foreign Used (Clean)</option>
+              <option value="fairly_used">Direct Used</option>
+            </select>
+          </div>
+        </div>
 
-            <div>
-              <Label htmlFor="location" className="text-xs font-semibold">Item Location</Label>
-              <Input id="location" name="location" defaultValue={product?.location} required className="mt-1 h-10 text-xs" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Price (₦)
+            </label>
+            <input
+              type="number"
+              name="price"
+              defaultValue={product.price}
+              required
+              className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black"
+            />
+          </div>
 
-        {/* Dynamic Hardware Specs */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Specifications ({product?.category})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {product?.category === 'phones' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs">Storage</Label>
-                  <Input defaultValue={specs.storage || ''} onChange={(e) => handleSpecChange('storage', e.target.value)} className="mt-1 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">Battery Health (%)</Label>
-                  <Input defaultValue={specs.battery_health || ''} onChange={(e) => handleSpecChange('battery_health', e.target.value)} className="mt-1 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">RAM</Label>
-                  <Input defaultValue={specs.ram || ''} onChange={(e) => handleSpecChange('ram', e.target.value)} className="mt-1 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">Sim Status</Label>
-                  <Input defaultValue={specs.sim_status || ''} onChange={(e) => handleSpecChange('sim_status', e.target.value)} className="mt-1 text-xs" />
-                </div>
-              </div>
-            )}
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Stock Quantity
+            </label>
+            <input
+              type="number"
+              name="quantity"
+              min={1}
+              defaultValue={product.stock_quantity || 1}
+              className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+            />
+          </div>
 
-            {product?.category === 'laptops' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs">Processor</Label>
-                  <Input defaultValue={specs.processor || ''} onChange={(e) => handleSpecChange('processor', e.target.value)} className="mt-1 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">RAM</Label>
-                  <Input defaultValue={specs.ram || ''} onChange={(e) => handleSpecChange('ram', e.target.value)} className="mt-1 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">Storage</Label>
-                  <Input defaultValue={specs.storage || ''} onChange={(e) => handleSpecChange('storage', e.target.value)} className="mt-1 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-xs">GPU</Label>
-                  <Input defaultValue={specs.gpu || ''} onChange={(e) => handleSpecChange('gpu', e.target.value)} className="mt-1 text-xs" />
-                </div>
-              </div>
-            )}
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Category
+            </label>
+            <input
+              type="text"
+              name="category"
+              defaultValue={product.category || 'phones'}
+              className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+            />
+          </div>
+        </div>
 
-            {product?.category !== 'phones' && product?.category !== 'laptops' && (
-              <div>
-                <Label className="text-xs">Primary Specification</Label>
-                <Input defaultValue={specs.primary_spec || ''} onChange={(e) => handleSpecChange('primary_spec', e.target.value)} className="mt-1 text-xs" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Hardware Specifications */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Storage
+            </label>
+            <input
+              type="text"
+              name="storage"
+              defaultValue={product.specs?.storage || ''}
+              placeholder="e.g. 256GB"
+              className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            />
+          </div>
 
-        <Button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 h-11 text-xs font-bold">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-          Update Listing
-        </Button>
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              RAM
+            </label>
+            <input
+              type="text"
+              name="ram"
+              defaultValue={product.specs?.ram || ''}
+              placeholder="e.g. 16GB"
+              className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Battery Health
+            </label>
+            <input
+              type="text"
+              name="batteryHealth"
+              defaultValue={product.specs?.battery_health || ''}
+              placeholder="e.g. 92%"
+              className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              IMEI / Serial
+            </label>
+            <input
+              type="text"
+              name="serialOrImei"
+              defaultValue={product.specs?.serial_number || ''}
+              className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+            Description &amp; Condition Notes
+          </label>
+          <textarea
+            name="description"
+            rows={4}
+            defaultValue={product.description || ''}
+            required
+            className="w-full p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+          />
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button
+            type="submit"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-6 gap-1.5 cursor-pointer"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>Save Changes</span>
+          </Button>
+        </div>
       </form>
     </div>
   )

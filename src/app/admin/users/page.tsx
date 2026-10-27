@@ -6,8 +6,9 @@ import {
   adminUpdateUserRole,
   adminToggleSellerVerify,
   adminToggleProPlan,
+  adminToggleDeliverer,
 } from '@/app/admin/actions'
-import { Users, ShieldCheck, Crown, Search } from 'lucide-react'
+import { Users, ShieldCheck, Crown, Search, Truck } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,6 +38,15 @@ export default async function AdminUsersPage({
 
   const allUsers = profiles || []
 
+  const isUserDeliverer = (u: any) => {
+    const roles: string[] = Array.isArray(u.roles) ? u.roles : []
+    return (
+      u.role === 'delivery' ||
+      u.is_delivery === true ||
+      roles.includes('delivery')
+    )
+  }
+
   const filteredUsers = allUsers.filter((u) => {
     const matchesQuery =
       !query ||
@@ -49,6 +59,9 @@ export default async function AdminUsersPage({
 
     if (roleFilter === 'sellers') {
       return u.role === 'seller' || u.is_seller === true || Boolean(u.business_name)
+    }
+    if (roleFilter === 'deliverers') {
+      return isUserDeliverer(u)
     }
     if (roleFilter === 'verified') {
       return u.tech_trust_status === 'verified'
@@ -70,11 +83,11 @@ export default async function AdminUsersPage({
           <div className="flex items-center gap-2">
             <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              Users &amp; Merchants Directory
+              Users, Merchants &amp; Deliverers
             </h1>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Manage account roles, seller verification badges, and Pro plan entitlements.
+            Assign deliverer access, verify merchant stores, and manage Pro seller plans.
           </p>
         </div>
 
@@ -97,6 +110,7 @@ export default async function AdminUsersPage({
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {[
           { id: 'all', label: `All Accounts (${allUsers.length})` },
+          { id: 'deliverers', label: `Deliverers (${allUsers.filter(isUserDeliverer).length})` },
           { id: 'sellers', label: 'Sellers' },
           { id: 'verified', label: 'Verified Stores' },
           { id: 'pro', label: 'Pro Sellers' },
@@ -129,7 +143,7 @@ export default async function AdminUsersPage({
             <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
               <th className="pb-3 pr-4">User / Store</th>
               <th className="pb-3 px-4">Contact</th>
-              <th className="pb-3 px-4">Role</th>
+              <th className="pb-3 px-4">Roles</th>
               <th className="pb-3 px-4">Verification</th>
               <th className="pb-3 px-4">Plan</th>
               <th className="pb-3 pl-4 text-right">Quick Controls</th>
@@ -140,6 +154,7 @@ export default async function AdminUsersPage({
               const isVerified = u.tech_trust_status === 'verified'
               const isPro =
                 u.seller_plan === 'pro' || u.subscription_tier === 'pro'
+              const isDeliverer = isUserDeliverer(u)
               const currentRole = u.role || 'buyer'
 
               return (
@@ -157,9 +172,16 @@ export default async function AdminUsersPage({
                     <p className="text-[11px] text-slate-400">{u.phone || '—'}</p>
                   </td>
                   <td className="py-3.5 px-4">
-                    <Badge variant="outline" className="text-[10px] font-bold uppercase">
-                      {currentRole}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="text-[10px] font-bold uppercase">
+                        {currentRole}
+                      </Badge>
+                      {isDeliverer && currentRole !== 'delivery' && (
+                        <Badge className="bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300 border border-sky-200 dark:border-sky-800 text-[10px] font-bold">
+                          Deliverer
+                        </Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3.5 px-4">
                     <Badge
@@ -183,6 +205,29 @@ export default async function AdminUsersPage({
                   </td>
                   <td className="py-3.5 pl-4 text-right">
                     <div className="inline-flex items-center gap-1.5">
+                      {/* Toggle Deliverer Access */}
+                      <form
+                        action={async () => {
+                          'use server'
+                          await adminToggleDeliverer(u.id, !isDeliverer)
+                        }}
+                      >
+                        <Button
+                          type="submit"
+                          size="xs"
+                          variant="outline"
+                          className={`rounded-lg text-[11px] font-bold cursor-pointer ${
+                            isDeliverer
+                              ? 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
+                              : ''
+                          }`}
+                        >
+                          <Truck className="w-3 h-3 mr-1 text-sky-600" />
+                          {isDeliverer ? 'Remove Deliverer' : 'Make Deliverer'}
+                        </Button>
+                      </form>
+
+                      {/* Verify Seller */}
                       <form
                         action={async () => {
                           'use server'
@@ -200,6 +245,7 @@ export default async function AdminUsersPage({
                         </Button>
                       </form>
 
+                      {/* Toggle Pro */}
                       <form
                         action={async () => {
                           'use server'
@@ -217,6 +263,7 @@ export default async function AdminUsersPage({
                         </Button>
                       </form>
 
+                      {/* Toggle Seller/Buyer */}
                       {currentRole !== 'admin' && (
                         <form
                           action={async () => {
