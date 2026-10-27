@@ -1,387 +1,523 @@
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
-import { getSponsoredProducts } from '@/lib/ads/getSponsoredProducts'
-import { Navbar } from '@/components/Navbar'
-import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
-import { BuyerRightSidebar } from '@/components/storefront/BuyerRightSidebar'
-import { AdImpressionTracker } from '@/components/storefront/AdImpressionTracker'
-import { AdProductCardWrapper } from '@/components/storefront/AdProductCardWrapper'
-import { SaveButton } from '@/components/SaveButton'
-import { AddToCartButton } from '@/components/cart/AddToCartButton'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { Navbar } from "@/components/Navbar";
+import { BuyerSidebar } from "@/components/storefront/BuyerSidebar";
+import { BuyerRightSidebar } from "@/components/storefront/BuyerRightSidebar";
+import { SaveButton } from "@/components/SaveButton";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  ShieldCheck,
-  ArrowRight,
-  MapPin,
-  Package,
-  Scale,
-  SlidersHorizontal,
-  Sparkles,
-  Megaphone,
   Smartphone,
   Laptop,
   Gamepad2,
   Headphones,
+  Camera,
+  Network,
+  Home as HomeIcon,
+  Watch,
+  Tablet,
   Monitor,
-  Cpu,
-} from 'lucide-react'
+  Grid,
+  ShieldCheck,
+  Lock,
+  Truck,
+  RotateCcw,
+  ArrowRight,
+  Package,
+  MapPin,
+  Scale,
+  Wrench,
+  Tag,
+  BookOpen,
+  GraduationCap,
+  Sparkles,
+} from "lucide-react";
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 30;
 
-export const metadata = {
-  title: 'Marketplace Feed | BenchTech Abuja',
-  description: 'Shop verified smartphones, laptops, and hardware in Abuja.',
-}
+export const metadata: Metadata = {
+  title: "BenchTech | Abuja Tech & Hardware Marketplace",
+  description:
+    "Buy, sell, and inspect laptops, smartphones, gaming gear, and computer accessories across Abuja.",
+};
+
+const CATEGORY_CHIPS = [
+  { id: "phones", label: "Phones", icon: Smartphone },
+  { id: "laptops", label: "Laptops", icon: Laptop },
+  { id: "gaming", label: "Gaming", icon: Gamepad2 },
+  { id: "accessories", label: "Accessories", icon: Headphones },
+  { id: "cameras", label: "Cameras", icon: Camera },
+  { id: "networking", label: "Networking", icon: Network },
+  { id: "smarthome", label: "Smart Home", icon: HomeIcon },
+  { id: "wearables", label: "Wearables", icon: Watch },
+  { id: "tablets", label: "Tablets", icon: Tablet },
+  { id: "monitors", label: "Monitors", icon: Monitor },
+  { id: "all", label: "View All", icon: Grid },
+];
+
+const FEATURE_TILES = [
+  {
+    title: "Find My Tech",
+    desc: "Filter devices by budget, workload, and performance specifications.",
+    cta: "Start",
+    href: "/assistant",
+    icon: Sparkles,
+    iconBg: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
+    btnBg: "bg-blue-600 hover:bg-blue-700 text-white",
+  },
+  {
+    title: "Compare Tech",
+    desc: "Compare hardware specifications and prices side by side.",
+    cta: "Compare",
+    href: "/compare",
+    icon: Scale,
+    iconBg: "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-300",
+    btnBg: "bg-purple-600 hover:bg-purple-700 text-white",
+  },
+  {
+    title: "Build My Setup",
+    desc: "Assemble custom workstation and gaming hardware bundles.",
+    cta: "Build Setup",
+    href: "/build",
+    icon: Wrench,
+    iconBg: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
+    btnBg: "bg-emerald-600 hover:bg-emerald-700 text-white",
+  },
+  {
+    title: "Sell Your Tech",
+    desc: "List laptops, phones, and hardware for verified buyers in Abuja.",
+    cta: "Start Selling",
+    href: "/seller/listings/new",
+    icon: Tag,
+    iconBg: "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-300",
+    btnBg: "bg-orange-600 hover:bg-orange-700 text-white",
+  },
+  {
+    title: "Learn Tech",
+    desc: "Inspection checklists, serial number verification, and safety guides.",
+    cta: "Safety Guide",
+    href: "/help",
+    icon: BookOpen,
+    iconBg: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+    btnBg: "bg-amber-600 hover:bg-amber-700 text-white",
+  },
+];
 
 function resolveFirstImage(images: any): string | null {
-  if (!images) return null
-  if (Array.isArray(images)) return images[0] || null
-  if (typeof images === 'string') {
+  if (!images) return null;
+  if (Array.isArray(images)) return images[0] || null;
+  if (typeof images === "string") {
     try {
-      const parsed = JSON.parse(images)
-      if (Array.isArray(parsed)) return parsed[0] || null
+      const parsed = JSON.parse(images);
+      if (Array.isArray(parsed)) return parsed[0] || null;
     } catch {
-      return images.startsWith('http') ? images : null
+      return images.startsWith("http") ? images : null;
     }
   }
-  return null
+  return null;
 }
 
-function shuffleArray<T>(items: T[]): T[] {
-  const arr = [...items]
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
-}
-
-const QUICK_CATEGORIES = [
-  { label: 'Phones', slug: 'phones', icon: Smartphone },
-  { label: 'Laptops', slug: 'laptops', icon: Laptop },
-  { label: 'Gaming', slug: 'gaming', icon: Gamepad2 },
-  { label: 'Monitors', slug: 'monitors', icon: Monitor },
-  { label: 'Audio & Gear', slug: 'accessories', icon: Headphones },
-  { label: 'Components', slug: 'components', icon: Cpu },
-]
-
-export default async function MarketplaceFeedPage() {
-  const supabase = await createClient()
+export default async function FeedPage() {
+  const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
-  // Parallel fetch: User Profile, Sponsored Products, and Published Catalog
-  const [profileRes, sponsoredResults, { data: rawProducts }] = await Promise.all([
-    user
-      ? supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    getSponsoredProducts({ limit: 8 }).catch(() => []),
+  if (!user) {
+    redirect("/login?next=/feed");
+  }
+
+  const [
+    { data: userProfile },
+    { data: products },
+  ] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase
-      .from('products')
-      .select('*, profiles!products_seller_id_fkey(business_name, full_name, district, tech_trust_status)')
-      .eq('status', 'published')
-      .limit(48),
-  ])
-
-  const profile = profileRes.data
-
-  // Build prioritized + randomized product list without duplicates
-  const seenIds = new Set<string>()
-  const feedItems: Array<{
-    product: any
-    isSponsored: boolean
-    campaignId?: string
-    sellerId?: string
-  }> = []
-
-  // 1. Active Sponsored Campaign Products First
-  for (const sp of sponsoredResults || []) {
-    if (sp?.product?.id && !seenIds.has(sp.product.id)) {
-      seenIds.add(sp.product.id)
-      feedItems.push({
-        product: sp.product,
-        isSponsored: true,
-        campaignId: sp.campaignId,
-        sellerId: sp.sellerId,
-      })
-    }
-  }
-
-  const allPublished = rawProducts || []
-
-  // 2. Featured Listings (Randomized among featured)
-  const featuredPool = shuffleArray(
-    allPublished.filter((p) => p.is_featured && !seenIds.has(p.id))
-  )
-  for (const feat of featuredPool) {
-    seenIds.add(feat.id)
-    feedItems.push({
-      product: feat,
-      isSponsored: true,
-      sellerId: feat.seller_id,
-    })
-  }
-
-  // 3. Organic Listings (Randomized on every page load)
-  const organicPool = shuffleArray(
-    allPublished.filter((p) => !seenIds.has(p.id))
-  )
-  for (const org of organicPool) {
-    seenIds.add(org.id)
-    feedItems.push({
-      product: org,
-      isSponsored: false,
-      sellerId: org.seller_id,
-    })
-  }
-
-  const sidebarUser = user
-    ? {
-        id: user.id,
-        email: user.email,
-        fullName: profile?.full_name,
-        businessName: profile?.business_name,
-        role: profile?.role,
-        roles: profile?.roles,
-        techTrustStatus: profile?.tech_trust_status,
-      }
-    : null
+      .from("products")
+      .select(
+        "*, profiles!products_seller_id_fkey(business_name, district, tech_trust_status)"
+      )
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(16),
+  ]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="min-h-screen bg-slate-100/60 dark:bg-slate-950 flex flex-col">
       <Navbar />
 
       <div className="max-w-[1700px] w-full mx-auto flex flex-1">
         <BuyerSidebar />
 
-        <main className="flex-1 min-w-0 p-3 sm:p-6 space-y-6">
-          {/* 1. Compact Hardware Hero Banner */}
-          <section className="relative rounded-3xl overflow-hidden bg-slate-900 text-white border border-slate-800 p-5 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1200&q=80"
-              alt="Abuja Electronics"
-              className="absolute inset-0 w-full h-full object-cover opacity-30"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-slate-950/40" />
+        <main className="flex-1 min-w-0 p-3 sm:p-5 md:p-6 space-y-6">
+          {/* Hero Banner */}
+          <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 md:p-10 relative overflow-hidden shadow-xs flex flex-col lg:flex-row items-center justify-between gap-8 border border-slate-800">
+            <div className="space-y-4 max-w-xl z-10 w-full">
+              <span className="text-[11px] uppercase tracking-wider text-blue-400 font-bold block">
+                Your One-Stop Tech Marketplace
+              </span>
 
-            <div className="relative z-10 max-w-xl space-y-2.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                  <ShieldCheck className="w-3 h-3 mr-1" /> Verified Abuja Stores
-                </Badge>
-                <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold">
-                  7-Day Inspection Protection
-                </Badge>
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">
+                Find the Right Tech. <br />
+                <span className="text-blue-500">For Your Life.</span>
+              </h1>
+
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
+                Buy, compare, and sell authentic hardware in Abuja. Every order includes physical inspection before funds are released.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[11px] font-semibold text-slate-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Verified Sellers
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[11px] font-semibold text-slate-200">
+                  <Truck className="w-3.5 h-3.5 text-sky-400" />
+                  Abuja Fast Delivery
+                </span>
               </div>
 
-              <h1 className="text-xl sm:text-3xl font-black tracking-tight text-white leading-tight">
-                Verified Hardware Across Abuja
-              </h1>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Shop inspected phones, laptops, and workstations from verified stores in Wuse 2, Banex, Gwarinpa, and Maitama.
-              </p>
-            </div>
-
-            <div className="relative z-10 flex flex-wrap items-center gap-2.5 shrink-0">
-              <Link href="/products">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-5 gap-1.5 cursor-pointer">
-                  <span>Browse All</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </Link>
-              <Link href="/sellers">
-                <Button
-                  variant="outline"
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 font-bold text-xs rounded-xl h-10 px-4 cursor-pointer"
-                >
-                  Verified Sellers
-                </Button>
-              </Link>
-            </div>
-          </section>
-
-          {/* 2. Quick Category Strip + Tool Shortcuts */}
-          <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-              {QUICK_CATEGORIES.map((cat) => {
-                const Icon = cat.icon
-                return (
-                  <Link
-                    key={cat.slug}
-                    href={`/products?category=${cat.slug}`}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0 transition shadow-2xs"
+              <div className="pt-2 flex items-center gap-3">
+                <Link href="/products">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 h-10 rounded-xl gap-1.5 shadow-xs">
+                    Shop Now <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
+                <Link href="/help">
+                  <Button
+                    variant="outline"
+                    className="text-xs font-bold h-10 px-5 rounded-xl bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 border-none transition"
                   >
-                    <Icon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span>{cat.label}</span>
-                  </Link>
-                )
-              })}
+                    Buyer Safety Guide
+                  </Button>
+                </Link>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] shrink-0">
-              <Link
-                href="/compare"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0 transition"
-              >
-                <Scale className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span>Compare</span>
-              </Link>
-              <Link
-                href="/build"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0 transition"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Build Setup</span>
-              </Link>
-              <Link
-                href="/assistant"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0 transition"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span>Advisor</span>
-              </Link>
-              <Link
-                href="/requests/new"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0 transition"
-              >
-                <Megaphone className="w-3.5 h-3.5 text-amber-500" />
-                <span>Request Device</span>
-              </Link>
-            </div>
-          </section>
-
-          {/* 3. Main Product Feed (Sponsored Priority + Randomized Organic) */}
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
+            {/* Showcase Image Cluster */}
+            <div className="relative z-10 w-full lg:w-[420px] aspect-[16/10] bg-slate-900/60 rounded-2xl border border-slate-800 flex items-center justify-center p-4 overflow-hidden shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=900&q=80"
+                alt="Hardware and Gadgets"
+                className="w-full h-full object-cover rounded-xl opacity-90"
+                loading="eager"
+              />
               
+            </div>
+          </div>
+
+          {/* Feature Action Grid (5 Cards) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {FEATURE_TILES.map((tile) => {
+              const Icon = tile.icon;
+              return (
+                <div
+                  key={tile.title}
+                  className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition group"
+                >
+                  <div className="space-y-2">
+                    <div
+                      className={`w-9 h-9 rounded-xl ${tile.iconBg} flex items-center justify-center shrink-0`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                        {tile.title}
+                      </h3>
+                      <p className="text-[10px] text-slate-400 leading-snug mt-1 line-clamp-2">
+                        {tile.desc}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Link href={tile.href} className="block pt-1">
+                    <button
+                      type="button"
+                      className={`w-full py-1.5 px-2.5 rounded-xl font-bold text-[11px] ${tile.btnBg} flex items-center justify-center gap-1 transition`}
+                    >
+                      <span>{tile.cta}</span>
+                      <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition" />
+                    </button>
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Categories Horizontal Rail */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                Shop by Category
+              </h2>
               <Link
                 href="/products"
                 className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                <span>View All ({feedItems.length})</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <span>View All Categories</span>
+                <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
 
-            {feedItems.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                {feedItems.map(({ product, isSponsored, campaignId, sellerId }) => {
-                  const firstImage = resolveFirstImage(product.images)
-                  const sellerProfile = Array.isArray(product.profiles)
-                    ? product.profiles[0]
-                    : product.profiles
-                  const sellerName =
-                    sellerProfile?.business_name ||
-                    sellerProfile?.full_name ||
-                    'Vendor'
-                  const isVerifiedSeller =
-                    sellerProfile?.tech_trust_status === 'verified'
-                  const district = sellerProfile?.district || 'Abuja'
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+              {CATEGORY_CHIPS.map((cat) => {
+                const Icon = cat.icon;
+                return (
+                  <Link
+                    key={cat.id}
+                    href={
+                      cat.id === "all"
+                        ? "/products"
+                        : `/products?category=${cat.id}`
+                    }
+                    className="flex flex-col items-center gap-1.5 p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-blue-500 min-w-[70px] sm:min-w-[80px] transition group shrink-0"
+                  >
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:bg-blue-50 group-hover:text-blue-600 transition">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 text-center whitespace-nowrap">
+                      {cat.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
 
+          {/* Value Banners */}
+          <div className="space-y-2.5">
+            <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+              Services &amp; Programs
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                    TechPass Membership
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Zero delivery charges and direct store verification records across Abuja plazas.
+                  </p>
+                </div>
+                <Link href="/subscription">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs font-bold rounded-xl h-8 border-slate-200 dark:border-slate-700"
+                  >
+                    View Membership
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                    Student Tech Program
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Student pricing on laptops, tablets, and peripherals for Abuja tertiary campuses.
+                  </p>
+                </div>
+                <Link href="/products?tag=student">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs font-bold rounded-xl h-8 border-slate-200 dark:border-slate-700"
+                  >
+                    View Student Pricing
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                    TechTrust Protection
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Inspect screen condition, hardware, and battery health in person before payment releases.
+                  </p>
+                </div>
+                <Link href="/help">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs font-bold rounded-xl h-8 border-slate-200 dark:border-slate-700"
+                  >
+                    Inspection Protocols
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Available Technology (Responsive 2-column mobile, 4-column desktop) */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                  Available Technology
+                </h2>
+                <p className="text-[11px] text-slate-400">
+                  Recent listings from verified merchants in Abuja
+                </p>
+              </div>
+              <Link
+                href="/products"
+                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                View Catalog &rarr;
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {products && products.length > 0 ? (
+                products.map((item) => {
+                  const firstImg = resolveFirstImage(item.images);
                   return (
-                    <div
-                      key={product.id}
-                      className="relative group bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 hover:border-blue-500/60 dark:hover:border-blue-500/60 rounded-2xl overflow-hidden flex flex-col justify-between transition shadow-2xs hover:shadow-md"
-                    >
-                      <SaveButton product={product} />
+                    <div key={item.id} className="relative group">
+                      <SaveButton product={item} />
+                      <Link href={`/products/${item.id}`}>
+                        <Card className="h-full rounded-2xl overflow-hidden hover:border-slate-300 dark:hover:border-slate-700 transition bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 flex flex-col justify-between">
+                          <div className="aspect-square bg-slate-50 dark:bg-slate-800/40 relative overflow-hidden p-2 flex items-center justify-center">
+                            <Badge className="absolute top-2.5 left-2.5 bg-slate-900/80 text-white text-[9px] font-bold capitalize px-2 py-0.5">
+                              {item.condition?.replace("_", " ") || "Inspected"}
+                            </Badge>
 
-                      <AdProductCardWrapper
-                        productId={product.id}
-                        sellerId={sellerId || product.seller_id}
-                        campaignId={campaignId}
-                        isSponsored={isSponsored}
-                      >
-                        <Link
-                          href={`/products/${product.id}`}
-                          className="flex-1 flex flex-col justify-between"
-                        >
-                          <AdImpressionTracker
-                            productId={product.id}
-                            sellerId={sellerId || product.seller_id}
-                            campaignId={campaignId}
-                            isSponsored={isSponsored}
-                          />
-
-                          {/* Integrated Product Image Area */}
-                          <div className="relative aspect-[4/3] w-full bg-slate-100/80 dark:bg-slate-800/60 flex items-center justify-center p-3 overflow-hidden border-b border-slate-100 dark:border-slate-800/80">
-                            <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1">
-                              {isSponsored && (
-                                <span className="bg-blue-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md shadow-2xs">
-                                  Featured
-                                </span>
-                              )}
-                              <span className="bg-slate-900/80 text-white text-[9px] font-bold capitalize px-2 py-0.5 rounded-md backdrop-blur-xs">
-                                {product.condition?.replace(/_/g, ' ') || 'Used'}
-                              </span>
-                            </div>
-
-                            {firstImage ? (
+                            {firstImg ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src={firstImage}
-                                alt={product.title}
+                                src={firstImg}
+                                alt={item.title}
                                 loading="lazy"
-                                className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                                className="max-h-full object-contain group-hover:scale-105 transition duration-300"
                               />
                             ) : (
-                              <Package className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                              <Package className="w-8 h-8 text-slate-300" />
                             )}
                           </div>
 
-                          <div className="p-3 sm:p-3.5 space-y-1.5">
-                            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition line-clamp-1">
-                              {product.title}
-                            </h3>
+                          <CardContent className="p-3 flex-1 flex flex-col justify-between space-y-2">
+                            <div>
+                              <h3 className="font-bold text-xs text-slate-900 dark:text-slate-100 group-hover:text-blue-600 transition truncate">
+                                {item.title}
+                              </h3>
 
-                            <div className="flex items-center justify-between gap-1 text-[11px] text-slate-500 dark:text-slate-400">
-                              <span className="flex items-center gap-1 truncate font-medium">
-                                <span className="truncate">{sellerName}</span>
-                                {isVerifiedSeller && (
-                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+                                <span className="uppercase font-semibold truncate max-w-[80px]">
+                                  {item.brand || "Device"}
+                                </span>
+                                {item.profiles?.district && (
+                                  <span className="flex items-center gap-0.5 shrink-0">
+                                    <MapPin className="w-2.5 h-2.5" />
+                                    {item.profiles.district.split(" ")[0]}
+                                  </span>
                                 )}
-                              </span>
-                              <span className="flex items-center gap-0.5 text-[10px] text-slate-400 shrink-0">
-                                <MapPin className="w-2.5 h-2.5" />
-                                {district}
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                              <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
+                                ₦{Number(item.price).toLocaleString()}
+                              </p>
+                              <span className="text-[10px] font-semibold text-slate-400 group-hover:text-blue-600 transition">
+                                Inspect &rarr;
                               </span>
                             </div>
-                          </div>
-                        </Link>
-                      </AdProductCardWrapper>
-
-                      {/* Bottom Price & Quick Cart Action */}
-                      <div className="px-3 sm:px-3.5 pb-3 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
-                        <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-                          ₦{Number(product.price).toLocaleString()}
-                        </span>
-                        <AddToCartButton product={product} variant="icon" />
-                      </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
                     </div>
-                  )
-                })}
+                  );
+                })
+              ) : (
+                <div className="col-span-full p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <p className="text-xs text-slate-400">
+                    No hardware listings currently published.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Operational Trust Pillars */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800">
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-4 h-4" />
               </div>
-            ) : (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-2">
-                <Package className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                  No published listings found
-                </p>
-                <p className="text-xs text-slate-400">
-                  New electronics listings from Abuja stores will appear here.
+              
+            </div>
+
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center shrink-0">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                  Buyer Protection
+                </h4>
+               
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-sky-950 text-sky-600 flex items-center justify-center shrink-0">
+                <Truck className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                  Intra-City Logistics
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Direct dispatch across all Abuja districts
                 </p>
               </div>
-            )}
-          </section>
+            </div>
+
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                  Hardware Inspection
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Test screen, battery, and condition before release
+                </p>
+              </div>
+            </div>
+          </div>
         </main>
 
         <BuyerRightSidebar
-          user={sidebarUser}
-          activeListingsCount={feedItems.length}
+          user={{
+            id: user.id,
+            email: user.email,
+            fullName: userProfile?.full_name,
+            role: userProfile?.role,
+            techTrustStatus: userProfile?.tech_trust_status,
+          }}
+          activeListingsCount={products?.length || 0}
         />
       </div>
     </div>
-  )
+  );
 }
