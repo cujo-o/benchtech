@@ -38,7 +38,14 @@ export async function createDeliveryJobFromOrder(
   arg1: any,
   arg2?: any,
   arg3?: any
-): Promise<{ success?: boolean; error?: string; otp?: string }> {
+): Promise<{
+  success?: boolean
+  error?: string
+  otp?: string
+  jobNumber?: string
+  deliveryId?: string
+  orderId?: string
+}> {
   try {
     const { user, profile, adminDb } = await requireDelivererOrSeller()
 
@@ -102,6 +109,9 @@ export async function createDeliveryJobFromOrder(
       existingOrder.delivery_otp ||
       Math.floor(100000 + Math.random() * 900000).toString()
 
+    const jobNumber =
+      existingOrder.order_number || `JOB-${orderId.slice(0, 8).toUpperCase()}`
+
     const now = new Date().toISOString()
 
     await adminDb
@@ -116,7 +126,6 @@ export async function createDeliveryJobFromOrder(
       })
       .eq('id', orderId)
 
-    // Best-effort insert into deliveries table if present in schema
     try {
       await adminDb.from('deliveries').upsert(
         {
@@ -147,6 +156,7 @@ export async function createDeliveryJobFromOrder(
       target_type: 'order',
       target_id: orderId,
       result: 'dispatched',
+      metadata: { jobNumber, otp: generatedOtp },
     })
 
     revalidatePath('/seller/orders')
@@ -156,7 +166,13 @@ export async function createDeliveryJobFromOrder(
     revalidatePath('/admin/orders')
     revalidatePath('/orders')
 
-    return { success: true, otp: generatedOtp }
+    return {
+      success: true,
+      otp: generatedOtp,
+      jobNumber,
+      deliveryId: orderId,
+      orderId,
+    }
   } catch (err: any) {
     return { error: err?.message || 'Failed to dispatch order.' }
   }
@@ -281,7 +297,6 @@ export async function verifyDeliveryHandoverAction(formData: FormData) {
 
 /**
  * Record / Report Delivery Exception Action
- * Supports FormData, object payload, or positional arguments
  */
 export async function reportDeliveryExceptionAction(
   arg1: any,
@@ -393,7 +408,7 @@ export async function adminAssignCourierAction(formData: FormData): Promise<void
   revalidatePath('/delivery')
 }
 
-// Export aliases so all existing modals and pages resolve cleanly
+// Export aliases
 export const recordDeliveryException = reportDeliveryExceptionAction
 export const reportDeliveryException = reportDeliveryExceptionAction
 export const verifyDeliveryOTP = verifyDeliveryHandoverAction
