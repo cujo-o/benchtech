@@ -15,6 +15,8 @@ export default function robots(): MetadataRoute.Robots {
           '/requests/new',
           '/compare',
           '/help',
+          '/privacy',
+          '/terms',
         ],
         disallow: [
           '/admin',
@@ -23,8 +25,6 @@ export default function robots(): MetadataRoute.Robots {
           '/seller/*',
           '/orders',
           '/orders/*',
-          '/messages',
-          '/messages/*',
           '/wallet',
           '/saved',
           '/api/*',
