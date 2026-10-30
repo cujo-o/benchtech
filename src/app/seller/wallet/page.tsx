@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { HelpTooltip, HowItWorksCorner } from '@/components/ui/HelpTooltip'
 import { AddFundsModal } from '@/components/ads/AddFundsModal'
 import { WithdrawModal } from './WithdrawModal'
 import {
@@ -19,7 +20,8 @@ export const dynamic = 'force-dynamic'
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   return createAdminClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
@@ -32,6 +34,7 @@ export default async function SellerWalletPage({
 }) {
   const params = await searchParams
   const reference = params?.reference || params?.trxref
+
   const supabase = await createClient()
   const {
     data: { user },
@@ -39,6 +42,7 @@ export default async function SellerWalletPage({
 
   if (!user) redirect('/login')
 
+  const supabaseAdmin = getSupabaseAdmin()
   let newlyCreditedAmount: number | null = null
 
   if (reference) {
@@ -59,8 +63,6 @@ export default async function SellerWalletPage({
           const topupAmount =
             Number(txData.metadata?.amount) || Number(txData.amount) / 100
 
-          const supabaseAdmin = getSupabaseAdmin()
-
           const { data: existingTx } = await supabaseAdmin
             .from('ad_wallet_transactions')
             .select('id')
@@ -80,7 +82,8 @@ export default async function SellerWalletPage({
               .eq('seller_id', user.id)
               .maybeSingle()
 
-            const updatedBalance = Number(currentWallet?.balance || 0) + topupAmount
+            const updatedBalance =
+              Number(currentWallet?.balance || 0) + topupAmount
 
             await supabaseAdmin.from('ad_wallets').upsert(
               {
@@ -100,7 +103,12 @@ export default async function SellerWalletPage({
     }
   }
 
-  const [{ data: profile }, { data: adWallet }, { data: orders }] = await Promise.all([
+  const [
+    { data: profile },
+    { data: adWallet },
+    { data: orders },
+    { data: withdrawalEvents },
+  ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
     supabase.from('ad_wallets').select('*').eq('seller_id', user.id).maybeSingle(),
     supabase
@@ -108,13 +116,25 @@ export default async function SellerWalletPage({
       .select('*')
       .eq('seller_id', user.id)
       .order('created_at', { ascending: false }),
+    supabaseAdmin
+      .from('audit_events')
+      .select('*')
+      .eq('actor_id', user.id)
+      .eq('action', 'seller_requested_bank_withdrawal')
+      .order('created_at', { ascending: false })
+      .limit(20),
   ])
 
   const availablePayout = Number(profile?.available_payout || 0)
   const adWalletBalance = Number(adWallet?.balance || 0).toLocaleString()
 
   const pendingVerification = (orders || [])
-    .filter((o) => o.status === 'paid' || o.status === 'in_escrow' || o.payout_status === 'on_hold')
+    .filter(
+      (o) =>
+        o.status === 'paid' ||
+        o.status === 'in_escrow' ||
+        o.payout_status === 'on_hold'
+    )
     .reduce((acc, curr) => acc + Number(curr.seller_payout || 0), 0)
 
   const totalSettledEarnings = (orders || [])
@@ -140,7 +160,10 @@ export default async function SellerWalletPage({
               </p>
             </div>
           </div>
-          <Link href="/seller/wallet" className="text-xs font-bold underline text-emerald-700 dark:text-emerald-400">
+          <Link
+            href="/seller/wallet"
+            className="text-xs font-bold underline text-emerald-700 dark:text-emerald-400"
+          >
             Dismiss
           </Link>
         </div>
@@ -159,10 +182,31 @@ export default async function SellerWalletPage({
             Track sales revenue, available balances, and marketing budgets.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <HowItWorksCorner
+            title="How Wallets & Bank Payouts Work"
+            steps={[
+              {
+                heading: '1. Buyer Payment & Escrow Hold',
+                body: 'When a buyer pays for your item, the net payout (after the 5% Pro or 7% Standard commission) is held safely in Pending Delivery Verification.',
+              },
+              {
+                heading: '2. Handover OTP & Inspection Window',
+                body: 'Once the courier verifies the buyer’s 6-digit handover OTP and the inspection period completes (or you use Early Payout), funds move to Available for Withdrawal.',
+              },
+              {
+                heading: '3. Direct Nigerian Bank Withdrawal',
+                body: 'Click Withdraw Funds, select your bank from the verified list, and enter any amount from ₦2,000 upward. Transfers settle to your bank within 24 hours.',
+              },
+              {
+                heading: '4. Promotion Wallet',
+                body: 'Your Promotion Wallet is a separate prepaid balance used strictly for Sponsored Search click campaigns.',
+              },
+            ]}
+          />
           <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Payment Protection Active
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />{' '}
+            Payment Protection Active
           </span>
         </div>
       </div>
@@ -180,20 +224,21 @@ export default async function SellerWalletPage({
                 Direct Bank Transfer
               </Badge>
             </div>
-
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Available for Withdrawal
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center">
+                <span>Available for Withdrawal</span>
+                <HelpTooltip text="Cleared net earnings ready to be withdrawn directly to your linked Nigerian bank account (minimum ₦2,000)." />
               </p>
               <p className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
                 ₦{availablePayout.toLocaleString()}
               </p>
             </div>
-
             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
               <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <Clock className="w-3.5 h-3.5 text-amber-500" /> Pending Delivery Verification:
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Pending Delivery Verification:</span>
+                  <HelpTooltip text="Net earnings from paid orders currently in delivery or within the 7-day buyer inspection window." />
                 </span>
                 <span className="font-bold text-slate-900 dark:text-slate-100">
                   ₦{pendingVerification.toLocaleString()}
@@ -201,7 +246,9 @@ export default async function SellerWalletPage({
               </div>
               <div className="flex justify-between items-center text-slate-600 dark:text-slate-300 border-t border-slate-100 dark:border-slate-700/60 pt-2">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> Completed Settlements:
+                  <TrendingUp className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Completed Settlements:</span>
+                  <HelpTooltip text="Cumulative net revenue from all orders that have completed buyer inspection." />
                 </span>
                 <span className="font-bold text-slate-900 dark:text-slate-100">
                   ₦{totalSettledEarnings.toLocaleString()}
@@ -209,9 +256,11 @@ export default async function SellerWalletPage({
               </div>
             </div>
           </div>
-
           <div>
-            <WithdrawModal availableBalance={availablePayout} initialBank={bankInfo} />
+            <WithdrawModal
+              availableBalance={availablePayout}
+              initialBank={bankInfo}
+            />
           </div>
         </div>
 
@@ -226,16 +275,15 @@ export default async function SellerWalletPage({
                 Search &amp; Catalog Placement
               </Badge>
             </div>
-
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Current Ad Balance
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center">
+                <span>Current Ad Balance</span>
+                <HelpTooltip text="Prepaid credit used for Sponsored Search keyword ads and listing boosts. Note: 'Promote on Sale' (2.5%) does not require upfront ad balance." />
               </p>
               <p className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
                 ₦{adWalletBalance}
               </p>
             </div>
-
             <div className="p-4 bg-blue-50/50 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900/50 space-y-1 text-xs">
               <p className="font-bold text-blue-950 dark:text-blue-200">
                 Verified Click Billing
@@ -245,7 +293,6 @@ export default async function SellerWalletPage({
               </p>
             </div>
           </div>
-
           <div>
             <AddFundsModal currentBalance={adWalletBalance} />
           </div>
@@ -267,10 +314,11 @@ export default async function SellerWalletPage({
             </p>
           </div>
         </div>
-
         {bankInfo.account_number ? (
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs shrink-0">
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Settlement Account</span>
+            <span className="text-slate-400 block text-[10px] uppercase font-bold">
+              Settlement Account
+            </span>
             <span className="font-bold text-slate-900 dark:text-slate-100">
               {bankInfo.bank_name} • {bankInfo.account_number}
             </span>
@@ -288,7 +336,9 @@ export default async function SellerWalletPage({
           <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
             Settlement &amp; Order History
           </h3>
-          <p className="text-xs text-slate-400">Record of completed orders and processed disbursements.</p>
+          <p className="text-xs text-slate-400">
+            Record of completed orders and processed bank disbursements.
+          </p>
         </div>
 
         <div className="overflow-x-auto">
@@ -305,6 +355,44 @@ export default async function SellerWalletPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {/* Recent Bank Withdrawal Requests */}
+              {(withdrawalEvents || []).map((w: any) => {
+                const amt = Number(w.metadata?.amount || 0)
+                const ref = w.metadata?.reference || w.id.slice(0, 8)
+                const bankLabel = w.metadata?.bank_name || 'Bank Transfer'
+                return (
+                  <tr
+                    key={w.id}
+                    className="text-slate-700 dark:text-slate-300 bg-emerald-50/20 dark:bg-emerald-950/10"
+                  >
+                    <td className="py-3.5 pr-4 font-bold text-slate-900 dark:text-slate-100 font-mono">
+                      {ref}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-blue-600 dark:text-blue-400">
+                      Bank Withdrawal ({bankLabel})
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold">
+                      ₦{amt.toLocaleString()}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-400 font-medium">
+                      ₦0
+                    </td>
+                    <td className="py-3.5 px-4 font-black text-emerald-600 dark:text-emerald-400">
+                      -₦{amt.toLocaleString()}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                        {w.result === 'paid' ? 'Settled' : 'Processing Payout'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 pl-4 text-right text-slate-400">
+                      {new Date(w.created_at).toLocaleDateString('en-NG')}
+                    </td>
+                  </tr>
+                )
+              })}
+
+              {/* Product Sales Rows */}
               {orders && orders.length > 0 ? (
                 orders.map((o) => {
                   const gross = Number(o.amount || o.seller_payout || 0)
@@ -313,12 +401,17 @@ export default async function SellerWalletPage({
                   const net = Number(o.seller_payout || gross - comm - adFee)
 
                   return (
-                    <tr key={o.id} className="text-slate-700 dark:text-slate-300">
+                    <tr
+                      key={o.id}
+                      className="text-slate-700 dark:text-slate-300"
+                    >
                       <td className="py-3.5 pr-4 font-bold text-slate-900 dark:text-slate-100 font-mono">
-                        {o.payment_reference || o.id.slice(0, 8)}
+                        {o.payment_reference || o.order_number || o.id.slice(0, 8)}
                       </td>
                       <td className="py-3.5 px-4">Product Sale</td>
-                      <td className="py-3.5 px-4 font-semibold">₦{gross.toLocaleString()}</td>
+                      <td className="py-3.5 px-4 font-semibold">
+                        ₦{gross.toLocaleString()}
+                      </td>
                       <td className="py-3.5 px-4 text-slate-400 font-medium">
                         -₦{(comm + adFee).toLocaleString()}
                       </td>
@@ -333,7 +426,9 @@ export default async function SellerWalletPage({
                               : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
                           }`}
                         >
-                          {o.status === 'completed' || o.payout_status === 'paid' ? 'Settled' : 'Inspection Hold'}
+                          {o.status === 'completed' || o.payout_status === 'paid'
+                            ? 'Settled'
+                            : 'Inspection Hold'}
                         </span>
                       </td>
                       <td className="py-3.5 pl-4 text-right text-slate-400">
@@ -342,13 +437,13 @@ export default async function SellerWalletPage({
                     </tr>
                   )
                 })
-              ) : (
+              ) : (withdrawalEvents || []).length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-slate-400">
                     No order transactions recorded.
                   </td>
                 </tr>
-              )}
+              ) : null}
             </tbody>
           </table>
         </div>

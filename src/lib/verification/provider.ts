@@ -8,20 +8,36 @@ export type BankVerificationResult = {
 
 export const NIGERIAN_BANKS = [
   { name: 'Access Bank', code: '044' },
-  { name: 'First Bank of Nigeria', code: '011' },
-  { name: 'Guaranty Trust Bank (GTBank)', code: '058' },
-  { name: 'United Bank for Africa (UBA)', code: '033' },
-  { name: 'Zenith Bank', code: '057' },
+  { name: 'Citibank Nigeria', code: '023' },
+  { name: 'Ecobank Nigeria', code: '050' },
   { name: 'Fidelity Bank', code: '070' },
+  { name: 'First Bank of Nigeria', code: '011' },
   { name: 'First City Monument Bank (FCMB)', code: '214' },
-  { name: 'Stanbic IBTC Bank', code: '221' },
-  { name: 'Sterling Bank', code: '232' },
-  { name: 'Union Bank of Nigeria', code: '032' },
-  { name: 'Wema Bank', code: '035' },
-  { name: 'OPay', code: '999992' },
-  { name: 'Moniepoint MFB', code: '50515' },
+  { name: 'Globus Bank', code: '00103' },
+  { name: 'Guaranty Trust Bank (GTBank)', code: '058' },
+  { name: 'Jaiz Bank', code: '301' },
+  { name: 'Keystone Bank', code: '082' },
   { name: 'Kuda Bank', code: '50211' },
+  { name: 'Lotus Bank', code: '303' },
+  { name: 'Moniepoint MFB', code: '50515' },
+  { name: 'OPay', code: '999992' },
   { name: 'Palmpay', code: '999991' },
+  { name: 'Parallex Bank', code: '104' },
+  { name: 'Polaris Bank', code: '076' },
+  { name: 'PremiumTrust Bank', code: '105' },
+  { name: 'Providus Bank', code: '101' },
+  { name: 'Stanbic IBTC Bank', code: '221' },
+  { name: 'Standard Chartered Bank', code: '068' },
+  { name: 'Sterling Bank', code: '232' },
+  { name: 'SunTrust Bank', code: '100' },
+  { name: 'TAJBank', code: '302' },
+  { name: 'Titan Trust Bank', code: '102' },
+  { name: 'Union Bank of Nigeria', code: '032' },
+  { name: 'United Bank for Africa (UBA)', code: '033' },
+  { name: 'Unity Bank', code: '215' },
+  { name: 'VFD Microfinance Bank', code: '566' },
+  { name: 'Wema Bank', code: '035' },
+  { name: 'Zenith Bank', code: '057' },
 ]
 
 function normalizeNameTokens(name: string): string[] {
@@ -29,10 +45,19 @@ function normalizeNameTokens(name: string): string[] {
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '')
     .split(/\s+/)
-    .filter((token) => token.length > 1 && !['ltd', 'limited', 'plc', 'nigeria', 'enterprises', 'ventures'].includes(token))
+    .filter(
+      (token) =>
+        token.length > 1 &&
+        !['ltd', 'limited', 'plc', 'nigeria', 'enterprises', 'ventures'].includes(
+          token
+        )
+    )
 }
 
-export function checkNameConsistency(expectedName: string, bankAccountName: string): boolean {
+export function checkNameConsistency(
+  expectedName: string,
+  bankAccountName: string
+): boolean {
   const expectedTokens = normalizeNameTokens(expectedName)
   const bankTokens = normalizeNameTokens(bankAccountName)
 
@@ -43,7 +68,6 @@ export function checkNameConsistency(expectedName: string, bankAccountName: stri
     if (bankTokens.includes(token)) matches++
   }
 
-  // Require at least 2 matching name tokens (or 1 if single-word business name)
   const requiredMatches = Math.min(2, expectedTokens.length)
   return matches >= requiredMatches
 }
@@ -68,8 +92,7 @@ export async function verifyBankAccountWithProvider(params: {
 
   const paystackSecret = process.env.PAYSTACK_SECRET_KEY
 
-  // 1. Live NUBAN resolution via Paystack if secret key is configured
-  if (paystackSecret) {
+  if (paystackSecret && bankCode) {
     try {
       const res = await fetch(
         `https://api.paystack.co/bank/resolve?account_number=${cleanAccount}&bank_code=${bankCode}`,
@@ -82,7 +105,9 @@ export async function verifyBankAccountWithProvider(params: {
 
       if (data.status && data.data?.account_name) {
         const resolvedName = data.data.account_name
-        const isMatched = checkNameConsistency(expectedHolderName, resolvedName)
+        const isMatched = expectedHolderName
+          ? checkNameConsistency(expectedHolderName, resolvedName)
+          : true
 
         if (!isMatched) {
           return {
@@ -99,20 +124,19 @@ export async function verifyBankAccountWithProvider(params: {
           resolvedAccountName: resolvedName,
           accountNumber: cleanAccount,
           bankName,
-          message: 'Bank account verified and matches your identity.',
+          message: 'Bank account verified.',
         }
       }
     } catch {
-      // Fallback to manual name consistency check if provider is unreachable
+      // Fallback below if provider is unreachable
     }
   }
 
-  // 2. Fallback deterministic verification when in sandbox/dev
   return {
     status: 'verified',
     resolvedAccountName: expectedHolderName.trim(),
     accountNumber: cleanAccount,
     bankName,
-    message: 'Bank account verified and matches your identity.',
+    message: 'Bank account saved.',
   }
 }
