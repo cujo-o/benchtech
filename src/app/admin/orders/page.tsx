@@ -6,14 +6,15 @@ import {
   adminVerifyOrderDelivery,
   adminReleaseOrderPayout,
   adminRefundOrder,
+  adminUpdateOrderCourier,
 } from '@/app/admin/actions'
 import {
   ClipboardList,
   Truck,
-  CheckCircle2,
   RotateCcw,
   Wallet,
   Search,
+  UserCheck,
 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -37,17 +38,92 @@ export default async function AdminOrdersPage({
   const query = (params?.q || '').trim().toLowerCase()
 
   const adminDb = getAdminDb()
-  const { data: orders } = await adminDb
-    .from('orders')
-    .select(`
-      *,
-      product:products(id, title, price),
-      buyer:profiles!orders_buyer_id_fkey(full_name, phone, district),
-      seller:profiles!orders_seller_id_fkey(business_name, full_name, phone)
-    `)
-    .order('created_at', { ascending: false })
 
-  const allOrders = orders || []
+  const [{ data: orders }, { data: profiles }, { data: deliveryAudits }] =
+    await Promise.all([
+      adminDb
+        .from('orders')
+        .select(
+          `
+          *,
+          product:products(id, title, price),
+          buyer:profiles!orders_buyer_id_fkey(full_name, phone, district),
+          seller:profiles!orders_seller_id_fkey(business_name, full_name, phone, district)
+        `
+        )
+        .order('created_at', { ascending: false }),
+      adminDb
+        .from('profiles')
+        .select('id, full_name, business_name, phone, role, roles, is_delivery'),
+      adminDb
+        .from('audit_events')
+        .select('target_id, actor_id, action, metadata, created_at')
+        .in('action', [
+          'courier_verified_delivery_handover',
+          'courier_claimed_delivery',
+          'admin_verified_order_delivery',
+          'admin_updated_order_deliverer',
+        ])
+        .order('created_at', { ascending: false }),
+    ])
+
+  const profileMap = new Map<string, any>()
+  for (const p of profiles || []) {
+    profileMap.set(p.id, p)
+  }
+
+  const deliverersList = (profiles || []).filter((p) => {
+    const roles: string[] = Array.isArray(p.roles) ? p.roles : []
+    return (
+      p.role === 'delivery' ||
+      p.is_delivery === true ||
+      roles.includes('delivery') ||
+      p.role === 'admin'
+    )
+  })
+
+  // Map order_id -> deliverer info from audit_events if not already stored on order row
+  const auditCourierMap = new Map<string, { name: string; phone?: string }>()
+  for (const ev of deliveryAudits || []) {
+    if (ev.target_id && !auditCourierMap.has(ev.target_id)) {
+      const actor = profileMap.get(ev.actor_id)
+      const name =
+        ev.metadata?.courier_name ||
+        ev.metadata?.delivered_by ||
+        actor?.full_name ||
+        actor?.business_name
+      if (name) {
+        auditCourierMap.set(ev.target_id, {
+          name,
+          phone: actor?.phone || undefined,
+        })
+      }
+    }
+  }
+
+  const allOrders = (orders || []).map((o) => {
+    const courierProfile = o.courier_id ? profileMap.get(o.courier_id) : null
+    const auditFallback = auditCourierMap.get(o.id)
+    const resolvedDelivererName =
+      o.courier_name ||
+      courierProfile?.full_name ||
+      courierProfile?.business_name ||
+      auditFallback?.name ||
+      (o.delivery_status === 'verified'
+        ? o.delivery_method === 'pickup'
+          ? `Store Handover (${o.seller?.business_name || o.seller?.full_name || 'Seller'})`
+          : 'Verified Courier'
+        : null)
+
+    const resolvedDelivererPhone =
+      o.courier_phone || courierProfile?.phone || auditFallback?.phone || null
+
+    return {
+      ...o,
+      resolvedDelivererName,
+      resolvedDelivererPhone,
+    }
+  })
 
   const filteredOrders = allOrders.filter((o) => {
     const matchesSearch =
@@ -56,7 +132,8 @@ export default async function AdminOrdersPage({
       (o.payment_reference || '').toLowerCase().includes(query) ||
       (o.product?.title || '').toLowerCase().includes(query) ||
       (o.buyer?.full_name || '').toLowerCase().includes(query) ||
-      (o.seller?.business_name || '').toLowerCase().includes(query)
+      (o.seller?.business_name || '').toLowerCase().includes(query) ||
+      (o.resolvedDelivererName || '').toLowerCase().includes(query)
 
     if (!matchesSearch) return false
 
@@ -87,11 +164,11 @@ export default async function AdminOrdersPage({
             </h1>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Monitor order deliveries, verify handovers, and release seller payouts.
+            Monitor order deliveries, see which courier delivered each order, and manage seller payouts.
           </p>
         </div>
 
-        <form action="/admin/orders" method="GET" className="w-full md:w-72">
+        <form action="/admin/orders" method="GET" className="w-full md:w-80">
           <input type="hidden" name="filter" value={activeFilter} />
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -99,7 +176,7 @@ export default async function AdminOrdersPage({
               type="text"
               name="q"
               defaultValue={params?.q || ''}
-              placeholder="Search order ref, item, buyer..."
+              placeholder="Search order ref, item, buyer, deliverer..."
               className="w-full h-10 pl-9 pr-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -158,7 +235,7 @@ export default async function AdminOrdersPage({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge
                       className={`text-[10px] font-bold capitalize ${
                         isDelivered
@@ -182,7 +259,8 @@ export default async function AdminOrdersPage({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                {/* 4-Column Order Details Including DELIVERED BY / COURIER */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
                   <div>
                     <span className="text-[10px] font-bold uppercase text-slate-400 block">
                       Item &amp; Seller
@@ -203,11 +281,39 @@ export default async function AdminOrdersPage({
                       {o.buyer?.full_name || 'Buyer'}
                     </p>
                     <p className="text-slate-500">
-                      {o.delivery_area || o.buyer?.district || 'Abuja'}
+                      {o.delivery_address || o.delivery_area || o.buyer?.district || 'Abuja'}
                     </p>
                   </div>
 
-                  <div className="md:text-right">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-sky-600 dark:text-sky-400 flex items-center gap-1">
+                      <UserCheck className="w-3 h-3" />
+                      <span>Delivered By / Courier</span>
+                    </span>
+                    {o.resolvedDelivererName ? (
+                      <>
+                        <p className="font-bold text-slate-900 dark:text-white mt-0.5">
+                          {o.resolvedDelivererName}
+                        </p>
+                        <p className="text-slate-500 text-[11px]">
+                          {o.resolvedDelivererPhone
+                            ? `${o.resolvedDelivererPhone} • `
+                            : ''}
+                          {o.delivered_at
+                            ? `Verified ${new Date(o.delivered_at).toLocaleDateString('en-NG')}`
+                            : isDelivered
+                            ? 'Handover Verified'
+                            : 'Assigned'}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-slate-400 italic mt-0.5">
+                        Not yet assigned
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="lg:text-right">
                     <span className="text-[10px] font-bold uppercase text-slate-400 block">
                       Financials
                     </span>
@@ -220,62 +326,100 @@ export default async function AdminOrdersPage({
                   </div>
                 </div>
 
-                {/* Admin Actions Bar */}
-                {!isPaidOut && !isRefunded && (
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-end gap-2">
-                    {!isDelivered && (
+                {/* Courier Assignment & Admin Actions Bar */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                  {/* Set or Update Deliverer on Any Order */}
+                  <form
+                    action={adminUpdateOrderCourier}
+                    className="flex flex-wrap items-center gap-2 text-xs"
+                  >
+                    <input type="hidden" name="orderId" value={o.id} />
+                    <select
+                      name="courierId"
+                      defaultValue={o.courier_id || ''}
+                      className="h-8 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-medium"
+                    >
+                      <option value="">Select Deliverer...</option>
+                      {deliverersList.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.full_name || d.business_name} ({d.role})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      name="courierName"
+                      defaultValue={o.courier_name || ''}
+                      placeholder="Or type courier name..."
+                      className="h-8 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-medium w-40"
+                    />
+                    <Button
+                      type="submit"
+                      size="xs"
+                      variant="outline"
+                      className="rounded-lg text-[11px] font-bold cursor-pointer"
+                    >
+                      Save Deliverer
+                    </Button>
+                  </form>
+
+                  {/* Escrow & Delivery Actions */}
+                  {!isPaidOut && !isRefunded && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!isDelivered && (
+                        <form
+                          action={async () => {
+                            'use server'
+                            await adminVerifyOrderDelivery(o.id)
+                          }}
+                        >
+                          <Button
+                            type="submit"
+                            size="sm"
+                            variant="outline"
+                            className="text-xs font-bold rounded-xl h-8 gap-1.5 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 cursor-pointer"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>Verify Delivery</span>
+                          </Button>
+                        </form>
+                      )}
+
                       <form
                         action={async () => {
                           'use server'
-                          await adminVerifyOrderDelivery(o.id)
+                          await adminReleaseOrderPayout(o.id)
+                        }}
+                      >
+                        <Button
+                          type="submit"
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl h-8 gap-1.5 cursor-pointer"
+                        >
+                          <Wallet className="w-3.5 h-3.5" />
+                          <span>Release Payout to Seller</span>
+                        </Button>
+                      </form>
+
+                      <form
+                        action={async () => {
+                          'use server'
+                          await adminRefundOrder(o.id)
                         }}
                       >
                         <Button
                           type="submit"
                           size="sm"
                           variant="outline"
-                          className="text-xs font-bold rounded-xl h-9 gap-1.5 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 cursor-pointer"
+                          className="text-xs font-bold rounded-xl h-8 gap-1.5 border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 cursor-pointer"
                         >
-                          <Truck className="w-3.5 h-3.5" />
-                          <span>Verify Delivery</span>
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Refund Buyer</span>
                         </Button>
                       </form>
-                    )}
-
-                    <form
-                      action={async () => {
-                        'use server'
-                        await adminReleaseOrderPayout(o.id)
-                      }}
-                    >
-                      <Button
-                        type="submit"
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl h-9 gap-1.5 cursor-pointer"
-                      >
-                        <Wallet className="w-3.5 h-3.5" />
-                        <span>Release Payout to Seller</span>
-                      </Button>
-                    </form>
-
-                    <form
-                      action={async () => {
-                        'use server'
-                        await adminRefundOrder(o.id)
-                      }}
-                    >
-                      <Button
-                        type="submit"
-                        size="sm"
-                        variant="outline"
-                        className="text-xs font-bold rounded-xl h-9 gap-1.5 border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 cursor-pointer"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Refund Buyer</span>
-                      </Button>
-                    </form>
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })

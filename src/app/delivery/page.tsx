@@ -16,10 +16,9 @@ import {
   Phone,
   Package,
   CheckCircle2,
-  Clock,
   Store,
   User,
-  ShieldCheck,
+  UserCheck,
   AlertTriangle,
 } from 'lucide-react'
 
@@ -56,11 +55,34 @@ export default async function DeliveryDashboardPage({
   }
 
   const adminDb = getAdminDb()
-  const { data: profile } = await adminDb
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .maybeSingle()
+  const [{ data: profile }, { data: allProfiles }, { data: rawOrders }, { data: deliveryAudits }] =
+    await Promise.all([
+      adminDb.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+      adminDb.from('profiles').select('id, full_name, business_name, phone'),
+      adminDb
+        .from('orders')
+        .select(
+          `
+          *,
+          product:products(id, title, price, condition),
+          buyer:profiles!orders_buyer_id_fkey(full_name, phone, district, street_address),
+          seller:profiles!orders_seller_id_fkey(business_name, full_name, phone, district, street_address)
+        `
+        )
+        .neq('order_status', 'cancelled')
+        .neq('order_status', 'refunded')
+        .order('created_at', { ascending: false }),
+      adminDb
+        .from('audit_events')
+        .select('target_id, actor_id, metadata')
+        .in('action', [
+          'courier_verified_delivery_handover',
+          'courier_claimed_delivery',
+          'admin_verified_order_delivery',
+          'admin_updated_order_deliverer',
+        ])
+        .order('created_at', { ascending: false }),
+    ])
 
   const roles: string[] = Array.isArray(profile?.roles)
     ? profile.roles
@@ -80,38 +102,55 @@ export default async function DeliveryDashboardPage({
     redirect('/feed')
   }
 
-  const { data: orders } = await adminDb
-    .from('orders')
-    .select(`
-      *,
-      product:products(id, title, price, condition),
-      buyer:profiles!orders_buyer_id_fkey(full_name, phone, district, street_address),
-      seller:profiles!orders_seller_id_fkey(business_name, full_name, phone, district, street_address)
-    `)
-    .neq('order_status', 'cancelled')
-    .neq('order_status', 'refunded')
-    .order('created_at', { ascending: false })
+  const profileMap = new Map<string, any>()
+  for (const p of allProfiles || []) {
+    profileMap.set(p.id, p)
+  }
 
-  const allOrders = orders || []
+  const auditDelivererMap = new Map<string, string>()
+  for (const ev of deliveryAudits || []) {
+    if (ev.target_id && !auditDelivererMap.has(ev.target_id)) {
+      const actor = profileMap.get(ev.actor_id)
+      const name =
+        ev.metadata?.courier_name ||
+        ev.metadata?.delivered_by ||
+        actor?.full_name ||
+        actor?.business_name
+      if (name) auditDelivererMap.set(ev.target_id, name)
+    }
+  }
 
-  // Categorize deliveries
+  const allOrders = (rawOrders || []).map((o) => {
+    const cProf = o.courier_id ? profileMap.get(o.courier_id) : null
+    const delivererName =
+      o.courier_name ||
+      cProf?.full_name ||
+      cProf?.business_name ||
+      auditDelivererMap.get(o.id) ||
+      (o.delivery_status === 'verified'
+        ? o.delivery_method === 'pickup'
+          ? `Store Pickup (${o.seller?.business_name || o.seller?.full_name || 'Seller'})`
+          : 'Verified Courier'
+        : null)
+
+    return {
+      ...o,
+      delivererName,
+    }
+  })
+
   const myActiveDeliveries = allOrders.filter(
     (o) =>
       o.delivery_status !== 'verified' &&
-      (o.courier_id === user.id ||
-        (isAdmin && o.delivery_status === 'dispatched'))
+      (o.courier_id === user.id || (isAdmin && o.delivery_status === 'dispatched'))
   )
 
   const availablePool = allOrders.filter(
-    (o) =>
-      o.delivery_status !== 'verified' &&
-      !o.courier_id
+    (o) => o.delivery_status !== 'verified' && !o.courier_id
   )
 
   const completedDeliveries = allOrders.filter(
-    (o) =>
-      o.delivery_status === 'verified' &&
-      (isAdmin || o.courier_id === user.id)
+    (o) => o.delivery_status === 'verified'
   )
 
   const displayedOrders =
@@ -148,13 +187,13 @@ export default async function DeliveryDashboardPage({
           </div>
 
           {isAdmin && (
-            <Link href="/admin/deliveries">
+            <Link href="/admin/orders">
               <Button
                 size="sm"
                 variant="outline"
                 className="text-xs font-bold rounded-xl h-9 border-slate-200 dark:border-slate-700 cursor-pointer"
               >
-                Admin Dispatch View
+                Admin Orders View
               </Button>
             </Link>
           )}
@@ -195,7 +234,7 @@ export default async function DeliveryDashboardPage({
           {[
             { id: 'active', label: `Active Runs (${myActiveDeliveries.length})` },
             { id: 'available', label: `Available Pickups (${availablePool.length})` },
-            { id: 'completed', label: `Completed (${completedDeliveries.length})` },
+            { id: 'completed', label: `Completed Handovers (${completedDeliveries.length})` },
           ].map((tab) => (
             <Link key={tab.id} href={`/delivery?tab=${tab.id}`}>
               <button
@@ -228,13 +267,22 @@ export default async function DeliveryDashboardPage({
                 >
                   {/* Top Bar */}
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2.5">
                       <span className="font-mono font-black text-xs sm:text-sm text-slate-900 dark:text-white">
                         #{orderRef}
                       </span>
                       <span className="text-xs text-slate-400">
                         • {new Date(order.created_at).toLocaleDateString('en-NG')}
                       </span>
+                      {order.delivererName && (
+                        <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-[10px] font-bold flex items-center gap-1">
+                          <UserCheck className="w-3 h-3 text-sky-600 dark:text-sky-400" />
+                          <span>
+                            {isVerified ? 'Delivered By:' : 'Courier:'}{' '}
+                            {order.delivererName}
+                          </span>
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -256,8 +304,8 @@ export default async function DeliveryDashboardPage({
                     </div>
                   </div>
 
-                  {/* Pickup & Dropoff Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  {/* Pickup, Dropoff & Deliverer Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
                     {/* 1. Hardware Item */}
                     <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
                       <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
@@ -326,6 +374,26 @@ export default async function DeliveryDashboardPage({
                         </a>
                       )}
                     </div>
+
+                    {/* 4. Delivered By / Courier Attribution */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
+                      <span className="text-[10px] font-black uppercase text-sky-600 dark:text-sky-400 flex items-center gap-1">
+                        <UserCheck className="w-3 h-3" />{' '}
+                        {isVerified ? 'Delivered By' : 'Assigned Deliverer'}
+                      </span>
+                      <p className="font-bold text-slate-900 dark:text-white">
+                        {order.delivererName || 'Unassigned'}
+                      </p>
+                      <p className="text-slate-500 text-[11px]">
+                        {order.delivered_at
+                          ? `Completed on ${new Date(
+                              order.delivered_at
+                            ).toLocaleDateString('en-NG')}`
+                          : isVerified
+                          ? 'Handover Confirmed'
+                          : 'Awaiting Handover OTP'}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Action Bar: Claim Run OR Verify Handover OTP */}
@@ -349,14 +417,13 @@ export default async function DeliveryDashboardPage({
                         </form>
                       ) : (
                         <div className="text-xs text-slate-500">
-                          Assigned Courier:{' '}
+                          Assigned Deliverer:{' '}
                           <strong className="text-slate-900 dark:text-white">
-                            {order.courier_name || 'You'}
+                            {order.delivererName || 'You'}
                           </strong>
                         </div>
                       )}
 
-                      {/* OTP Verification Form + Exception Modal */}
                       <div className="flex flex-wrap items-center gap-2">
                         <form
                           action={async (fd) => {

@@ -1,9 +1,5 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
-
-export const dynamic = 'force-dynamic'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -19,37 +15,15 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login?next=/admin')
-  }
-
   const adminDb = getAdminClient()
-  const { data: profile } = await adminDb
-    .from('profiles')
-    .select('role, roles, is_admin')
-    .eq('id', user.id)
-    .maybeSingle()
 
-  const roles: string[] = Array.isArray(profile?.roles)
-    ? profile.roles
-    : profile?.role
-    ? [profile.role]
-    : []
-
-  const isAdmin =
-    profile?.role === 'admin' || profile?.is_admin === true || roles.includes('admin')
-
-  if (!isAdmin) {
-    redirect('/feed')
-  }
-
-  // Fetch live action counts for sidebar badges
-  const [verificationsRes, ordersRes, disputesRes, payoutsRes] = await Promise.all([
+  const [
+    verificationsRes,
+    ordersRes,
+    disputesRes,
+    withdrawalsRes,
+    ticketsRes,
+  ] = await Promise.all([
     adminDb
       .from('seller_verifications')
       .select('id', { count: 'exact', head: true })
@@ -64,16 +38,23 @@ export default async function AdminLayout({
       .select('id', { count: 'exact', head: true })
       .eq('status', 'open'),
     adminDb
-      .from('profiles')
+      .from('audit_events')
       .select('id', { count: 'exact', head: true })
-      .gt('available_payout', 0),
+      .eq('action', 'seller_requested_bank_withdrawal')
+      .eq('result', 'processing'),
+    adminDb
+      .from('support_tickets')
+      .select('id', { count: 'exact', head: true })
+      .neq('status', 'resolved')
+      .neq('status', 'closed'),
   ])
 
   const counts = {
     pendingVerifications: verificationsRes.count || 0,
     pendingOrders: ordersRes.count || 0,
     openDisputes: disputesRes.count || 0,
-    pendingPayouts: payoutsRes.count || 0,
+    pendingPayouts: withdrawalsRes.count || 0,
+    openTickets: ticketsRes.count || 0,
   }
 
   return (

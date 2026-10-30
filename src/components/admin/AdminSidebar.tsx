@@ -29,6 +29,9 @@ import {
   Disc,
   Settings,
   MessageSquarePlus,
+  Headphones,
+  Truck,
+  Crown,
 } from 'lucide-react'
 
 interface AdminSidebarProps {
@@ -37,15 +40,16 @@ interface AdminSidebarProps {
     pendingOrders: number
     pendingPayouts: number
     openDisputes: number
+    openTickets?: number
   }
 }
 
 export function AdminSidebar({ counts }: AdminSidebarProps) {
   const pathname = usePathname()
+  const [optimisticPath, setOptimisticPath] = useState(pathname)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  // Collapsible Mini-Category Accordions
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     trust: true,
     catalog: true,
@@ -54,15 +58,16 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
   })
 
   useEffect(() => {
+    setOptimisticPath(pathname)
+    setMobileOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
     try {
       const saved = localStorage.getItem('benchtech_admin_sidebar_collapsed')
       if (saved !== null) setIsCollapsed(saved === 'true')
     } catch {}
   }, [])
-
-  useEffect(() => {
-    setMobileOpen(false)
-  }, [pathname])
 
   const toggleCollapse = () => {
     const next = !isCollapsed
@@ -78,16 +83,23 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
 
   const isActive = (href: string) => {
     if (href === '/admin') {
-      return pathname === '/admin' || pathname === '/admin/overview'
+      return optimisticPath === '/admin' || optimisticPath === '/admin/overview'
     }
-    return pathname.startsWith(href)
+    return optimisticPath.startsWith(href)
   }
 
   const NAV_GROUPS = [
     {
       key: 'trust',
-      label: 'Trust & Security',
+      label: 'Trust & Support',
       items: [
+        {
+          label: 'Support Desk',
+          href: '/admin/support-desk',
+          icon: Headphones,
+          badge: counts.openTickets,
+          badgeColor: 'bg-blue-600 text-white',
+        },
         {
           label: 'Seller Verifications',
           href: '/admin/verifications',
@@ -132,7 +144,7 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
     },
     {
       key: 'commerce',
-      label: 'Orders & Finance',
+      label: 'Orders, Delivery & Finance',
       items: [
         {
           label: 'Orders & Logistics',
@@ -140,6 +152,11 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
           icon: ClipboardList,
           badge: counts.pendingOrders,
           badgeColor: 'bg-amber-500 text-slate-950',
+        },
+        {
+          label: 'Courier Dispatch',
+          href: '/admin/deliveries',
+          icon: Truck,
         },
         {
           label: 'Seller Payouts',
@@ -157,10 +174,10 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
     },
     {
       key: 'growth',
-      label: 'Growth & Settings',
+      label: 'Accounts, Ads & Settings',
       items: [
         {
-          label: 'Users & Merchants',
+          label: 'Users & Deliverers',
           href: '/admin/users',
           icon: Users,
         },
@@ -168,6 +185,11 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
           label: 'Promotions & Ads',
           href: '/admin/advertising',
           icon: Megaphone,
+        },
+        {
+          label: 'Pro Subscriptions',
+          href: '/admin/techpass',
+          icon: Crown,
         },
         {
           label: 'TechSpin Rewards',
@@ -193,7 +215,11 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
           {!collapsed ? (
             <Link
               href="/admin"
-              onClick={onNavigate}
+              prefetch={true}
+              onClick={() => {
+                setOptimisticPath('/admin')
+                onNavigate?.()
+              }}
               className="flex items-center gap-2.5 min-w-0"
             >
               <BenchTechLogo className="w-8 h-8" />
@@ -207,7 +233,7 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
               </div>
             </Link>
           ) : (
-            <Link href="/admin" className="mx-auto">
+            <Link href="/admin" prefetch={true} className="mx-auto">
               <BenchTechLogo className="w-8 h-8" />
             </Link>
           )}
@@ -235,7 +261,11 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
           <div>
             <Link
               href="/admin"
-              onClick={onNavigate}
+              prefetch={true}
+              onClick={() => {
+                setOptimisticPath('/admin')
+                onNavigate?.()
+              }}
               title={collapsed ? 'Overview' : undefined}
               className={`flex items-center rounded-xl text-xs font-bold transition ${
                 collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
@@ -281,7 +311,11 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
                         <Link
                           key={item.href}
                           href={item.href}
-                          onClick={onNavigate}
+                          prefetch={true}
+                          onClick={() => {
+                            setOptimisticPath(item.href)
+                            onNavigate?.()
+                          }}
                           title={collapsed ? item.label : undefined}
                           className={`relative flex items-center rounded-xl text-xs font-semibold transition ${
                             collapsed
@@ -324,7 +358,24 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
         {/* Bottom Workspace Switcher & Sign Out */}
         <div className="p-2.5 border-t border-slate-200/80 dark:border-slate-800 space-y-1.5 shrink-0">
           <Link
+            href="/delivery"
+            prefetch={true}
+            onClick={onNavigate}
+            title={collapsed ? 'Delivery Hub' : undefined}
+            className={`flex items-center rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700 transition ${
+              collapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Truck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+              {!collapsed && <span>Delivery Hub</span>}
+            </div>
+            {!collapsed && <ExternalLink className="w-3 h-3 text-slate-400" />}
+          </Link>
+
+          <Link
             href="/seller/dashboard"
+            prefetch={true}
             onClick={onNavigate}
             title={collapsed ? 'Seller Hub' : undefined}
             className={`flex items-center rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700 transition ${
@@ -340,6 +391,7 @@ export function AdminSidebar({ counts }: AdminSidebarProps) {
 
           <Link
             href="/feed"
+            prefetch={true}
             onClick={onNavigate}
             title={collapsed ? 'Marketplace' : undefined}
             className={`flex items-center rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700 transition ${

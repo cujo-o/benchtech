@@ -208,10 +208,6 @@ export async function claimDeliveryOrderAction(orderId: string): Promise<void> {
   revalidatePath('/admin/deliveries')
   revalidatePath('/admin/orders')
 }
-
-/**
- * Verify Buyer Handover OTP Action
- */
 export async function verifyDeliveryHandoverAction(formData: FormData) {
   try {
     const { user, profile, adminDb } = await requireDelivererOrSeller()
@@ -262,6 +258,13 @@ export async function verifyDeliveryHandoverAction(formData: FormData) {
       now.getTime() + 7 * 24 * 60 * 60 * 1000
     ).toISOString()
 
+    const delivererName =
+      order.courier_name ||
+      profile?.full_name ||
+      profile?.business_name ||
+      'Authorized Deliverer'
+    const delivererPhone = order.courier_phone || profile?.phone || null
+
     await adminDb
       .from('orders')
       .update({
@@ -271,6 +274,8 @@ export async function verifyDeliveryHandoverAction(formData: FormData) {
         delivered_at: now.toISOString(),
         protection_ends_at: protectionEnds,
         courier_id: order.courier_id || user.id,
+        courier_name: delivererName,
+        courier_phone: delivererPhone,
         updated_at: now.toISOString(),
       })
       .eq('id', orderId)
@@ -281,6 +286,10 @@ export async function verifyDeliveryHandoverAction(formData: FormData) {
       target_type: 'order',
       target_id: orderId,
       result: 'verified',
+      metadata: {
+        courier_name: delivererName,
+        courier_phone: delivererPhone,
+      },
     })
 
     revalidatePath('/delivery')
