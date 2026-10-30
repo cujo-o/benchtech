@@ -275,9 +275,6 @@ export function HelpCenterClient({
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
               BenchTech Customer Support &amp; Operations Center
             </h1>
-            <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">
-              Verified Records &amp; Case Tracking
-            </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             24/7 AI assistance grounded in live order records, plus tracked human operational queues.

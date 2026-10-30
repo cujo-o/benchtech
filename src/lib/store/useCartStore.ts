@@ -7,7 +7,10 @@ export interface CartItem {
   price: number
   image?: string
   seller_id: string
+  seller_name?: string
   condition?: string
+  brand?: string
+  specs?: Record<string, any>
   quantity: number
 }
 
@@ -33,7 +36,9 @@ export const useCartStore = create<CartStore>()(
         if (existing) {
           set({
             items: currentItems.map((item) =>
-              item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+              item.id === product.id
+                ? { ...item, ...product, quantity: item.quantity + 1 }
+                : item
             ),
           })
         } else {
@@ -60,7 +65,10 @@ export const useCartStore = create<CartStore>()(
       clearCart: () => set({ items: [] }),
 
       getSubtotal: () =>
-        get().items.reduce((total, item) => total + item.price * item.quantity, 0),
+        get().items.reduce(
+          (total, item) => total + Number(item.price || 0) * item.quantity,
+          0
+        ),
 
       getTotalItems: () =>
         get().items.reduce((total, item) => total + item.quantity, 0),
