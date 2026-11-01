@@ -1,880 +1,842 @@
-"use client";
+'use client'
 
-import { useState, useMemo, useDeferredValue, useEffect } from "react";
-import { createPortal } from "react-dom";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { SaveButton } from "@/components/SaveButton";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { AdProductCardWrapper } from "@/components/storefront/AdProductCardWrapper";
-import { AdImpressionTracker } from "@/components/storefront/AdImpressionTracker";
+import { useState, useMemo } from 'react'
+import Link from 'next/link'
+import { SaveButton } from '@/components/SaveButton'
+import { AddToCartButton } from '@/components/cart/AddToCartButton'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   SlidersHorizontal,
-  X,
-  ChevronDown,
-  ChevronUp,
+  Search,
+  ShieldCheck,
+  MapPin,
+  Package,
+  RotateCcw,
   Smartphone,
   Laptop,
   Gamepad2,
+  Monitor,
+  Tablet,
   Headphones,
   Camera,
-  Network,
-  Home as HomeIcon,
-  Watch,
-  Tablet,
-  Monitor,
-  Grid,
-  MapPin,
-  Sparkles,
-  Package,
-  ShieldCheck,
-  ArrowRight,
-  RotateCcw,
-  HardDrive,
   Cpu,
-  BatteryCharging,
-  EyeOff,
-} from "lucide-react";
+  Wifi,
+  Home,
+  Watch,
+  LayoutGrid,
+  X,
+} from 'lucide-react'
+
+export interface ProductsCatalogClientProps {
+  initialProducts?: any[]
+  products?: any[]
+  initialCategory?: string
+  initialQuery?: string
+  isAuthenticated?: boolean
+}
 
 const CATEGORIES = [
-  { id: "all", label: "All Catalog", icon: Grid },
-  { id: "phones", label: "Phones", icon: Smartphone },
-  { id: "laptops", label: "Laptops", icon: Laptop },
-  { id: "gaming", label: "Gaming", icon: Gamepad2 },
-  { id: "tablets", label: "Tablets", icon: Tablet },
-  { id: "accessories", label: "Accessories", icon: Headphones },
-  { id: "cameras", label: "Cameras", icon: Camera },
-  { id: "networking", label: "Networking", icon: Network },
-  { id: "monitors", label: "Monitors", icon: Monitor },
-  { id: "wearables", label: "Wearables", icon: Watch },
-  { id: "smarthome", label: "Smart Home", icon: HomeIcon },
-];
+  { slug: 'all', label: 'All Catalog', icon: LayoutGrid },
+  { slug: 'phones', label: 'Phones', icon: Smartphone },
+  { slug: 'laptops', label: 'Laptops', icon: Laptop },
+  { slug: 'gaming', label: 'Gaming', icon: Gamepad2 },
+  { slug: 'tablets', label: 'Tablets', icon: Tablet },
+  { slug: 'accessories', label: 'Accessories', icon: Headphones },
+  { slug: 'cameras', label: 'Cameras', icon: Camera },
+  { slug: 'components', label: 'Components', icon: Cpu },
+  { slug: 'networking', label: 'Networking', icon: Wifi },
+  { slug: 'monitors', label: 'Monitors', icon: Monitor },
+  { slug: 'wearables', label: 'Wearables', icon: Watch },
+  { slug: 'smart_home', label: 'Smart Home', icon: Home },
+]
 
-const PHONE_BRANDS = ["Apple", "Samsung", "Google", "Xiaomi", "OnePlus", "Tecno", "Infinix"];
-const LAPTOP_BRANDS = ["Apple", "Dell", "HP", "Lenovo", "ASUS", "Acer", "Microsoft"];
-const GENERAL_BRANDS = ["Apple", "Samsung", "Sony", "Dell", "HP", "Lenovo", "Logitech", "Canon", "LG"];
-
-const PHONE_STORAGE = ["64GB", "128GB", "256GB", "512GB", "1TB"];
-const LAPTOP_RAM = ["8GB", "16GB", "32GB", "64GB+"];
-const LAPTOP_STORAGE = ["256GB SSD", "512GB SSD", "1TB SSD", "2TB SSD"];
-const PROCESSORS = ["Apple M1/M2/M3", "Core i5", "Core i7", "Core i9", "Ryzen 5", "Ryzen 7"];
-const BATTERY_HEALTH = ["90%+", "85%+", "80%+"];
+const PRICE_BRACKETS = [
+  { id: 'all', label: 'Any Price', min: 0, max: Infinity },
+  { id: 'under_150k', label: 'Under ₦150k', min: 0, max: 150000 },
+  { id: '150k_350k', label: '₦150k – ₦350k', min: 150000, max: 350000 },
+  { id: '350k_750k', label: '₦350k – ₦750k', min: 350000, max: 750000 },
+  { id: '750k_1_5m', label: '₦750k – ₦1.5M', min: 750000, max: 1500000 },
+  { id: 'above_1_5m', label: 'Above ₦1.5M', min: 1500000, max: Infinity },
+]
 
 const CONDITIONS = [
-  { id: "brand_new", label: "Brand New (Sealed)" },
-  { id: "open_box", label: "Open Box / Mint" },
-  { id: "refurbished", label: "Refurbished" },
-  { id: "used", label: "Clean Fairly Used" },
-];
+  { id: 'brand_new', label: 'Brand New (Sealed)' },
+  { id: 'open_box', label: 'Open Box / Mint' },
+  { id: 'uk_used', label: 'Foreign Used (Clean)' },
+  { id: 'fairly_used', label: 'Direct Used' },
+]
 
-const ABUJA_HUBS = ["Banex Plaza", "Emab Plaza", "Wuse 2", "Garki", "CBD", "Maitama", "Gwarinpa", "Apo"];
+const RAM_OPTIONS = ['4GB', '8GB', '12GB', '16GB', '32GB', '64GB']
+const STORAGE_OPTIONS = ['128GB', '256GB', '512GB', '1TB', '2TB']
 
-const PRICE_BUCKETS = [
-  { label: "Under ₦150k", min: 0, max: 150000 },
-  { label: "₦150k – ₦350k", min: 150000, max: 350000 },
-  { label: "₦350k – ₦750k", min: 350000, max: 750000 },
-  { label: "₦750k – ₦1.5M", min: 750000, max: 1500000 },
-  { label: "Above ₦1.5M", min: 1500000, max: 999999999 },
-];
+const ABUJA_DISTRICTS = [
+  'Wuse 2',
+  'Banex',
+  'Gwarinpa',
+  'Maitama',
+  'Garki',
+  'Utako',
+  'Jabi',
+  'Lugbe',
+  'Central Area',
+]
 
 function resolveFirstImage(images: any): string | null {
-  if (!images) return null;
-  if (Array.isArray(images)) return images[0] || null;
-  if (typeof images === "string") {
+  if (!images) return null
+  if (Array.isArray(images)) return images[0] || null
+  if (typeof images === 'string') {
     try {
-      const parsed = JSON.parse(images);
-      if (Array.isArray(parsed)) return parsed[0] || null;
+      const parsed = JSON.parse(images)
+      if (Array.isArray(parsed)) return parsed[0] || null
     } catch {
-      return images.startsWith("http") ? images : null;
+      return images.startsWith('http') ? images : null
     }
   }
-  return null;
+  return null
 }
 
-function cleanProductTitle(rawTitle: string): string {
-  if (!rawTitle) return "Tech Device";
-  return rawTitle.replace(/^(sponsored|promoted|ad)\s*[:-]?\s*/i, "").trim();
-}
+export function ProductsCatalogClient({
+  initialProducts = [],
+  products,
+  initialCategory = 'all',
+  initialQuery = '',
+  isAuthenticated = false,
+}: ProductsCatalogClientProps) {
+  const catalogItems = products || initialProducts
 
-export function ProductsCatalogClient({ initialProducts }: { initialProducts: any[] }) {
-  const searchParams = useSearchParams();
+  // Filter Drawer/Panel is INACTIVE (closed) by default
+  const [showFilters, setShowFilters] = useState(false)
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [desktopFilterOpen, setDesktopFilterOpen] = useState(true);
+  // Search, Category & Sort State
+  const [category, setCategory] = useState(initialCategory.toLowerCase())
+  const [searchQuery, setSearchQuery] = useState(initialQuery)
+  const [sortBy, setSortBy] = useState<
+    'featured' | 'newest' | 'price_asc' | 'price_desc'
+  >('featured')
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const deferredSearch = useDeferredValue(searchQuery);
+  // Granular Filter States (All inactive by default)
+  const [verifiedOnly, setVerifiedOnly] = useState(false)
+  const [serialVerifiedOnly, setSerialVerifiedOnly] = useState(false)
+  const [priceBracket, setPriceBracket] = useState('all')
+  const [minPriceInput, setMinPriceInput] = useState('')
+  const [maxPriceInput, setMaxPriceInput] = useState('')
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([])
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([])
+  const [selectedRam, setSelectedRam] = useState<string[]>([])
+  const [selectedStorage, setSelectedStorage] = useState<string[]>([])
+  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([])
 
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
-  const [selectedHubs, setSelectedHubs] = useState<string[]>([]);
-  const [selectedPriceRange, setSelectedPriceRange] = useState<{ min: number; max: number; label: string } | null>(null);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
-
-  const [selectedRam, setSelectedRam] = useState<string[]>([]);
-  const [selectedStorage, setSelectedStorage] = useState<string[]>([]);
-  const [selectedProcessors, setSelectedProcessors] = useState<string[]>([]);
-  const [selectedBatteryHealth, setSelectedBatteryHealth] = useState<string[]>([]);
-
-  const [sortBy, setSortBy] = useState<"featured" | "newest" | "price_low" | "price_high">("featured");
-
-  const [openSections, setOpenSections] = useState({
-    price: true,
-    brand: true,
-    condition: true,
-    specs: true,
-    hub: false,
-  });
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setSelectedCategory(searchParams.get("category") || "all");
-    setSearchQuery(searchParams.get("q") || "");
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (drawerOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [drawerOpen]);
-
-  const toggleSection = (section: keyof typeof openSections) => {
-    setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
-  };
-
-  const activeBrands = useMemo(() => {
-    if (selectedCategory === "phones") return PHONE_BRANDS;
-    if (selectedCategory === "laptops") return LAPTOP_BRANDS;
-    return GENERAL_BRANDS;
-  }, [selectedCategory]);
-
-  // 1. Strict Deduplication: Merge identical products into a single unique row
-  const uniqueInitialProducts = useMemo(() => {
-    const productMap = new Map<string, any>();
-
-    for (const item of initialProducts || []) {
-      if (!item?.id) continue;
-
-      if (!productMap.has(item.id)) {
-        productMap.set(item.id, {
-          ...item,
-          cleanTitle: cleanProductTitle(item.title),
-        });
-      } else {
-        const existing = productMap.get(item.id);
-        // If the current entry has sponsored attributes, prefer it over the organic entry
-        if (!existing.isSponsored && item.isSponsored) {
-          productMap.set(item.id, {
-            ...item,
-            cleanTitle: cleanProductTitle(item.title),
-          });
+  // Dynamically extract available brands from catalog + standard brands
+  const availableBrands = useMemo(() => {
+    const base = new Set([
+      'Apple',
+      'Samsung',
+      'HP',
+      'Dell',
+      'Lenovo',
+      'Sony',
+      'ASUS',
+      'Hisense',
+      'Microsoft',
+      'Canon',
+    ])
+    for (const item of catalogItems) {
+      if (item.brand && typeof item.brand === 'string') {
+        const clean = item.brand.trim()
+        if (clean.length > 1 && clean.toLowerCase() !== 'generic') {
+          base.add(clean)
         }
       }
     }
+    return Array.from(base).slice(0, 14)
+  }, [catalogItems])
 
-    return Array.from(productMap.values());
-  }, [initialProducts]);
+  function toggleArrayFilter(
+    list: string[],
+    setList: (val: string[]) => void,
+    value: string
+  ) {
+    setList(
+      list.includes(value)
+        ? list.filter((item) => item !== value)
+        : [...list, value]
+    )
+  }
 
-  // 2. Filter & Sort
-  const filteredProducts = useMemo(() => {
-    const q = deferredSearch.trim().toLowerCase();
-
-    return uniqueInitialProducts
-      .filter((item) => {
-        if (selectedCategory !== "all" && item.category?.toLowerCase() !== selectedCategory.toLowerCase()) {
-          return false;
-        }
-        if (q) {
-          const matchTitle = item.cleanTitle?.toLowerCase().includes(q);
-          const matchBrand = item.brand?.toLowerCase().includes(q);
-          const matchDesc = item.description?.toLowerCase().includes(q);
-          if (!matchTitle && !matchBrand && !matchDesc) return false;
-        }
-        if (selectedBrands.length > 0 && !selectedBrands.some((b) => item.brand?.toLowerCase() === b.toLowerCase())) {
-          return false;
-        }
-        if (selectedConditions.length > 0 && !selectedConditions.includes(item.condition)) {
-          return false;
-        }
-        if (selectedHubs.length > 0) {
-          const district = item.profiles?.district || "";
-          if (!selectedHubs.some((h) => district.toLowerCase().includes(h.toLowerCase()))) {
-            return false;
-          }
-        }
-        if (selectedPriceRange) {
-          const price = Number(item.price) || 0;
-          if (price < selectedPriceRange.min || price > selectedPriceRange.max) {
-            return false;
-          }
-        }
-        if (verifiedOnly && item.profiles?.tech_trust_status !== "verified") {
-          return false;
-        }
-
-        if (selectedRam.length > 0) {
-          const itemRam = item.specs?.ram || "";
-          const content = `${item.cleanTitle} ${item.description} ${itemRam}`.toUpperCase();
-          if (!selectedRam.some((r) => content.includes(r.replace("+", "").toUpperCase()))) {
-            return false;
-          }
-        }
-        if (selectedStorage.length > 0) {
-          const itemStorage = item.specs?.storage || "";
-          const content = `${item.cleanTitle} ${item.description} ${itemStorage}`.toUpperCase();
-          if (!selectedStorage.some((s) => content.includes(s.replace(" SSD", "").toUpperCase()))) {
-            return false;
-          }
-        }
-        if (selectedProcessors.length > 0) {
-          const itemProc = item.specs?.processor || "";
-          const content = `${item.cleanTitle} ${item.description} ${itemProc}`.toLowerCase();
-          if (!selectedProcessors.some((p) => content.includes(p.toLowerCase().replace("apple ", "")))) {
-            return false;
-          }
-        }
-        if (selectedBatteryHealth.length > 0) {
-          const healthNum = parseInt(item.specs?.battery_health || "0", 10);
-          const meetsThreshold = selectedBatteryHealth.some((threshold) => healthNum >= parseInt(threshold, 10));
-          if (!meetsThreshold && item.specs?.battery_health) return false;
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        // Sponsored items rank at the top
-        if (a.isSponsored && !b.isSponsored) return -1;
-        if (!a.isSponsored && b.isSponsored) return 1;
-
-        if (sortBy === "price_low") return Number(a.price) - Number(b.price);
-        if (sortBy === "price_high") return Number(b.price) - Number(a.price);
-        if (sortBy === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0);
-      });
-  }, [
-    uniqueInitialProducts,
-    selectedCategory,
-    deferredSearch,
-    selectedBrands,
-    selectedConditions,
-    selectedHubs,
-    selectedPriceRange,
-    verifiedOnly,
-    selectedRam,
-    selectedStorage,
-    selectedProcessors,
-    selectedBatteryHealth,
-    sortBy,
-  ]);
+  function clearAllFilters() {
+    setVerifiedOnly(false)
+    setSerialVerifiedOnly(false)
+    setPriceBracket('all')
+    setMinPriceInput('')
+    setMaxPriceInput('')
+    setSelectedBrands([])
+    setSelectedConditions([])
+    setSelectedRam([])
+    setSelectedStorage([])
+    setSelectedDistricts([])
+    setSearchQuery('')
+    setCategory('all')
+  }
 
   const activeFilterCount =
-    (selectedCategory !== "all" ? 1 : 0) +
+    (verifiedOnly ? 1 : 0) +
+    (serialVerifiedOnly ? 1 : 0) +
+    (priceBracket !== 'all' ? 1 : 0) +
+    (minPriceInput || maxPriceInput ? 1 : 0) +
     selectedBrands.length +
     selectedConditions.length +
-    selectedHubs.length +
     selectedRam.length +
     selectedStorage.length +
-    selectedProcessors.length +
-    selectedBatteryHealth.length +
-    (selectedPriceRange ? 1 : 0) +
-    (verifiedOnly ? 1 : 0);
+    selectedDistricts.length
 
-  const clearAllFilters = () => {
-    setSelectedBrands([]);
-    setSelectedConditions([]);
-    setSelectedHubs([]);
-    setSelectedPriceRange(null);
-    setVerifiedOnly(false);
-    setSelectedRam([]);
-    setSelectedStorage([]);
-    setSelectedProcessors([]);
-    setSelectedBatteryHealth([]);
-  };
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    const bracketObj =
+      PRICE_BRACKETS.find((b) => b.id === priceBracket) || PRICE_BRACKETS[0]
+    const customMin = minPriceInput ? Number(minPriceInput) : null
+    const customMax = maxPriceInput ? Number(maxPriceInput) : null
 
-  const toggleItem = (list: string[], setList: (val: string[]) => void, item: string) => {
-    setList(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
-  };
+    return catalogItems
+      .filter((item) => {
+        // 1. Category
+        if (
+          category !== 'all' &&
+          (item.category || '').toLowerCase() !== category
+        ) {
+          return false
+        }
 
-  const renderFilterBody = () => (
-    <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
-      <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl">
-        <label className="flex items-center gap-2.5 cursor-pointer font-bold text-emerald-950 dark:text-emerald-200 w-full">
-          <input
-            type="checkbox"
-            checked={verifiedOnly}
-            onChange={(e) => setVerifiedOnly(e.target.checked)}
-            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-          />
-          <span className="flex items-center gap-1.5 text-xs">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            Verified Dealers Only
-          </span>
-        </label>
-      </div>
+        // 2. Search Query (Title, Brand, Model, Specs)
+        if (q) {
+          const specText = JSON.stringify(item.specs || {}).toLowerCase()
+          const hay = `${item.title || ''} ${item.brand || ''} ${
+            item.model || ''
+          } ${item.category || ''} ${specText}`.toLowerCase()
+          if (!hay.includes(q)) return false
+        }
 
-      <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-        <button
-          type="button"
-          onClick={() => toggleSection("price")}
-          className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2"
-        >
-          <span>Price Budget</span>
-          {openSections.price ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        {openSections.price && (
-          <div className="space-y-1">
-            {PRICE_BUCKETS.map((b, i) => {
-              const isSelected = selectedPriceRange?.min === b.min && selectedPriceRange?.max === b.max;
-              return (
-                <label key={i} className="flex items-center gap-2 cursor-pointer py-1 hover:text-blue-600 dark:hover:text-blue-400 transition">
-                  <input
-                    type="radio"
-                    name="price_bucket"
-                    checked={isSelected}
-                    onChange={() => setSelectedPriceRange(isSelected ? null : b)}
-                    onClick={() => {
-                      if (isSelected) setSelectedPriceRange(null);
-                    }}
-                    className="w-3.5 h-3.5 text-blue-600"
-                  />
-                  <span className={isSelected ? "font-bold text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"}>
-                    {b.label}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        const sellerProfile = Array.isArray(item.profiles)
+          ? item.profiles[0]
+          : item.profiles
 
-      <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-        <button
-          type="button"
-          onClick={() => toggleSection("brand")}
-          className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2"
-        >
-          <span className="capitalize">{selectedCategory !== "all" ? `${selectedCategory} Brands` : "Brands"}</span>
-          {openSections.brand ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        {openSections.brand && (
-          <div className="grid grid-cols-2 gap-1.5">
-            {activeBrands.map((brand) => (
-              <label key={brand} className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 dark:hover:text-blue-400 transition">
-                <input
-                  type="checkbox"
-                  checked={selectedBrands.includes(brand)}
-                  onChange={() => toggleItem(selectedBrands, setSelectedBrands, brand)}
-                  className="w-3.5 h-3.5 rounded text-blue-600"
-                />
-                <span className={selectedBrands.includes(brand) ? "font-bold text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"}>
-                  {brand}
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+        // 3. Verified Sellers Only
+        if (
+          verifiedOnly &&
+          sellerProfile?.tech_trust_status !== 'verified'
+        ) {
+          return false
+        }
 
-      {selectedCategory === "phones" && (
-        <div className="border-b border-slate-100 dark:border-slate-800 pb-3 space-y-3">
-          <div>
-            <span className="font-bold text-slate-900 dark:text-slate-100 block mb-1.5 flex items-center gap-1.5">
-              <HardDrive className="w-3.5 h-3.5 text-blue-600" /> Internal Storage
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {PHONE_STORAGE.map((storage) => {
-                const isSelected = selectedStorage.includes(storage);
-                return (
-                  <button
-                    key={storage}
-                    type="button"
-                    onClick={() => toggleItem(selectedStorage, setSelectedStorage, storage)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
-                      isSelected
-                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
-                        : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    {storage}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        // 4. Serial / IMEI Verified Only
+        if (
+          serialVerifiedOnly &&
+          !item.specs?.serial_masked &&
+          !item.specs?.serial_number
+        ) {
+          return false
+        }
 
-          <div>
-            <span className="font-bold text-slate-900 dark:text-slate-100 block mb-1.5 flex items-center gap-1.5">
-              <BatteryCharging className="w-3.5 h-3.5 text-emerald-600" /> Battery Health
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {BATTERY_HEALTH.map((bh) => {
-                const isSelected = selectedBatteryHealth.includes(bh);
-                return (
-                  <button
-                    key={bh}
-                    type="button"
-                    onClick={() => toggleItem(selectedBatteryHealth, setSelectedBatteryHealth, bh)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
-                      isSelected
-                        ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
-                        : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    {bh}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+        // 5. Price Range
+        const price = Number(item.price || 0)
+        if (price < bracketObj.min || price > bracketObj.max) return false
+        if (customMin !== null && price < customMin) return false
+        if (customMax !== null && price > customMax) return false
 
-      {selectedCategory === "laptops" && (
-        <div className="border-b border-slate-100 dark:border-slate-800 pb-3 space-y-3">
-          <div>
-            <span className="font-bold text-slate-900 dark:text-slate-100 block mb-1.5 flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5 text-blue-600" /> RAM Memory
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {LAPTOP_RAM.map((ram) => {
-                const isSelected = selectedRam.includes(ram);
-                return (
-                  <button
-                    key={ram}
-                    type="button"
-                    onClick={() => toggleItem(selectedRam, setSelectedRam, ram)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
-                      isSelected
-                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
-                        : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    {ram}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        // 6. Brand
+        if (selectedBrands.length > 0) {
+          const itemBrand = (item.brand || '').toLowerCase()
+          const titleLower = (item.title || '').toLowerCase()
+          const matchesBrand = selectedBrands.some(
+            (b) =>
+              itemBrand.includes(b.toLowerCase()) ||
+              titleLower.includes(b.toLowerCase())
+          )
+          if (!matchesBrand) return false
+        }
 
-          <div>
-            <span className="font-bold text-slate-900 dark:text-slate-100 block mb-1.5 flex items-center gap-1.5">
-              <HardDrive className="w-3.5 h-3.5 text-blue-600" /> SSD Storage
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {LAPTOP_STORAGE.map((storage) => {
-                const isSelected = selectedStorage.includes(storage);
-                return (
-                  <button
-                    key={storage}
-                    type="button"
-                    onClick={() => toggleItem(selectedStorage, setSelectedStorage, storage)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
-                      isSelected
-                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
-                        : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    {storage}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+        // 7. Condition
+        if (selectedConditions.length > 0) {
+          const itemCond = (item.condition || '').toLowerCase()
+          if (!selectedConditions.includes(itemCond)) return false
+        }
 
-      <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-        <button
-          type="button"
-          onClick={() => toggleSection("condition")}
-          className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2"
-        >
-          <span>Device Condition</span>
-          {openSections.condition ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        {openSections.condition && (
-          <div className="space-y-1">
-            {CONDITIONS.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 cursor-pointer py-1 hover:text-blue-600 dark:hover:text-blue-400 transition">
-                <input
-                  type="checkbox"
-                  checked={selectedConditions.includes(c.id)}
-                  onChange={() => toggleItem(selectedConditions, setSelectedConditions, c.id)}
-                  className="w-3.5 h-3.5 rounded text-blue-600"
-                />
-                <span className={selectedConditions.includes(c.id) ? "font-bold text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"}>
-                  {c.label}
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+        // 8. RAM Capacity
+        if (selectedRam.length > 0) {
+          const ramStr = `${item.specs?.ram || ''} ${
+            item.title || ''
+          }`.toUpperCase()
+          const matchesRam = selectedRam.some((r) => ramStr.includes(r))
+          if (!matchesRam) return false
+        }
 
-      <div>
-        <button
-          type="button"
-          onClick={() => toggleSection("hub")}
-          className="w-full flex items-center justify-between font-bold text-slate-900 dark:text-slate-100 mb-2"
-        >
-          <span>Abuja Hub Location</span>
-          {openSections.hub ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        {openSections.hub && (
-          <div className="grid grid-cols-2 gap-1">
-            {ABUJA_HUBS.map((hub) => (
-              <label key={hub} className="flex items-center gap-2 cursor-pointer py-0.5 hover:text-blue-600 dark:hover:text-blue-400 transition">
-                <input
-                  type="checkbox"
-                  checked={selectedHubs.includes(hub)}
-                  onChange={() => toggleItem(selectedHubs, setSelectedHubs, hub)}
-                  className="w-3.5 h-3.5 rounded text-blue-600"
-                />
-                <span className={selectedHubs.includes(hub) ? "font-bold text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"}>
-                  {hub}
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+        // 9. Storage Capacity
+        if (selectedStorage.length > 0) {
+          const storageStr = `${item.specs?.storage || ''} ${
+            item.title || ''
+          }`.toUpperCase()
+          const matchesStorage = selectedStorage.some((s) =>
+            storageStr.includes(s)
+          )
+          if (!matchesStorage) return false
+        }
+
+        // 10. Abuja District
+        if (selectedDistricts.length > 0) {
+          const itemDist = `${sellerProfile?.district || ''} ${
+            item.location || ''
+          }`.toLowerCase()
+          const matchesDist = selectedDistricts.some((d) =>
+            itemDist.includes(d.toLowerCase())
+          )
+          if (!matchesDist) return false
+        }
+
+        return true
+      })
+      .sort((a, b) => {
+        if (sortBy === 'price_asc') return Number(a.price) - Number(b.price)
+        if (sortBy === 'price_desc') return Number(b.price) - Number(a.price)
+        if (sortBy === 'newest') {
+          return (
+            new Date(b.created_at || 0).getTime() -
+            new Date(a.created_at || 0).getTime()
+          )
+        }
+        // Default: Featured / Sponsored first
+        const aFeat = a.is_featured ? 1 : 0
+        const bFeat = b.is_featured ? 1 : 0
+        if (aFeat !== bFeat) return bFeat - aFeat
+        return (
+          new Date(b.created_at || 0).getTime() -
+          new Date(a.created_at || 0).getTime()
+        )
+      })
+  }, [
+    catalogItems,
+    category,
+    searchQuery,
+    sortBy,
+    verifiedOnly,
+    serialVerifiedOnly,
+    priceBracket,
+    minPriceInput,
+    maxPriceInput,
+    selectedBrands,
+    selectedConditions,
+    selectedRam,
+    selectedStorage,
+    selectedDistricts,
+  ])
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <div className="p-3 sm:p-5 lg:p-6 space-y-4 max-w-[1600px] mx-auto w-full">
-        {/* Category Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
-          {CATEGORIES.map((cat) => {
-            const Icon = cat.icon;
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  setSelectedCategory(cat.id);
-                  clearAllFilters();
-                }}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all shadow-2xs ${
-                  isSelected
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${isSelected ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
+    <div className="space-y-5">
+      {/* 1. Category Pills Strip */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1.5 [scrollbar-width:none]">
+        {CATEGORIES.map((cat) => {
+          const Icon = cat.icon
+          const active = category === cat.slug
+          return (
+            <button
+              key={cat.slug}
+              type="button"
+              onClick={() => setCategory(cat.slug)}
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition cursor-pointer ${
+                active
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-blue-500'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{cat.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 2. Top Controls Bar (Device Count, Search, Show/Hide Filters Button, Sort Dropdown) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 sm:px-5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            <strong className="font-black text-slate-900 dark:text-white">
+              {filteredProducts.length}{' '}
+              {filteredProducts.length === 1 ? 'Device' : 'Devices'}
+            </strong>{' '}
+            available in Abuja
+          </span>
+
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Reset ({activeFilterCount})</span>
+            </button>
+          )}
         </div>
 
-        {/* Top Toolbar */}
-        <div className="bg-white dark:bg-slate-900 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
-              {filteredProducts.length} {filteredProducts.length === 1 ? "Device" : "Devices"}
-            </span>
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              available in Abuja
-            </span>
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {/* Quick Inline Search */}
+          <div className="relative flex-1 sm:w-56">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter by model, RAM, SSD..."
+              className="w-full h-9 pl-8 pr-7 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setDesktopFilterOpen(!desktopFilterOpen)}
-              className="hidden lg:flex items-center gap-1.5 h-9 px-3 rounded-xl border-slate-200 dark:border-slate-700 text-xs font-bold"
-            >
-              {desktopFilterOpen ? <EyeOff className="w-3.5 h-3.5 text-slate-500" /> : <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />}
-              <span>{desktopFilterOpen ? "Hide Filters" : "Show Filters"}</span>
-            </Button>
+          {/* Toggle Filter Panel Button (Inactive by Default) */}
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`h-9 px-3.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition cursor-pointer ${
+              showFilters || activeFilterCount > 0
+                ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>{showFilters ? 'Hide Filters' : 'Filter Devices'}</span>
+            {activeFilterCount > 0 && (
+              <span className="bg-blue-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
 
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-              <span className="hidden sm:inline font-bold">Sort:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                aria-label="Sort options"
-                className="h-9 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="featured">Featured First</option>
-                <option value="newest">Newest Listed</option>
-                <option value="price_low">Price: Low to High</option>
-                <option value="price_high">Price: High to Low</option>
-              </select>
+          {/* Sort Select */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-slate-400 font-semibold hidden md:inline">
+              Sort:
+            </span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="h-9 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+            >
+              <option value="featured">Featured First</option>
+              <option value="newest">Newest Arrivals</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Main Content Area: Optional Filter Sidebar + Product Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {showFilters && (
+          <aside className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-5 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <span className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <SlidersHorizontal className="w-4 h-4 text-blue-600" />
+                <span>Filter Hardware</span>
+              </span>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
 
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setDrawerOpen(true)}
-              className="lg:hidden h-9 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs gap-1.5 shadow-2xs cursor-pointer border border-transparent dark:border-slate-700"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Filters</span>
-              {activeFilterCount > 0 && (
-                <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-black flex items-center justify-center">
-                  {activeFilterCount}
+            {/* Trust & Verification Toggles */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/60 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={verifiedOnly}
+                  onChange={(e) => setVerifiedOnly(e.target.checked)}
+                  className="rounded border-slate-300 text-emerald-600"
+                />
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-bold text-emerald-950 dark:text-emerald-200">
+                  Verified Sellers Only
                 </span>
-              )}
-            </Button>
-          </div>
-        </div>
+              </label>
 
-        {/* Catalog Split Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {desktopFilterOpen && (
-            <aside className="hidden lg:block lg:col-span-4 xl:col-span-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-2xs space-y-4 sticky top-20">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter Devices
+              <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/60 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={serialVerifiedOnly}
+                  onChange={(e) => setSerialVerifiedOnly(e.target.checked)}
+                  className="rounded border-slate-300 text-blue-600"
+                />
+                <span className="font-bold text-blue-950 dark:text-blue-200">
+                  Serial / IMEI Logged Only
                 </span>
-                {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearAllFilters}
-                    className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
+              </label>
+            </div>
+
+            {/* Price Budget */}
+            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="font-black text-slate-900 dark:text-white block">
+                Price Budget
+              </span>
+              <div className="space-y-1.5">
+                {PRICE_BRACKETS.map((b) => (
+                  <label
+                    key={b.id}
+                    className="flex items-center gap-2 text-slate-600 dark:text-slate-300 cursor-pointer"
                   >
-                    <RotateCcw className="w-3 h-3" /> Reset
-                  </button>
-                )}
-              </div>
-              {renderFilterBody()}
-            </aside>
-          )}
-
-          <div className={`${desktopFilterOpen ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12"} space-y-4 min-w-0 w-full`}>
-            {activeFilterCount > 0 && (
-              <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
-                <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mr-1">
-                  Active filters:
-                </span>
-                {verifiedOnly && (
-                  <Badge className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
-                    Verified Only
-                    <X className="w-3 h-3 cursor-pointer hover:text-emerald-900" onClick={() => setVerifiedOnly(false)} />
-                  </Badge>
-                )}
-                {selectedPriceRange && (
-                  <Badge className="bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
-                    {selectedPriceRange.label}
-                    <X className="w-3 h-3 cursor-pointer hover:text-blue-900" onClick={() => setSelectedPriceRange(null)} />
-                  </Badge>
-                )}
-                {selectedBrands.map((b) => (
-                  <Badge key={b} className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-[10px] font-bold gap-1 pl-2 pr-1.5 py-0.5 rounded-lg">
-                    {b}
-                    <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleItem(selectedBrands, setSelectedBrands, b)} />
-                  </Badge>
+                    <input
+                      type="radio"
+                      name="priceBracket"
+                      checked={priceBracket === b.id}
+                      onChange={() => setPriceBracket(b.id)}
+                      className="text-blue-600"
+                    />
+                    <span>{b.label}</span>
+                  </label>
                 ))}
-                <button type="button" onClick={clearAllFilters} className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline ml-1">
-                  Reset All
-                </button>
               </div>
-            )}
+              <div className="grid grid-cols-2 gap-2 pt-1.5">
+                <input
+                  type="number"
+                  value={minPriceInput}
+                  onChange={(e) => setMinPriceInput(e.target.value)}
+                  placeholder="Min ₦"
+                  className="h-8 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-semibold"
+                />
+                <input
+                  type="number"
+                  value={maxPriceInput}
+                  onChange={(e) => setMaxPriceInput(e.target.value)}
+                  placeholder="Max ₦"
+                  className="h-8 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-semibold"
+                />
+              </div>
+            </div>
 
-            {filteredProducts.length > 0 ? (
-              <div className={`grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${desktopFilterOpen ? "lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"} gap-3 sm:gap-4.5 min-w-0`}>
-                {filteredProducts.map((item) => {
-                  const isFeatured = item.is_featured && item.featured_until && new Date(item.featured_until) > new Date();
-                  const firstImg = resolveFirstImage(item.images);
+            {/* Device Condition */}
+            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="font-black text-slate-900 dark:text-white block">
+                Device Condition
+              </span>
+              <div className="space-y-1.5">
+                {CONDITIONS.map((c) => (
+                  <label
+                    key={c.id}
+                    className="flex items-center gap-2 text-slate-600 dark:text-slate-300 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedConditions.includes(c.id)}
+                      onChange={() =>
+                        toggleArrayFilter(
+                          selectedConditions,
+                          setSelectedConditions,
+                          c.id
+                        )
+                      }
+                      className="rounded border-slate-300 text-blue-600"
+                    />
+                    <span>{c.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
+            {/* RAM Capacity */}
+            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="font-black text-slate-900 dark:text-white block">
+                RAM Memory
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {RAM_OPTIONS.map((ram) => {
+                  const active = selectedRam.includes(ram)
                   return (
-                    <div
-                      key={item.id}
-                      className={`relative group bg-white dark:bg-slate-900 border rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-200 flex flex-col justify-between min-w-0 w-full ${
-                        item.isSponsored
-                          ? "border-emerald-500/70 ring-1 ring-emerald-500/20"
-                          : "border-slate-200/90 dark:border-slate-800/90 hover:border-blue-500/50 dark:hover:border-blue-500/50"
+                    <button
+                      key={ram}
+                      type="button"
+                      onClick={() =>
+                        toggleArrayFilter(selectedRam, setSelectedRam, ram)
+                      }
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition cursor-pointer ${
+                        active
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                       }`}
                     >
-                      {/* Top Badges & Actions */}
-                      <div className="absolute top-2 inset-x-2 flex items-start justify-between z-10 pointer-events-none">
-                        <div className="flex flex-col gap-1 items-start max-w-[70%]">
-                          {item.isSponsored ? (
-                            <span className="bg-emerald-600 text-white text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
-                              Sponsored
-                            </span>
-                          ) : isFeatured ? (
-                            <span className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shadow-xs flex items-center gap-0.5">
-                              <Sparkles className="w-2 h-2" /> Featured
-                            </span>
-                          ) : null}
+                      {ram}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
 
-                          <span className="bg-slate-950/80 text-white text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded backdrop-blur-xs truncate max-w-full">
-                            {item.condition?.replace("_", " ") || "Refurbished"}
+            {/* Storage Capacity */}
+            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="font-black text-slate-900 dark:text-white block">
+                Storage Capacity
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {STORAGE_OPTIONS.map((st) => {
+                  const active = selectedStorage.includes(st)
+                  return (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() =>
+                        toggleArrayFilter(
+                          selectedStorage,
+                          setSelectedStorage,
+                          st
+                        )
+                      }
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition cursor-pointer ${
+                        active
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Brands */}
+            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="font-black text-slate-900 dark:text-white block">
+                Brands
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {availableBrands.map((brand) => (
+                  <label
+                    key={brand}
+                    className="flex items-center gap-2 text-slate-600 dark:text-slate-300 cursor-pointer truncate"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedBrands.includes(brand)}
+                      onChange={() =>
+                        toggleArrayFilter(
+                          selectedBrands,
+                          setSelectedBrands,
+                          brand
+                        )
+                      }
+                      className="rounded border-slate-300 text-blue-600"
+                    />
+                    <span className="truncate">{brand}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Abuja Hub Location */}
+            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <span className="font-black text-slate-900 dark:text-white block">
+                Abuja Hub Location
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {ABUJA_DISTRICTS.map((dist) => (
+                  <label
+                    key={dist}
+                    className="flex items-center gap-2 text-slate-600 dark:text-slate-300 cursor-pointer truncate"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedDistricts.includes(dist)}
+                      onChange={() =>
+                        toggleArrayFilter(
+                          selectedDistricts,
+                          setSelectedDistricts,
+                          dist
+                        )
+                      }
+                      className="rounded border-slate-300 text-blue-600"
+                    />
+                    <span className="truncate">{dist}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </aside>
+        )}
+
+        {/* Product Cards Grid */}
+        <div className={showFilters ? 'lg:col-span-9' : 'lg:col-span-12'}>
+          {filteredProducts.length > 0 ? (
+            <div
+              className={`grid grid-cols-2 sm:grid-cols-3 ${
+                showFilters ? 'xl:grid-cols-3' : 'xl:grid-cols-4'
+              } gap-3.5 sm:gap-4`}
+            >
+              {filteredProducts.map((product) => {
+                const firstImage = resolveFirstImage(product.images)
+                const sellerProfile = Array.isArray(product.profiles)
+                  ? product.profiles[0]
+                  : product.profiles
+                const sellerName =
+                  sellerProfile?.business_name ||
+                  sellerProfile?.full_name ||
+                  'Abuja Store'
+                const isVerifiedSeller =
+                  sellerProfile?.tech_trust_status === 'verified'
+                const district =
+                  sellerProfile?.district || product.location || 'Abuja'
+
+                const quickSpecs = [
+                  product.specs?.ram,
+                  product.specs?.storage,
+                  product.specs?.battery_health
+                    ? `${product.specs.battery_health} Battery`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .slice(0, 2)
+
+                return (
+                  <div
+                    key={product.id}
+                    className="relative bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 hover:border-blue-500/60 dark:hover:border-blue-500/60 rounded-2xl overflow-hidden flex flex-col justify-between transition shadow-2xs hover:shadow-md"
+                  >
+                    {isAuthenticated && <SaveButton product={product} />}
+
+                    <Link
+                      href={`/products/${product.id}`}
+                      className="group flex-1 flex flex-col justify-between"
+                    >
+                      <div className="relative aspect-[4/3] w-full bg-slate-100/80 dark:bg-slate-800/60 flex items-center justify-center p-3 overflow-hidden border-b border-slate-100 dark:border-slate-800">
+                        <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1">
+                          {product.is_featured && (
+                            <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md shadow-2xs w-fit">
+                              Featured
+                            </span>
+                          )}
+                          <span className="bg-slate-900/85 text-white text-[9px] font-bold uppercase px-2 py-0.5 rounded-md backdrop-blur-xs w-fit">
+                            {product.condition?.replace(/_/g, ' ') || 'Used'}
                           </span>
                         </div>
 
-                        <div className="pointer-events-auto shrink-0">
-                          <SaveButton product={item} />
-                        </div>
+                        {firstImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={firstImage}
+                            alt={product.title}
+                            loading="lazy"
+                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <Package className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                        )}
                       </div>
 
-                      {/* Click Telemetry Beacon & Viewport Impression Tracker */}
-                      <AdProductCardWrapper
-                        campaignId={item.campaignId}
-                        productId={item.id}
-                        sellerId={item.seller_id}
-                        isSponsored={item.isSponsored}
-                      >
-                        <AdImpressionTracker
-                          campaignId={item.campaignId}
-                          productId={item.id}
-                          sellerId={item.seller_id}
-                          isSponsored={item.isSponsored}
-                        />
+                      <div className="p-3 sm:p-3.5 space-y-1.5">
+                        <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase text-slate-400">
+                          <span className="truncate">
+                            {product.brand || product.category || 'Hardware'}
+                          </span>
+                          <span className="flex items-center gap-0.5 shrink-0">
+                            <MapPin className="w-2.5 h-2.5" />
+                            {district}
+                          </span>
+                        </div>
 
-                        {/* Product Card Click Link */}
-                        <Link href={`/products/${item.id}`} className="flex-1 flex flex-col min-w-0">
-                          <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800/80">
-                            {firstImg ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={firstImg}
-                                alt={item.cleanTitle}
-                                loading="lazy"
-                                decoding="async"
-                                className="absolute inset-0 w-full h-full object-contain p-3.5 group-hover:scale-105 transition-transform duration-300 pointer-events-none"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Package className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                              </div>
-                            )}
-                          </div>
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition line-clamp-1">
+                          {product.title}
+                        </h3>
 
-                          <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2 min-w-0">
-                            <div className="space-y-1 min-w-0">
-                              <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
-                                <span className="truncate max-w-[80px] sm:max-w-[100px]">
-                                  {item.brand || "Device"}
-                                </span>
-                                {item.profiles?.district && (
-                                  <span className="flex items-center gap-0.5 normal-case font-medium text-slate-500 truncate max-w-[75px]">
-                                    <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                                    {item.profiles.district.split(" ")[0]}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Clean Hardware Title strictly without 'Sponsored' in text */}
-                              <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 leading-snug">
-                                {item.cleanTitle}
-                              </h3>
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                              <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
-                                ₦{Number(item.price).toLocaleString()}
-                              </p>
-                              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
-                                Inspect <ArrowRight className="w-3 h-3" />
+                        {quickSpecs.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {quickSpecs.map((sp, i) => (
+                              <span
+                                key={i}
+                                className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-600 dark:text-slate-300"
+                              >
+                                {sp}
                               </span>
-                            </div>
+                            ))}
                           </div>
-                        </Link>
-                      </AdProductCardWrapper>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="p-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
-                  <SlidersHorizontal className="w-6 h-6" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-black text-slate-800 dark:text-slate-200">
-                    No gadgets found matching your filters
-                  </p>
-                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    Try loosening your budget range, changing brands, or clearing active filters.
-                  </p>
-                </div>
-                <Button type="button" size="sm" onClick={clearAllFilters} variant="outline" className="text-xs font-bold rounded-xl mt-2 border-slate-200 dark:border-slate-700">
-                  Clear Active Filters
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+                        )}
 
-        {/* Slide-Out Drawer Portal (Mobile & Tablet) */}
-        {drawerOpen && mounted
-          ? createPortal(
-              <div className="fixed inset-0 z-[9999] flex lg:hidden">
-                <div
-                  className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
-                  onClick={() => setDrawerOpen(false)}
-                />
+                        <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 truncate pt-0.5">
+                          <span className="truncate font-medium">
+                            {sellerName}
+                          </span>
+                          {isVerifiedSeller && (
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          )}
+                        </div>
+                      </div>
+                    </Link>
 
-                <div className="relative ml-auto w-80 max-w-[85vw] h-dvh bg-white dark:bg-slate-900 z-[10000] shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200">
-                  <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                        <SlidersHorizontal className="w-4 h-4 text-blue-600" /> Filter Catalog
+                    <div className="px-3 sm:px-3.5 pb-3 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
+                      <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                        ₦{Number(product.price).toLocaleString()}
                       </span>
-                      {activeFilterCount > 0 && (
-                        <Badge className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
-                          {activeFilterCount}
-                        </Badge>
-                      )}
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      {activeFilterCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={clearAllFilters}
-                          className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline mr-1"
+                      {isAuthenticated ? (
+                        <AddToCartButton product={product} variant="icon" />
+                      ) : (
+                        <Link
+                          href={`/products/${product.id}`}
+                          className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
                         >
-                          Reset
-                        </button>
+                          Inspect &rarr;
+                        </Link>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setDrawerOpen(false)}
-                        className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
                     </div>
                   </div>
-
-                  <div className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin]">
-                    {renderFilterBody()}
-                  </div>
-
-                  <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center gap-2 shrink-0">
-                    <Button variant="outline" size="sm" onClick={clearAllFilters} className="w-1/3 text-xs font-bold rounded-xl h-10 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200">
-                      Reset
+                )
+              })}
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-3">
+              <Package className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  No devices match your current filter
+                </p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Try clearing your active filters or broadcast a custom device request to verified Abuja sellers.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2.5 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="text-xs font-bold rounded-xl h-9 px-4 cursor-pointer"
+                >
+                  Reset Filters
+                </Button>
+                {isAuthenticated && (
+                  <Link href="/requests/new">
+                    <Button
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl h-9 px-4 cursor-pointer"
+                    >
+                      Request This Device
                     </Button>
-                    <Button size="sm" onClick={() => setDrawerOpen(false)} className="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 shadow-xs cursor-pointer">
-                      Show ({filteredProducts.length})
-                    </Button>
-                  </div>
-                </div>
-              </div>,
-              document.body
-            )
-          : null}
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  );
+  )
 }

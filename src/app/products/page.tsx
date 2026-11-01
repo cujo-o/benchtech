@@ -43,7 +43,6 @@ export default async function ProductsCatalogPage({
       <Navbar />
 
       <div className="max-w-[1700px] w-full mx-auto flex flex-1">
-        {/* Only render BuyerSidebar when the user is signed in */}
         {user && <BuyerSidebar />}
 
         <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-4">
@@ -63,6 +62,7 @@ export default async function ProductsCatalogPage({
             initialProducts={products || []}
             initialCategory={params?.category || 'all'}
             initialQuery={params?.q || ''}
+            isAuthenticated={Boolean(user)}
           />
         </main>
       </div>
