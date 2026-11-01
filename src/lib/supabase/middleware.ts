@@ -1,6 +1,23 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const PROTECTED_BUYER_PREFIXES = [
+  '/feed',
+  '/build',
+  '/compare',
+  '/checkout',
+  '/orders',
+  '/saved',
+  '/wallet',
+  '/price-alerts',
+  '/recently-viewed',
+  '/assistant',
+  '/techspin',
+  '/subscription',
+  '/requests',
+  '/settings',
+]
+
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
@@ -21,7 +38,9 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
           supabaseResponse = NextResponse.next({
             request,
           })
@@ -44,10 +63,15 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
-  // Unauthenticated users trying to access protected dashboards
+  const isProtectedBuyerRoute = PROTECTED_BUYER_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  )
+
+  // Block unauthenticated users from all member/seller/admin/delivery features
   if (
     !user &&
-    (pathname.startsWith('/seller') ||
+    (isProtectedBuyerRoute ||
+      pathname.startsWith('/seller') ||
       pathname.startsWith('/admin') ||
       pathname.startsWith('/delivery'))
   ) {
@@ -71,7 +95,10 @@ export async function updateSession(request: NextRequest) {
       : ['buyer']
 
     const isAdmin =
-      profile?.role === 'admin' || profile?.is_admin === true || roles.includes('admin')
+      profile?.role === 'admin' ||
+      profile?.is_admin === true ||
+      roles.includes('admin')
+
     const isDeliverer =
       profile?.role === 'delivery' ||
       profile?.is_delivery === true ||
@@ -86,14 +113,12 @@ export async function updateSession(request: NextRequest) {
       profile?.tech_trust_status === 'pending' ||
       isAdmin
 
-    // Protect Admin routes
     if (pathname.startsWith('/admin') && !isAdmin) {
       const url = request.nextUrl.clone()
       url.pathname = '/feed'
       return NextResponse.redirect(url)
     }
 
-    // Protect Delivery Dashboard
     if (pathname.startsWith('/delivery') && !isDeliverer) {
       const url = request.nextUrl.clone()
       url.pathname = '/feed'
@@ -106,6 +131,7 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
+    // Force any unverified user accessing /seller/* into /seller/onboarding
     if (
       pathname.startsWith('/seller') &&
       !pathname.startsWith('/seller/onboarding') &&
@@ -127,7 +153,9 @@ export async function updateSession(request: NextRequest) {
       url.search = ''
 
       if (roleParam === 'seller') {
-        url.pathname = hasCompletedSellerOnboarding ? '/seller/dashboard' : '/seller/onboarding'
+        url.pathname = hasCompletedSellerOnboarding
+          ? '/seller/dashboard'
+          : '/seller/onboarding'
       } else if (nextParam && nextParam.startsWith('/')) {
         url.pathname = nextParam
       } else if (isAdmin) {

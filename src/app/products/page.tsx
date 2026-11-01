@@ -1,95 +1,69 @@
-import { Suspense } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/Navbar'
 import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
 import { ProductsCatalogClient } from './ProductsCatalogClient'
-import { getSponsoredProducts } from '@/lib/ads/getSponsoredProducts'
-import type { Metadata } from 'next'
+import { ArrowLeft } from 'lucide-react'
 
-export const revalidate = 300;
+export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Explore Gadgets & Electronics in Abuja | BenchTech',
+export const metadata = {
+  title: 'Explore Hardware Catalog | BenchTech Abuja',
   description:
-    'Browse verified laptops, smartphones, gaming consoles, and accessories in Abuja.',
-  alternates: {
-    canonical: 'https://shopbenchtech.com/products',
-  },
-  openGraph: {
-    title: 'Buy Phones, Laptops & Tech in Abuja | BenchTech',
-    description:
-      'Browse inspected devices from verified Abuja tech merchants. Secure escrow protection and physical inspection available.',
-    url: 'https://shopbenchtech.com/products',
-    siteName: 'BenchTech',
-    locale: 'en_NG',
-    type: 'website',
-  },
+    'Search and filter verified laptops, smartphones, gaming consoles, and accessories in Abuja.',
 }
 
-function CatalogSkeleton() {
-  return (
-    <div className="p-3 sm:p-5 lg:p-6 space-y-4 max-w-[1600px] mx-auto w-full animate-pulse">
-      <div className="flex gap-2 overflow-hidden pb-1">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="h-8 w-24 bg-slate-200 dark:bg-slate-800 rounded-xl shrink-0" />
-        ))}
-      </div>
-      <div className="h-14 bg-slate-200 dark:bg-slate-800 rounded-2xl w-full" />
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4.5 pt-2">
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className="h-72 bg-slate-200 dark:bg-slate-800 rounded-2xl w-full" />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-export default async function ProductsPage({
+export default async function ProductsCatalogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string }>
+  searchParams: Promise<{ category?: string; q?: string; condition?: string }>
 }) {
-  const { q, category } = await searchParams
+  const params = await searchParams
   const supabase = await createClient()
 
-  // 1. Fetch Organic Listings and Top Sponsored Placements in Parallel
-  const [{ data: products }, sponsoredAds] = await Promise.all([
+  const [
+    {
+      data: { user },
+    },
+    { data: products },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
     supabase
       .from('products')
-      .select('*, profiles!products_seller_id_fkey(business_name, district, tech_trust_status)')
+      .select(
+        '*, profiles!products_seller_id_fkey(business_name, full_name, district, tech_trust_status)'
+      )
       .eq('status', 'published')
       .order('is_featured', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
-    getSponsoredProducts({ query: q, category, limit: 2 }),
   ])
 
-  // 2. Interleave Sponsored Products at the top of results
-  const sponsoredProductIds = new Set(sponsoredAds.map((ad) => ad.product.id))
-  const cleanOrganic = (products || []).filter((p) => !sponsoredProductIds.has(p.id))
-
-  const mergedProducts = [
-    ...sponsoredAds.map((ad) => ({
-      ...ad.product,
-      isSponsored: true,
-      campaignId: ad.campaignId,
-      campaignType: ad.campaignType,
-    })),
-    ...cleanOrganic,
-  ]
-
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar />
 
-      <div className="max-w-[1700px] w-full mx-auto flex flex-1 min-w-0">
-        <aside className="hidden lg:block shrink-0 border-r border-slate-200/80 dark:border-slate-800/80">
-          <BuyerSidebar />
-        </aside>
+      <div className="max-w-[1700px] w-full mx-auto flex flex-1">
+        {/* Only render BuyerSidebar when the user is signed in */}
+        {user && <BuyerSidebar />}
 
-        <main className="flex-1 min-w-0 w-full">
-          <Suspense fallback={<CatalogSkeleton />}>
-            <ProductsCatalogClient initialProducts={mergedProducts} />
-          </Suspense>
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-4">
+          {!user && (
+            <div>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Home</span>
+              </Link>
+            </div>
+          )}
+
+          <ProductsCatalogClient
+            initialProducts={products || []}
+            initialCategory={params?.category || 'all'}
+            initialQuery={params?.q || ''}
+          />
         </main>
       </div>
     </div>

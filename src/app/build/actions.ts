@@ -1,500 +1,605 @@
 'use server'
 
+import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import {
-  QuestionnaireState,
-  GeneratedBuild,
-  BuildComponent,
-  ProductItem,
-  SetupCategoryKey,
-  BenchmarkEstimate,
-} from './types'
 
-function getAdminClient() {
+function getAdminDb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   return createAdminClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 }
 
-// Category Whitelist Validator (Ensures cameras never end up in display/keyboard slots)
-function isProductCategoryAllowed(productCategory: string, allowedCategories: string[]): boolean {
-  const pCat = (productCategory || '').toLowerCase().trim()
-  if (!pCat) return false
-  return allowedCategories.some((allowed) => {
-    const a = allowed.toLowerCase().trim()
-    return pCat === a || pCat.startsWith(a) || a.startsWith(pCat)
-  })
+export interface SetupConsultationInput {
+  consultationMode: 'quick' | 'detailed' | 'professional'
+  setupType: 'desktop' | 'laptop' | 'laptop_workstation' | 'mini_pc'
+  primaryPurpose: string
+  secondaryPurposes: string[]
+  budgetMax: number
+  budgetFlexibility: 'fixed' | 'somewhat_flexible' | 'flexible_if_worth_it'
+  valuePriority: 'balanced' | 'performance' | 'lowest_cost'
+  conditionPreference: 'any' | 'brand_new_only'
+  existingEquipment: string[]
+  powerBackupNeeded: boolean
+  answers: Record<string, any>
 }
 
-export async function generateCompleteSetup(
-  survey: QuestionnaireState
-): Promise<{
-  success: boolean
-  recommendedBuild: GeneratedBuild
-  alternatives: {
-    maxPerformance: GeneratedBuild
-    budgetFriendly: GeneratedBuild
+export interface RecommendedSetupItem {
+  roleLabel: string
+  product: {
+    id: string
+    title: string
+    price: number
+    condition: string
+    brand: string
+    category: string
+    image: string | null
+    seller_id: string
+    seller_name: string
+    seller_verified: boolean
+    district: string
+    stock_quantity: number
+    specs: Record<string, any>
   }
+  reason: string
+  alternatives: Array<{
+    id: string
+    title: string
+    price: number
+    condition: string
+    brand: string
+    category: string
+    image: string | null
+    seller_id: string
+    seller_name: string
+    seller_verified: boolean
+    district: string
+    stock_quantity: number
+    specs: Record<string, any>
+  }>
+}
+
+export interface SetupRecommendationOption {
+  laneId: 'balanced' | 'performance' | 'budget'
+  laneLabel: string
+  headline: string
+  totalPrice: number
+  withinBudget: boolean
+  budgetDelta: number
+  compatibilityStatus:
+    | 'Verified Compatible'
+    | 'Compatible with Condition'
+    | 'Not Verified'
+  compatibilityNotes: string[]
+  whyItFits: string
+  expectedCapabilities: string[]
+  knownLimitations: string[]
+  upgradePath: string
+  items: RecommendedSetupItem[]
+}
+
+function resolveFirstImage(images: any): string | null {
+  if (!images) return null
+  if (Array.isArray(images)) return images[0] || null
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images)
+      if (Array.isArray(parsed)) return parsed[0] || null
+    } catch {
+      return images.startsWith('http') ? images : null
+    }
+  }
+  return null
+}
+
+function parseRamGb(specs: Record<string, any>, title: string): number | null {
+  const raw = `${specs?.ram || ''} ${title || ''}`
+  const m = raw.match(/\b(4|8|12|16|24|32|48|64|128)\s*GB\s*(RAM|DDR|Unified)?\b/i)
+  return m ? Number(m[1]) : null
+}
+
+function parseStorageGb(specs: Record<string, any>, title: string): number | null {
+  const raw = `${specs?.storage || ''} ${title || ''}`
+  const tbMatch = raw.match(/\b(1|2|4|8)\s*TB\b/i)
+  if (tbMatch) return Number(tbMatch[1]) * 1024
+  const gbMatch = raw.match(/\b(128|256|512|1000)\s*GB\b/i)
+  return gbMatch ? Number(gbMatch[1]) : null
+}
+
+function hasDedicatedGpu(specs: Record<string, any>, title: string): boolean {
+  const raw = `${specs?.gpu || ''} ${title || ''}`.toLowerCase()
+  return /rtx|gtx|radeon rx|quadro|m1 pro|m2 pro|m3 pro|m1 max|m2 max|m3 max/.test(
+    raw
+  )
+}
+
+export async function generateAdaptiveSetupRecommendations(
+  input: SetupConsultationInput
+): Promise<{
+  ok: boolean
   error?: string
+  budgetNotice?: string
+  workloadSummary: string
+  options: SetupRecommendationOption[]
 }> {
-  try {
-    const supabase = getAdminClient()
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-    // 1. Fetch live marketplace products in Abuja
-    const { data: rawProducts, error: dbError } = await supabase
-      .from('products')
-      .select('id, title, price, category, brand, condition, images, specs, seller_id, profiles(business_name, district, tech_trust_status)')
-      .eq('status', 'published')
-      .order('price', { ascending: true })
-      .limit(150)
+  if (!user) {
+    return {
+      ok: false,
+      error: 'Please sign in to generate setup recommendations.',
+      workloadSummary: '',
+      options: [],
+    }
+  }
 
-    if (dbError) {
-      console.error('Error fetching inventory in generateCompleteSetup:', dbError)
+  const adminDb = getAdminDb()
+  const { data: rawProducts } = await adminDb
+    .from('products')
+    .select(
+      '*, profiles!products_seller_id_fkey(business_name, full_name, district, tech_trust_status)'
+    )
+    .eq('status', 'published')
+    .order('created_at', { ascending: false })
+
+  const allProducts = (rawProducts || [])
+    .filter((p: any) => Number(p.stock_quantity ?? 1) > 0)
+    .map((p: any) => {
+      const seller = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles
+      return {
+        id: p.id,
+        title: p.title || 'Hardware Item',
+        price: Number(p.price || 0),
+        condition: p.condition || 'used',
+        brand: p.brand || 'Generic',
+        category: (p.category || 'hardware').toLowerCase(),
+        image: resolveFirstImage(p.images),
+        seller_id: p.seller_id,
+        seller_name:
+          seller?.business_name || seller?.full_name || 'Abuja Vendor',
+        seller_verified: seller?.tech_trust_status === 'verified',
+        district: seller?.district || p.location || 'Abuja',
+        stock_quantity: Number(p.stock_quantity ?? 1),
+        specs: p.specs || {},
+      }
+    })
+
+  // Apply hard condition filter if customer requested Brand New Only
+  const conditionFiltered =
+    input.conditionPreference === 'brand_new_only'
+      ? allProducts.filter((p) => p.condition === 'brand_new')
+      : allProducts
+
+  const candidatePool =
+    conditionFiltered.length > 0 ? conditionFiltered : allProducts
+
+  if (candidatePool.length === 0) {
+    return {
+      ok: false,
+      error: 'No active inventory is currently available in the catalog.',
+      workloadSummary: '',
+      options: [],
+    }
+  }
+
+  const allPurposes = [
+    input.primaryPurpose,
+    ...(input.secondaryPurposes || []),
+  ].map((s) => s.toLowerCase())
+
+  const needsDedicatedGpu =
+    allPurposes.some((p) =>
+      ['gaming', '3d_animation', 'ai_ml', 'engineering_cad'].includes(p)
+    ) ||
+    input.answers.gamingType === 'aaa' ||
+    input.answers.videoResolution === '4k_plus' ||
+    input.answers.needsDedicatedGpu === 'yes'
+
+  // Programming rule (Section 5.5): Do not automatically push an expensive dedicated GPU for standard coding
+  const isPureProgrammingOrOffice =
+    allPurposes.every((p) =>
+      [
+        'programming',
+        'student',
+        'office_business',
+        'data_analysis',
+        'cybersecurity',
+        'general',
+      ].includes(p)
+    ) && !needsDedicatedGpu
+
+  const needsHighRam =
+    allPurposes.some((p) =>
+      [
+        'cybersecurity',
+        '3d_animation',
+        'ai_ml',
+        'engineering_cad',
+        'content_creation',
+      ].includes(p)
+    ) ||
+    input.answers.runsVirtualMachines === 'yes' ||
+    input.answers.timelineComplexity === 'heavy'
+
+  const targetRamGb = needsHighRam ? 16 : 8
+
+  // Categorize available catalog items into primary computers, monitors, and peripherals
+  const computerCandidates = candidatePool.filter((p) =>
+    ['laptops', 'gaming', 'components', 'desktops', 'computers'].some((cat) =>
+      p.category.includes(cat)
+    ) ||
+    /laptop|macbook|thinkpad|latitude|pavilion|vostro|elitebook|zenbook|omen|legion|ps4|ps5|xbox|pc|workstation/i.test(
+      p.title
+    )
+  )
+
+  const monitorCandidates = candidatePool.filter(
+    (p) =>
+      p.category === 'monitors' ||
+      /monitor|display|screen/i.test(p.title)
+  )
+
+  const accessoryCandidates = candidatePool.filter(
+    (p) =>
+      p.category === 'accessories' ||
+      /keyboard|mouse|headset|headphone|dock|ssd|ups|webcam|microphone/i.test(
+        p.title
+      )
+  )
+
+  const primaryPool =
+    computerCandidates.length > 0 ? computerCandidates : candidatePool
+
+  // Score each primary computer candidate against the customer's workload
+  const scoredPrimary = primaryPool
+    .map((item) => {
+      let score = 50
+      const ramGb = parseRamGb(item.specs, item.title)
+      const storageGb = parseStorageGb(item.specs, item.title)
+      const hasGpu = hasDedicatedGpu(item.specs, item.title)
+
+      if (item.seller_verified) score += 12
+      if (ramGb && ramGb >= targetRamGb) score += 18
+      if (storageGb && storageGb >= 512) score += 10
+      if (needsDedicatedGpu && hasGpu) score += 25
+      if (isPureProgrammingOrOffice && !hasGpu) score += 15
+
+      // Brand preference check
+      if (
+        input.answers.preferredBrand &&
+        input.answers.preferredBrand !== 'any' &&
+        item.brand.toLowerCase().includes(input.answers.preferredBrand.toLowerCase())
+      ) {
+        score += 15
+      }
+
+      return {
+        item,
+        score,
+        ramGb,
+        storageGb,
+        hasGpu,
+      }
+    })
+    .sort((a, b) => b.score - a.score)
+
+  const ownsMonitor = (input.existingEquipment || []).includes('monitor')
+  const wantsExternalMonitor =
+    !ownsMonitor &&
+    (input.setupType === 'desktop' ||
+      input.setupType === 'laptop_workstation' ||
+      input.setupType === 'mini_pc' ||
+      input.answers.externalMonitorCount === '1' ||
+      input.answers.externalMonitorCount === '2')
+
+  const ownsPeripherals = (input.existingEquipment || []).includes(
+    'keyboard_mouse'
+  )
+
+  const maxBudget = Math.max(0, Number(input.budgetMax || 0))
+  const effectiveCeiling =
+    input.budgetFlexibility === 'flexible_if_worth_it'
+      ? Math.round(maxBudget * 1.2)
+      : input.budgetFlexibility === 'somewhat_flexible'
+      ? Math.round(maxBudget * 1.1)
+      : maxBudget
+
+  // Helper to assemble a complete setup option from a chosen primary computer
+  function buildSetupOption(
+    laneId: 'balanced' | 'performance' | 'budget',
+    laneLabel: string,
+    primaryEntry: (typeof scoredPrimary)[0],
+    includeMonitor: boolean,
+    includeAccessory: boolean
+  ): SetupRecommendationOption {
+    const items: RecommendedSetupItem[] = []
+    const compatibilityNotes: string[] = []
+    let hasMissingSpecs = false
+
+    const comp = primaryEntry.item
+    const compAlternatives = scoredPrimary
+      .map((s) => s.item)
+      .filter((i) => i.id !== comp.id)
+      .slice(0, 3)
+
+    items.push({
+      roleLabel:
+        input.setupType === 'laptop' || input.setupType === 'laptop_workstation'
+          ? 'Primary Laptop'
+          : 'Primary System / Console',
+      product: comp,
+      reason: isPureProgrammingOrOffice
+        ? `Selected for CPU/memory responsiveness without overspending on an unnecessary dedicated GPU.`
+        : needsDedicatedGpu && primaryEntry.hasGpu
+        ? `Includes dedicated graphics capability suited for ${input.primaryPurpose.replace(/_/g, ' ')}.`
+        : `Matched from active Abuja inventory for ${input.primaryPurpose.replace(/_/g, ' ')}.`,
+      alternatives: compAlternatives,
+    })
+
+    if (!primaryEntry.ramGb && !comp.specs?.processor) {
+      hasMissingSpecs = true
+      compatibilityNotes.push(
+        `Full RAM/CPU specifications are not listed on "${comp.title}" — verify physical specs during handover inspection.`
+      )
     }
 
-    const catalog: ProductItem[] = (rawProducts as any) || []
-    const budget = Math.max(100000, Number(survey.budget) || 750000)
-
-    const slotConfigs = getSlotConfigsForCategory(survey.category)
-
-    // 2. Query Gemini 1.5 Flash if API Key is configured
-    const apiKey =
-      process.env.GEMINI_API_KEY ||
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-      process.env.GOOGLE_AI_API_KEY
-
-    let aiSelection: any = null
-
-    if (apiKey && catalog.length > 0) {
-      try {
-        const prompt = `You are an expert PC and workstation architect in Abuja, Nigeria for BenchTech.
-Assemble a complete setup for this user:
-- Category: ${survey.category}
-- Target Budget: ₦${budget.toLocaleString()}
-- Target Apps/Games: ${survey.selectedApps.join(', ') || 'General productivity'}
-- Performance Profile: ${survey.performancePriority}
-- Power/NEPA Priority: ${survey.powerPriority}
-
-Slots to populate:
-${JSON.stringify(slotConfigs.map((s) => ({ slotKey: s.slotKey, name: s.slotName, allowedCategories: s.categories })))}
-
-Available catalog:
-${JSON.stringify(catalog.map((p) => ({ id: p.id, title: p.title, price: p.price, category: p.category })))}
-
-CRITICAL RULES:
-1. NEVER duplicate a product ID across multiple slots.
-2. Only pick a product if its category strictly matches the slot's allowedCategories. (e.g. NEVER put a camera in a monitor, keyboard, or hub slot).
-3. If no matching item exists in the catalog for a slot, return null for that productId.
-
-Respond ONLY with valid JSON:
-{
-  "title": "<Catchy name for this rig>",
-  "tagline": "<1 short sentence on what it excels at>",
-  "score": <number between 88 and 96>,
-  "rationale": "<2 sentences explaining why this setup fits the user in Abuja>",
-  "badges": ["<badge 1>", "<badge 2>", "<badge 3>"],
-  "slotAssignments": [
-    { "slotKey": "<slotKey>", "productId": "<matched product id or null>", "reasonWhy": "<short sentence>" }
-  ]
-}`
-
-        let timeoutSignal: any = undefined
-        try {
-          if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
-            timeoutSignal = (AbortSignal as any).timeout(8500)
-          }
-        } catch {
-          // Fallback
-        }
-
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
-            }),
-            signal: timeoutSignal,
-          }
-        )
-
-        if (geminiRes.ok) {
-          const geminiData = await geminiRes.json()
-          const rawJson = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
-          if (rawJson) {
-            aiSelection = JSON.parse(rawJson)
-          }
-        }
-      } catch (geminiErr) {
-        console.warn('Gemini build generation bypassed, running rules engine:', geminiErr)
-      }
-    }
-
-    // 3. Assemble components with strict category checks & single-use tracking
-    const usedProductIds = new Set<string>()
-    let primaryMachineProduct: ProductItem | null = null
-
-    const components: BuildComponent[] = slotConfigs.map((slot, index) => {
-      let matchedProduct: ProductItem | null = null
-      let reason = ''
-      let isDualRole = false
-      let dualRoleNote = ''
-
-      // A. Check AI Selection
-      if (aiSelection?.slotAssignments) {
-        const assignment = aiSelection.slotAssignments.find((a: any) => a.slotKey === slot.slotKey)
-        if (assignment?.productId && !usedProductIds.has(assignment.productId)) {
-          const candidate = catalog.find((p) => p.id === assignment.productId)
-          // Validate category
-          if (candidate && isProductCategoryAllowed(candidate.category || '', slot.categories)) {
-            matchedProduct = candidate
-            reason = assignment.reasonWhy || 'Selected for optimal workflow performance.'
-          }
-        }
-      }
-
-      // B. Deterministic Fallback if AI selection is missing or invalid
-      if (!matchedProduct) {
-        const eligibleCandidates = catalog.filter((p) => {
-          if (usedProductIds.has(p.id)) return false
-          return isProductCategoryAllowed(p.category || '', slot.categories)
+    if (includeMonitor && monitorCandidates.length > 0) {
+      const sortedMonitors = [...monitorCandidates].sort((a, b) =>
+        laneId === 'performance' ? b.price - a.price : a.price - b.price
+      )
+      const chosenMonitor = sortedMonitors[0]
+      if (chosenMonitor && chosenMonitor.id !== comp.id) {
+        items.push({
+          roleLabel: 'External Display',
+          product: chosenMonitor,
+          reason:
+            input.setupType === 'laptop_workstation'
+              ? 'External display for multi-window workstation productivity.'
+              : 'Matched display for your setup.',
+          alternatives: sortedMonitors.slice(1, 4),
         })
 
-        if (eligibleCandidates.length > 0) {
-          matchedProduct = eligibleCandidates[0]
-          reason = `Selected from verified Abuja stock in ${matchedProduct.profiles?.district || 'Abuja'}.`
+        if (input.setupType === 'laptop_workstation') {
+          compatibilityNotes.push(
+            'Verify HDMI or USB-C DisplayPort output port on the laptop during physical inspection.'
+          )
         }
       }
+    }
 
-      // C. Dual-Role Resolution (e.g. Laptop covering Display & Keyboard)
-      if (!matchedProduct && primaryMachineProduct) {
-        const isLaptop = (primaryMachineProduct.category || '').toLowerCase().includes('laptop')
-        if (isLaptop && (slot.slotKey === 'display' || slot.slotKey === 'dual_display' || slot.slotKey === 'screen')) {
-          isDualRole = true
-          dualRoleNote = `Covered by ${primaryMachineProduct.title} (Built-in Display)`
-          reason = 'Utilizes the built-in high-resolution display of your primary laptop. No extra monitor purchase required.'
-        } else if (isLaptop && (slot.slotKey === 'keyboard' || slot.slotKey === 'input' || slot.slotKey === 'audio_mic')) {
-          isDualRole = true
-          dualRoleNote = `Covered by ${primaryMachineProduct.title} (Built-in Keyboard)`
-          reason = 'Utilizes the integrated keyboard and trackpad. Optional external accessories can be added later.'
-        }
+    if (
+      includeAccessory &&
+      !ownsPeripherals &&
+      accessoryCandidates.length > 0
+    ) {
+      const sortedAcc = [...accessoryCandidates].sort(
+        (a, b) => a.price - b.price
+      )
+      const chosenAcc = sortedAcc[0]
+      if (chosenAcc && !items.some((i) => i.product.id === chosenAcc.id)) {
+        items.push({
+          roleLabel: 'Peripheral / Accessory',
+          product: chosenAcc,
+          reason: 'Recommended peripheral to complete your desk setup.',
+          alternatives: sortedAcc.slice(1, 4),
+        })
       }
+    }
 
-      if (matchedProduct) {
-        usedProductIds.add(matchedProduct.id)
-        if (index === 0) {
-          primaryMachineProduct = matchedProduct
-        }
-      } else if (!isDualRole) {
-        reason = 'No separate units in this category currently listed in Abuja. You can add your own or check back when restocked.'
-      }
+    const totalPrice = items.reduce(
+      (sum, entry) => sum + Number(entry.product.price || 0),
+      0
+    )
+    const withinBudget = maxBudget > 0 ? totalPrice <= effectiveCeiling : true
+    const budgetDelta = maxBudget > 0 ? totalPrice - maxBudget : 0
 
-      // Filter alternatives strictly matching this slot's category
-      const alternatives = catalog
-        .filter(
-          (p) =>
-            p.id !== matchedProduct?.id &&
-            !usedProductIds.has(p.id) &&
-            isProductCategoryAllowed(p.category || '', slot.categories)
-        )
-        .slice(0, 5)
+    let compatibilityStatus:
+      | 'Verified Compatible'
+      | 'Compatible with Condition'
+      | 'Not Verified' = 'Verified Compatible'
 
-      return {
-        slotKey: slot.slotKey,
-        slotName: slot.slotName,
-        slotDescription: slot.description,
-        category: slot.categories[0] || 'hardware',
-        product: matchedProduct,
-        isDualRole,
-        dualRoleNote,
-        reasonWhy: reason,
-        alternatives,
-      }
-    })
+    if (hasMissingSpecs) {
+      compatibilityStatus = 'Not Verified'
+    } else if (compatibilityNotes.length > 0) {
+      compatibilityStatus = 'Compatible with Condition'
+    } else {
+      compatibilityNotes.push(
+        'All selected items are standalone compatible units verified in Abuja inventory.'
+      )
+    }
 
-    // 4. Calculate total price strictly from unique physical products
-    const uniqueBilledIds = new Set<string>()
-    let totalPrice = 0
+    const expectedCapabilities: string[] = [
+      `Handles ${input.primaryPurpose.replace(/_/g, ' ')} workflows based on verified store inventory.`,
+      `Eligible for 7-day post-delivery physical inspection in Abuja.`,
+    ]
+    if (primaryEntry.ramGb) {
+      expectedCapabilities.push(
+        `Configured with ${primaryEntry.ramGb}GB RAM for multitasking.`
+      )
+    }
+    if (input.powerBackupNeeded) {
+      compatibilityNotes.push(
+        'Power interruption protection requested: We recommend pairing this setup with a sine-wave UPS (650VA–1500VA) to protect against Abuja grid fluctuations.'
+      )
+    }
 
-    components.forEach((c) => {
-      if (c.product && !c.isDualRole && !uniqueBilledIds.has(c.product.id)) {
-        uniqueBilledIds.add(c.product.id)
-        totalPrice += Number(c.product.price) || 0
-      }
-    })
+    const knownLimitations: string[] = []
+    if (needsDedicatedGpu && !primaryEntry.hasGpu) {
+      knownLimitations.push(
+        'Uses integrated/standard graphics — heavy 3D rendering or AAA ultra settings will be limited.'
+      )
+    }
+    if (!withinBudget) {
+      knownLimitations.push(
+        `Exceeds your stated target of ₦${maxBudget.toLocaleString()} by ₦${Math.abs(
+          budgetDelta
+        ).toLocaleString()} based on current live catalog prices.`
+      )
+    }
+    if (knownLimitations.length === 0) {
+      knownLimitations.push(
+        'Performance varies by specific software version and project size; no synthetic FPS guarantees are claimed.'
+      )
+    }
 
-    const savings = Math.max(0, Math.round(totalPrice * 0.05))
-
-    const recommendedBuild: GeneratedBuild = {
-      id: `build-${Date.now()}-rec`,
-      title: aiSelection?.title || getDefaultTitleForCategory(survey.category),
-      tagline: aiSelection?.tagline || `Configured for ${survey.category.replace('_', ' ')} with verified Abuja hardware.`,
-      category: survey.category,
+    return {
+      laneId,
+      laneLabel,
+      headline: `${comp.title}${
+        items.length > 1 ? ` + ${items.length - 1} Setup Item(s)` : ''
+      }`,
       totalPrice,
-      targetBudget: budget,
-      savings,
-      score: aiSelection?.score || calculateSetupScore(totalPrice, budget, survey.performancePriority),
-      compatibilityScore: 100,
-      badges: aiSelection?.badges || getBadgesForCategory(survey.category),
-      components,
-      performanceRatings: getPerformanceRatingsForCategory(survey.category, survey.performancePriority),
-      benchmarks: getBenchmarksForCategory(survey.category),
-      rationale:
-        aiSelection?.rationale ||
-        `Balanced across hardware capabilities, thermal reliability, and Abuja power resilience within your ₦${budget.toLocaleString()} allocation.`,
-    }
-
-    const maxPerformance = generateVariantBuild(recommendedBuild, 1.18, 'Maximum Performance Rig', 'max')
-    const budgetFriendly = generateVariantBuild(recommendedBuild, 0.82, 'Budget-Friendly Setup', 'budget')
-
-    return {
-      success: true,
-      recommendedBuild,
-      alternatives: {
-        maxPerformance,
-        budgetFriendly,
-      },
-    }
-  } catch (error: any) {
-    console.error('Fatal error in generateCompleteSetup:', error)
-    return {
-      success: false,
-      recommendedBuild: {} as any,
-      alternatives: {} as any,
-      error: error.message || 'Failed to generate setup',
+      withinBudget,
+      budgetDelta,
+      compatibilityStatus,
+      compatibilityNotes,
+      whyItFits: `Tailored for your ${input.primaryPurpose.replace(
+        /_/g,
+        ' '
+      )} requirements${
+        ownsMonitor ? ' (reusing your existing monitor)' : ''
+      }.`,
+      expectedCapabilities,
+      knownLimitations,
+      upgradePath:
+        input.setupType === 'laptop' || input.setupType === 'laptop_workstation'
+          ? 'Storage and external peripherals can be expanded; confirm whether internal RAM is soldered or socketed during inspection.'
+          : 'Supports adding external storage, display upgrades, and peripheral expansion.',
+      items,
     }
   }
-}
 
-export async function askBuildAssistant(
-  build: GeneratedBuild,
-  userQuestion: string
-): Promise<{ success: boolean; answer: string }> {
+  // Build up to 3 distinct, genuine recommendation lanes without fabricating fake items
+  const options: SetupRecommendationOption[] = []
+  const usedPrimaryIds = new Set<string>()
+
+  // 1. Best Value / Balanced (fits within budget if possible, highest score-to-price ratio)
+  const affordableCandidates = scoredPrimary.filter(
+    (s) => maxBudget === 0 || s.item.price <= effectiveCeiling
+  )
+  const balancedPrimary =
+    affordableCandidates[0] ||
+    [...scoredPrimary].sort((a, b) => a.item.price - b.item.price)[0]
+
+  if (balancedPrimary) {
+    usedPrimaryIds.add(balancedPrimary.item.id)
+    options.push(
+      buildSetupOption(
+        'balanced',
+        'Best Value / Balanced',
+        balancedPrimary,
+        wantsExternalMonitor &&
+          (maxBudget === 0 ||
+            balancedPrimary.item.price + (monitorCandidates[0]?.price || 0) <=
+              effectiveCeiling),
+        false
+      )
+    )
+  }
+
+  // 2. Best Performance (highest capability score)
+  const performancePrimary = scoredPrimary.find(
+    (s) => !usedPrimaryIds.has(s.item.id)
+  )
+  if (performancePrimary) {
+    usedPrimaryIds.add(performancePrimary.item.id)
+    options.push(
+      buildSetupOption(
+        'performance',
+        'Best Performance',
+        performancePrimary,
+        wantsExternalMonitor,
+        true
+      )
+    )
+  }
+
+  // 3. Budget Alternative (lowest sensible cost)
+  const lowestCostPrimary = [...scoredPrimary]
+    .filter((s) => !usedPrimaryIds.has(s.item.id))
+    .sort((a, b) => a.item.price - b.item.price)[0]
+
+  if (lowestCostPrimary) {
+    usedPrimaryIds.add(lowestCostPrimary.item.id)
+    options.push(
+      buildSetupOption(
+        'budget',
+        'Budget Alternative',
+        lowestCostPrimary,
+        false,
+        false
+      )
+    )
+  }
+
+  let budgetNotice: string | undefined
+  if (maxBudget > 0 && !options.some((o) => o.withinBudget)) {
+    const cheapestAvailable = Math.min(...primaryPool.map((p) => p.price))
+    budgetNotice = `No active computer in the Abuja catalog currently falls under your ₦${maxBudget.toLocaleString()} limit (the lowest available device is ₦${cheapestAvailable.toLocaleString()}). Below are the closest verified options so you can compare what is available or adjust your budget.`
+  }
+
+  // Audit log the consultation run
   try {
-    const apiKey =
-      process.env.GEMINI_API_KEY ||
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-      process.env.GOOGLE_AI_API_KEY
+    await adminDb.from('audit_events').insert({
+      actor_id: user.id,
+      action: 'build_my_setup_consultation',
+      target_type: 'build_session',
+      target_id: user.id,
+      result: `${options.length}_options_generated`,
+      metadata: {
+        mode: input.consultationMode,
+        setup_type: input.setupType,
+        primary_purpose: input.primaryPurpose,
+        budget_max: maxBudget,
+      },
+    })
+  } catch {}
 
-    const partsSummary = build.components
-      .filter((c) => c.product)
-      .map((c) => `${c.slotName}: ${c.product!.title} (${c.isDualRole ? 'Covered / ₦0' : `₦${Number(c.product!.price).toLocaleString()}`})`)
-      .join(', ')
-
-    if (apiKey) {
-      try {
-        const prompt = `You are the BenchTech AI Build Assistant in Abuja, Nigeria.
-The user has configured this setup:
-- Title: ${build.title}
-- Total Price: ₦${build.totalPrice.toLocaleString()}
-- Score: ${build.score}/100
-- Components: ${partsSummary}
-- Category: ${build.category}
-
-User Question: "${userQuestion}"
-
-Provide a concise, expert, friendly answer in 2-3 sentences. Reference specific parts from the user's build. If asked about upgrading, gaming (e.g. GTA 6), or alternatives, explain clearly.`
-
-        let timeoutSignal: any = undefined
-        try {
-          if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
-            timeoutSignal = (AbortSignal as any).timeout(6000)
-          }
-        } catch {
-          // Fallback
-        }
-
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.3 },
-            }),
-            signal: timeoutSignal,
-          }
-        )
-
-        if (res.ok) {
-          const data = await res.json()
-          const answer = data.candidates?.[0]?.content?.parts?.[0]?.text
-          if (answer) return { success: true, answer: answer.trim() }
-        }
-      } catch (err) {
-        console.warn('Gemini chat fallback:', err)
-      }
-    }
-
-    const q = userQuestion.toLowerCase()
-    if (q.includes('gta') || q.includes('game') || q.includes('fps')) {
-      return {
-        success: true,
-        answer: `This setup is equipped with ${build.components[0]?.product?.title || 'solid hardware'}, delivering reliable FPS on popular titles with stable frame times.`,
-      }
-    }
-    if (q.includes('upgrade') || q.includes('ram') || q.includes('future')) {
-      return {
-        success: true,
-        answer: `Yes, you can easily upgrade memory, storage, and peripherals down the line as your workflow expands.`,
-      }
-    }
-    if (q.includes('cheaper') || q.includes('price') || q.includes('discount')) {
-      return {
-        success: true,
-        answer: `You can swap components using the "Customize" tab or switch to the Budget-Friendly variant, saving up to ₦${build.savings.toLocaleString()} while keeping core performance stable.`,
-      }
-    }
-
-    return {
-      success: true,
-      answer: `This rig is configured with verified components totaling ₦${build.totalPrice.toLocaleString()}, balanced for optimal thermal stability and everyday speed in Abuja.`,
-    }
-  } catch (err: any) {
-    return {
-      success: true,
-      answer: `This build balances power efficiency with high performance for ${build.category}. Every part is backed by TechTrust 7-day inspection.`,
-    }
-  }
-}
-
-// Category Slot Definitions with strict categories (cameras only belong in creator/studio suites)
-function getSlotConfigsForCategory(category: SetupCategoryKey) {
-  switch (category) {
-    case 'gaming':
-    case 'streaming':
-      return [
-        { slotKey: 'cpu_gpu', slotName: 'Core Machine / Console', description: 'Processor, GPU & Chassis', categories: ['gaming', 'laptops'] },
-        { slotKey: 'display', slotName: 'Gaming Display', description: 'High-refresh 144Hz/165Hz Monitor', categories: ['monitors'] },
-        { slotKey: 'audio_mic', slotName: 'Headset & Streaming Audio', description: 'Spatial Sound & Voice Mic', categories: ['accessories', 'wearables'] },
-        { slotKey: 'power_backup', slotName: 'UPS Surge & Power', description: 'Outage protection & MiFi', categories: ['networking', 'smarthome'] },
-      ]
-    case 'creator':
-    case 'video_editing':
-    case 'design_3d':
-      return [
-        { slotKey: 'workstation', slotName: 'Studio Workstation', description: 'High-RAM rendering machine', categories: ['laptops', 'gaming'] },
-        { slotKey: 'display', slotName: 'Color-Accurate 4K Screen', description: 'IPS calibrated monitor', categories: ['monitors'] },
-        { slotKey: 'camera_capture', slotName: 'Camera / Video Capture', description: 'Dedicated Camera or Capture Card', categories: ['cameras', 'accessories'] },
-        { slotKey: 'fast_storage', slotName: 'External NVMe / Dock', description: 'High-speed media transfer', categories: ['accessories', 'networking'] },
-      ]
-    case 'programming':
-    case 'ai_ml':
-      return [
-        { slotKey: 'dev_laptop', slotName: 'Developer Machine', description: 'Fast multicore compiling & Docker', categories: ['laptops'] },
-        { slotKey: 'dual_display', slotName: 'Multitasking Monitor', description: 'Ultrawide code review screen', categories: ['monitors', 'tablets'] },
-        { slotKey: 'keyboard', slotName: 'Mechanical Keyboard & Mouse', description: 'Tactile input & ergonomic mouse', categories: ['accessories'] },
-        { slotKey: 'connectivity', slotName: 'High-Speed Hub & MiFi', description: 'Gigabit LAN & power delivery', categories: ['networking'] },
-      ]
-    case 'laptop':
-    case 'student':
-    case 'work':
-    case 'custom':
-    default:
-      return [
-        { slotKey: 'primary', slotName: 'Primary Machine', description: 'Core Laptop or Workstation', categories: ['laptops', 'phones', 'gaming'] },
-        { slotKey: 'screen', slotName: 'Display / Second Screen', description: 'Monitor or Tablet companion', categories: ['monitors', 'tablets'] },
-        { slotKey: 'input', slotName: 'Input & Audio', description: 'Wireless keyboard, mouse & headset', categories: ['accessories', 'wearables'] },
-        { slotKey: 'power', slotName: 'Power & Portability', description: 'Backup battery, bag & power station', categories: ['networking', 'smarthome'] },
-      ]
-  }
-}
-
-function getDefaultTitleForCategory(category: SetupCategoryKey): string {
-  const titles: Record<SetupCategoryKey, string> = {
-    gaming: 'Apex Gamer Battle Station',
-    streaming: 'Gaming + Pro Streaming Rig',
-    creator: 'Pro Studio Creator Suite',
-    video_editing: '4K Timeline Editing Suite',
-    design_3d: '3D CAD & Render Workstation',
-    programming: 'Full-Stack Developer Station',
-    ai_ml: 'Edge AI & Deep Learning Rig',
-    laptop: 'Modern Portable Laptop Suite',
-    student: 'Student Academic Workstation',
-    work: 'Executive Business Workstation',
-    custom: 'Bespoke Custom Setup',
-  }
-  return titles[category] || 'Custom Setup'
-}
-
-function getBadgesForCategory(category: SetupCategoryKey): string[] {
-  switch (category) {
-    case 'gaming':
-    case 'streaming':
-      return ['Excellent 1440p Gaming', 'Ready for Streaming', 'Low Latency Audio', 'Easy to Upgrade']
-    case 'creator':
-    case 'video_editing':
-      return ['Color-Accurate 4K', 'High GPU Render Speed', 'Silent Cooling', 'High Speed NVMe']
-    case 'programming':
-    case 'ai_ml':
-      return ['Instant Compiles', 'Multi-Container Ready', 'Dual Screen Coding', 'Ergonomic Input']
-    default:
-      return ['High Portability', 'TechTrust Verified', 'Long Battery Life', 'Abuja Power Resilient']
-  }
-}
-
-function calculateSetupScore(totalPrice: number, budget: number, profile: string): number {
-  let score = 92
-  const ratio = totalPrice / (budget || 1)
-  if (ratio >= 0.85 && ratio <= 1.05) score += 2
-  if (profile === 'balanced') score += 1
-  return Math.min(98, Math.max(86, score))
-}
-
-function getPerformanceRatingsForCategory(category: SetupCategoryKey, priority: string) {
-  const isMax = priority === 'maximum'
   return {
-    gaming: category === 'gaming' || category === 'streaming' ? (isMax ? 96 : 91) : 74,
-    contentCreation: category === 'creator' || category === 'video_editing' ? (isMax ? 95 : 89) : 78,
-    streaming: category === 'streaming' ? 92 : 82,
-    valueForMoney: priority === 'value' ? 95 : 88,
-    upgradeability: 91,
+    ok: true,
+    budgetNotice,
+    workloadSummary: `${input.setupType
+      .replace(/_/g, ' ')
+      .toUpperCase()} • Primary: ${input.primaryPurpose.replace(
+      /_/g,
+      ' '
+    )} • Budget: ₦${maxBudget.toLocaleString()}`,
+    options,
   }
 }
 
-function getBenchmarksForCategory(category: SetupCategoryKey): BenchmarkEstimate[] {
-  if (category === 'gaming' || category === 'streaming') {
-    return [
-      { label: 'Cyberpunk 2077', target: '1440p Ultra Settings', rating: '110+ FPS', icon: 'Gamepad2' },
-      { label: 'GTA V / GTA 6 Ready', target: 'High Fidelity', rating: '150+ FPS', icon: 'Flame' },
-      { label: 'Premiere Pro', target: '4K Timeline Scrubbing', rating: 'Smooth Playback', icon: 'Video' },
-      { label: 'OBS Live Stream', target: '1080p 60fps NVENC', rating: 'Zero Dropped Frames', icon: 'Sparkles' },
-    ]
-  }
-  if (category === 'programming' || category === 'ai_ml') {
-    return [
-      { label: 'Docker Multi-Node', target: '12 Microservices', rating: '< 15s Spin-up', icon: 'Cpu' },
-      { label: 'Next.js Build', target: 'Production Compilation', rating: '< 8s Turbo', icon: 'Zap' },
-      { label: 'PyTorch Inference', target: 'Local LLM / Vision', rating: 'Fast Execution', icon: 'Sparkles' },
-      { label: 'Dual 4K IDEs', target: 'VS Code + Figma', rating: 'Zero Stutter', icon: 'Monitor' },
-    ]
-  }
-  return [
-    { label: 'Everyday Multitasking', target: '25+ Browser Tabs + Office', rating: 'Instant Response', icon: 'Zap' },
-    { label: 'Zoom & Video Calling', target: 'HD Call + Background Blur', rating: 'Clear Fidelity', icon: 'Video' },
-    { label: 'Abuja Outage Autonomy', target: 'On UPS / Battery Backup', rating: '3–6 Hours Work', icon: 'ShieldCheck' },
-    { label: 'Boot & Launch Time', target: 'Fast SSD Storage', rating: '< 7 Seconds', icon: 'Sparkles' },
-  ]
-}
+/**
+ * Revalidate live price, stock, and status before adding a build to cart (Section 8.5 & 16)
+ */
+export async function revalidateSetupItemsAction(productIds: string[]) {
+  const adminDb = getAdminDb()
+  const { data: liveProducts } = await adminDb
+    .from('products')
+    .select('id, title, price, status, stock_quantity, condition, brand, images, seller_id, specs')
+    .in('id', productIds)
 
-function generateVariantBuild(
-  base: GeneratedBuild,
-  multiplier: number,
-  titlePrefix: string,
-  type: 'max' | 'budget'
-): GeneratedBuild {
-  const newPrice = Math.round(base.totalPrice * multiplier)
+  const validItems: any[] = []
+  const warnings: string[] = []
+
+  for (const id of productIds) {
+    const found = (liveProducts || []).find((p: any) => p.id === id)
+    if (!found || found.status !== 'published' || Number(found.stock_quantity ?? 1) <= 0) {
+      warnings.push(
+        `"${found?.title || 'An item'}" is no longer in stock and was excluded.`
+      )
+      continue
+    }
+    validItems.push(found)
+  }
+
   return {
-    ...base,
-    id: `build-${Date.now()}-${type}`,
-    title: `${titlePrefix} (${base.title})`,
-    totalPrice: newPrice,
-    score: type === 'max' ? Math.min(98, base.score + 2) : Math.max(86, base.score - 2),
-    savings: type === 'budget' ? Math.round(base.totalPrice * 0.18) : base.savings,
+    ok: validItems.length > 0,
+    validItems,
+    warnings,
   }
 }

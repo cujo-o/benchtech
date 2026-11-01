@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSponsoredProducts } from '@/lib/ads/getSponsoredProducts'
 import { Navbar } from '@/components/Navbar'
@@ -85,11 +86,12 @@ export default async function MarketplaceFeedPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Parallel fetch: User Profile, Sponsored Products, and Published Catalog
+  if (!user) {
+    redirect('/')
+  }
+
   const [profileRes, sponsoredResults, { data: rawProducts }] = await Promise.all([
-    user
-      ? supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
+    supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
     getSponsoredProducts({ limit: 8 }).catch(() => []),
     supabase
       .from('products')
@@ -114,7 +116,6 @@ export default async function MarketplaceFeedPage() {
     userRoles.includes('seller') ||
     profile?.role === 'admin'
 
-  // Build prioritized + randomized product list without duplicates
   const seenIds = new Set<string>()
   const feedItems: Array<{
     product: any
@@ -138,7 +139,7 @@ export default async function MarketplaceFeedPage() {
 
   const allPublished = rawProducts || []
 
-  // 2. Featured Listings (Randomized among featured)
+  // 2. Featured Listings
   const featuredPool = shuffleArray(
     allPublished.filter((p) => p.is_featured && !seenIds.has(p.id))
   )
@@ -151,7 +152,7 @@ export default async function MarketplaceFeedPage() {
     })
   }
 
-  // 3. Organic Listings (Randomized on every page load)
+  // 3. Organic Listings (Randomized)
   const organicPool = shuffleArray(
     allPublished.filter((p) => !seenIds.has(p.id))
   )
@@ -164,17 +165,15 @@ export default async function MarketplaceFeedPage() {
     })
   }
 
-  const sidebarUser = user
-    ? {
-        id: user.id,
-        email: user.email,
-        fullName: profile?.full_name,
-        businessName: profile?.business_name,
-        role: profile?.role,
-        roles: profile?.roles,
-        techTrustStatus: profile?.tech_trust_status,
-      }
-    : null
+  const sidebarUser = {
+    id: user.id,
+    email: user.email,
+    fullName: profile?.full_name,
+    businessName: profile?.business_name,
+    role: profile?.role,
+    roles: profile?.roles,
+    techTrustStatus: profile?.tech_trust_status,
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
@@ -184,71 +183,65 @@ export default async function MarketplaceFeedPage() {
         <BuyerSidebar />
 
         <main className="flex-1 min-w-0 p-3 sm:p-6 space-y-6 sm:space-y-8">
-          {/* 1. HERO BANNER WITH NEW HARDWARE IMAGE */}
-          <section className="rounded-3xl bg-slate-900 dark:bg-[#0b111e] border border-slate-800 p-5 sm:p-8 text-white shadow-xs">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-              <div className="lg:col-span-7 space-y-4">
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block">
-                  YOUR ONE-STOP TECH MARKETPLACE
+          {/* 1. HERO BANNER WITH FULL-BLEED BACKGROUND IMAGE & GRADIENT */}
+          <section className="relative rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 p-5 sm:p-8 lg:p-10 text-white shadow-xs">
+            {/* Background Image */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1400&q=80"
+              alt="Abuja Electronics and Hardware"
+              className="absolute inset-0 w-full h-full object-cover object-center opacity-45 sm:opacity-50"
+            />
+            {/* Multi-stop gradient overlay so text is crisp on mobile and desktop */}
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/90 to-slate-950/45" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent sm:hidden" />
+
+            <div className="relative z-10 max-w-xl space-y-3.5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block">
+                YOUR ONE-STOP TECH MARKETPLACE
+              </span>
+
+              <h1 className="text-2xl sm:text-4xl lg:text-[40px] font-black tracking-tight leading-[1.12] text-white">
+                Find the Right Tech. <br />
+                <span className="text-blue-400">For Your Life.</span>
+              </h1>
+
+              <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-lg">
+                Buy, compare, and sell authentic hardware in Abuja. Every order includes physical inspection before funds are released.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/85 backdrop-blur-xs border border-slate-700 text-[11px] font-bold text-slate-100">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Verified Sellers
                 </span>
-
-                <h1 className="text-2xl sm:text-4xl lg:text-[40px] font-black tracking-tight leading-[1.12]">
-                  Find the Right Tech. <br />
-                  <span className="text-blue-500">For Your Life.</span>
-                </h1>
-
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
-                  Buy, compare, and sell authentic hardware in Abuja. Every order includes physical inspection before funds are released.
-                </p>
-
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/90 border border-slate-700 text-[11px] font-bold text-slate-200">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    Verified Sellers
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/90 border border-slate-700 text-[11px] font-bold text-slate-200">
-                    <Truck className="w-3.5 h-3.5 text-sky-400" />
-                    Abuja Fast Delivery
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <Link href="/products">
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-5 gap-1.5 cursor-pointer">
-                      <span>Shop Now</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </Link>
-                  <Link href="/help">
-                    <Button
-                      variant="outline"
-                      className="bg-slate-800/80 hover:bg-slate-800 text-slate-200 border-slate-700 font-bold text-xs rounded-xl h-10 px-4 cursor-pointer"
-                    >
-                      Buyer Safety Guide
-                    </Button>
-                  </Link>
-                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/85 backdrop-blur-xs border border-slate-700 text-[11px] font-bold text-slate-100">
+                  <Truck className="w-3.5 h-3.5 text-sky-400" />
+                  Abuja Fast Delivery
+                </span>
               </div>
 
-              {/* Framed New Hardware Image */}
-              <div className="lg:col-span-5">
-                <div className="rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950/60 p-2 shadow-xl">
-                  <div className="relative aspect-[16/10] w-full rounded-xl overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1200&q=80"
-                      alt="Abuja Electronics and Hardware"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
+              <div className="flex flex-wrap items-center gap-3 pt-1.5">
+                <Link href="/products">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-5 gap-1.5 cursor-pointer shadow-md">
+                    <span>Shop Now</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
+                <Link href="/help">
+                  <Button
+                    variant="outline"
+                    className="bg-slate-900/80 hover:bg-slate-900 text-white border-slate-600 font-bold text-xs rounded-xl h-10 px-4 cursor-pointer backdrop-blur-xs"
+                  >
+                    Buyer Safety Guide
+                  </Button>
+                </Link>
               </div>
             </div>
           </section>
 
           {/* 2. FIVE FEATURE / TOOL CARDS */}
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-            {/* Card 1: Find My Tech */}
             <div className="bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-2xs">
               <div className="space-y-2.5">
                 <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/80 border border-blue-200/60 dark:border-blue-800/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -271,7 +264,6 @@ export default async function MarketplaceFeedPage() {
               </Link>
             </div>
 
-            {/* Card 2: Compare Tech */}
             <div className="bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-2xs">
               <div className="space-y-2.5">
                 <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/80 border border-purple-200/60 dark:border-purple-800/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
@@ -294,7 +286,6 @@ export default async function MarketplaceFeedPage() {
               </Link>
             </div>
 
-            {/* Card 3: Build My Setup */}
             <div className="bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-2xs">
               <div className="space-y-2.5">
                 <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200/60 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -305,7 +296,7 @@ export default async function MarketplaceFeedPage() {
                     Build My Setup
                   </h2>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
-                    Assemble custom workstation and gaming hardware bundles.
+                    Adaptive consultation for custom desktops, laptops, and workstations.
                   </p>
                 </div>
               </div>
@@ -317,7 +308,6 @@ export default async function MarketplaceFeedPage() {
               </Link>
             </div>
 
-            {/* Card 4: Sell Your Tech */}
             <div className="bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-2xs">
               <div className="space-y-2.5">
                 <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-950/80 border border-orange-200/60 dark:border-orange-800/60 text-orange-600 dark:text-orange-400 flex items-center justify-center">
@@ -343,7 +333,6 @@ export default async function MarketplaceFeedPage() {
               </Link>
             </div>
 
-            {/* Card 5: Learn Tech */}
             <div className="bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-2xs sm:col-span-2 lg:col-span-1">
               <div className="space-y-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/80 border border-amber-200/60 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -410,7 +399,6 @@ export default async function MarketplaceFeedPage() {
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* TechPass Membership */}
               <div className="bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-2xs">
                 <div className="space-y-2.5">
                   <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/70 border border-rose-200/60 dark:border-rose-800/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
@@ -435,7 +423,6 @@ export default async function MarketplaceFeedPage() {
                 </Link>
               </div>
 
-              {/* Student Tech Program */}
               <div className="bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-2xs">
                 <div className="space-y-2.5">
                   <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/70 border border-blue-200/60 dark:border-blue-800/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -460,7 +447,6 @@ export default async function MarketplaceFeedPage() {
                 </Link>
               </div>
 
-              {/* TechTrust Protection */}
               <div className="bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-2xs">
                 <div className="space-y-2.5">
                   <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200/60 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -487,7 +473,7 @@ export default async function MarketplaceFeedPage() {
             </div>
           </section>
 
-          {/* 5. AVAILABLE TECHNOLOGY (SPONSORED PRIORITY + RANDOMIZED ORGANIC) */}
+          {/* 5. AVAILABLE TECHNOLOGY */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -525,7 +511,7 @@ export default async function MarketplaceFeedPage() {
                   return (
                     <div
                       key={product.id}
-                      className="relative group bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 hover:border-blue-500/60 dark:hover:border-blue-500/60 rounded-2xl overflow-hidden flex flex-col justify-between transition shadow-2xs hover:shadow-md"
+                      className="relative bg-white dark:bg-[#0b111e] border border-slate-200/90 dark:border-slate-800/90 hover:border-blue-500/60 dark:hover:border-blue-500/60 rounded-2xl overflow-hidden flex flex-col justify-between transition shadow-2xs hover:shadow-md"
                     >
                       <SaveButton product={product} />
 
@@ -537,7 +523,7 @@ export default async function MarketplaceFeedPage() {
                       >
                         <Link
                           href={`/products/${product.id}`}
-                          className="flex-1 flex flex-col justify-between"
+                          className="group flex-1 flex flex-col justify-between"
                         >
                           <AdImpressionTracker
                             productId={product.id}
@@ -546,7 +532,6 @@ export default async function MarketplaceFeedPage() {
                             isSponsored={isSponsored}
                           />
 
-                          {/* Product Image Container */}
                           <div className="relative aspect-[4/3] w-full bg-slate-100/80 dark:bg-slate-900 flex items-center justify-center p-3 overflow-hidden border-b border-slate-100 dark:border-slate-800/80">
                             <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1">
                               {isSponsored && (
@@ -593,7 +578,6 @@ export default async function MarketplaceFeedPage() {
                         </Link>
                       </AdProductCardWrapper>
 
-                      {/* Bottom Price & Quick Cart Action */}
                       <div className="px-3 sm:px-3.5 pb-3 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
                         <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
                           ₦{Number(product.price).toLocaleString()}

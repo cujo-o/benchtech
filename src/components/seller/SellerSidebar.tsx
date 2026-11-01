@@ -27,6 +27,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   ArrowRight,
+  ArrowLeft,
   Menu,
   Wallet,
   X,
@@ -51,7 +52,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
   const previousCountRef = useRef<number>(0)
   const isInitialLoad = useRef<boolean>(true)
 
-  // Collapsible Category Accordions
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     catalog: true,
     finance: true,
@@ -70,6 +70,16 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
     profile?.is_admin === true ||
     profile?.role === 'admin' ||
     userRoles.includes('admin')
+
+  const hasCompletedOnboarding =
+    profile?.verification_state === 'verified' ||
+    profile?.verification_state === 'under_review' ||
+    profile?.verification_state === 'action_required' ||
+    profile?.tech_trust_status === 'verified' ||
+    profile?.tech_trust_status === 'pending' ||
+    isAdmin
+
+  const isOnboardingRoute = pathname.startsWith('/seller/onboarding')
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -100,7 +110,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
   }
 
   const checkUnread = useCallback(async () => {
-    if (!profile?.id) return
+    if (!profile?.id || isOnboardingRoute || !hasCompletedOnboarding) return
     if (
       typeof document !== 'undefined' &&
       document.visibilityState !== 'visible'
@@ -123,13 +133,18 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
       }
       isInitialLoad.current = false
     } catch {}
-  }, [profile?.id, supabase])
+  }, [profile?.id, supabase, isOnboardingRoute, hasCompletedOnboarding])
 
   useEffect(() => {
     checkUnread()
     const interval = setInterval(checkUnread, 60000)
     return () => clearInterval(interval)
   }, [checkUnread])
+
+  // PROBLEM 3 FIX: Never show the Seller Hub sidebar on /seller/onboarding or before onboarding is submitted
+  if (isOnboardingRoute || !hasCompletedOnboarding) {
+    return null
+  }
 
   const NAV_GROUPS = [
     {
@@ -248,7 +263,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
 
     return (
       <div className="flex flex-col h-full justify-between bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 select-none transition-colors">
-        {/* Top Brand Header */}
         <div className="p-3.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0">
           {!collapsed ? (
             <Link
@@ -297,9 +311,7 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           )}
         </div>
 
-        {/* Scrollable Navigation Body */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2.5 space-y-3 [scrollbar-width:thin]">
-          {/* Overview Link */}
           <div>
             <Link
               href="/seller/dashboard"
@@ -318,7 +330,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
             </Link>
           </div>
 
-          {/* Collapsible Category Groups */}
           {NAV_GROUPS.map((group) => {
             const isOpen = openGroups[group.key]
             return (
@@ -409,7 +420,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
           })}
         </div>
 
-        {/* Bottom Workspace Switcher & Sign Out */}
         <div className="p-2.5 border-t border-slate-200/80 dark:border-slate-800 space-y-1.5 shrink-0">
           {!collapsed && !isPro && (
             <Link
@@ -480,7 +490,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
 
   return (
     <>
-      {/* Mobile Sticky Top Header */}
       <div className="lg:hidden sticky top-0 z-40 px-4 h-14 flex items-center justify-between w-full border-b bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2.5">
           <button
@@ -515,7 +524,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       </div>
 
-      {/* Mobile Slide-Out Drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
@@ -536,7 +544,6 @@ export function SellerSidebar({ profile }: SellerSidebarProps) {
         </div>
       )}
 
-      {/* Desktop Collapsible Sidebar */}
       <aside
         className={`hidden lg:flex flex-col shrink-0 sticky top-0 h-screen overflow-hidden border-r border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 transition-all duration-200 ${
           isCollapsed ? 'w-16' : 'w-64'

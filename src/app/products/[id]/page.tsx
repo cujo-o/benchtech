@@ -1,478 +1,354 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { Navbar } from "@/components/Navbar";
-import { ProductImageGallery } from "@/components/storefront/ProductImageGallery";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { Navbar } from '@/components/Navbar'
+import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
+import { ProductImageGallery } from '@/components/storefront/ProductImageGallery'
+import { ProductViewTracker } from '@/components/products/ProductViewTracker'
+import { BuyingRequestModal } from '@/components/products/BuyingRequestModal'
+import { AddToCartButton } from '@/components/cart/AddToCartButton'
+import { CompareButton } from '@/components/CompareButton'
+import { ShareButton } from '@/components/storefront/ShareButton'
+import { formatSpecLabel } from '@/lib/specs/categorySpecs'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   ShieldCheck,
   MapPin,
-  ChevronRight,
   ArrowLeft,
-  ArrowRight,
-  Package,
-} from "lucide-react";
-import { AddToCartButton } from "@/components/cart/AddToCartButton";
-import { CompareButton } from "@/components/CompareButton";
-import { ProductViewTracker } from "@/components/products/ProductViewTracker";
-import { ShareButton } from "@/components/storefront/ShareButton";
-import type { Metadata } from "next";
+  Store,
+  Lock,
+  Truck,
+  Cpu,
+  CheckCircle2,
+  LogIn,
+} from 'lucide-react'
+import type { Metadata } from 'next'
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic'
 
-function resolveFirstImage(images: any): string | null {
-  if (!images) return null;
-  if (Array.isArray(images)) return images[0] || null;
-  if (typeof images === "string") {
+function parseImagesList(images: any): string[] {
+  if (!images) return []
+  if (Array.isArray(images)) return images.filter(Boolean)
+  if (typeof images === 'string') {
     try {
-      const parsed = JSON.parse(images);
-      if (Array.isArray(parsed)) return parsed[0] || null;
+      const parsed = JSON.parse(images)
+      if (Array.isArray(parsed)) return parsed.filter(Boolean)
     } catch {
-      return images.startsWith("http") ? images : null;
+      return images.startsWith('http') ? [images] : []
     }
   }
-  return null;
+  return []
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }): Promise<Metadata> {
-  const { id } = await params;
-  const supabase = await createClient();
-
+  const { id } = await params
+  const supabase = await createClient()
   const { data: product } = await supabase
-    .from("products")
-    .select("*, profiles!products_seller_id_fkey(business_name, district)")
-    .eq("id", id)
-    .maybeSingle();
+    .from('products')
+    .select('title, price, condition, brand')
+    .eq('id', id)
+    .maybeSingle()
 
   if (!product) {
-    return {
-      title: "Device Not Found | BenchTech",
-    };
+    return { title: 'Product Not Found | BenchTech' }
   }
 
-  const sellerName = product.profiles?.business_name || "Verified Vendor";
-  const location = product.profiles?.district || "Abuja";
-  const formattedPrice = `₦${Number(product.price).toLocaleString()}`;
-  const title = `${product.title} - ${formattedPrice} | BenchTech`;
-  const description = `Buy ${
-    product.condition?.replace("_", " ") || "inspected"
-  } ${product.title} in ${location}, Abuja for ${formattedPrice} from ${sellerName}. Safe inspection available on delivery.`;
-
   return {
-    title,
-    description,
-    alternates: {
-      canonical: `https://shopbenchtech.com/products/${id}`,
-    },
-    openGraph: {
-      title,
-      description,
-      url: `https://shopbenchtech.com/products/${id}`,
-      type: "article",
-      images: product.images?.[0]
-        ? [
-            {
-              url: product.images[0],
-              width: 800,
-              height: 800,
-              alt: product.title,
-            },
-          ]
-        : [],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: product.images?.[0] ? [product.images[0]] : [],
-    },
-  };
+    title: `${product.title} — ₦${Number(product.price).toLocaleString()} | BenchTech Abuja`,
+    description: `Buy ${product.title} (${
+      product.condition?.replace(/_/g, ' ') || 'Verified'
+    }) in Abuja with 7-day physical inspection protection.`,
+  }
 }
 
 export default async function ProductDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }) {
-  const { id } = await params;
-  const supabase = await createClient();
+  const { id } = await params
+  const supabase = await createClient()
 
-  // 1. Fetch product
-  let { data: product, error } = await supabase
-    .from("products")
-    .select("*, profiles!products_seller_id_fkey(*)")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error || !product) {
-    const { data: fallbackProduct } = await supabase
-      .from("products")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (fallbackProduct) {
-      product = fallbackProduct;
-      error = null;
-
-      if (fallbackProduct.seller_id) {
-        const { data: sellerData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", fallbackProduct.seller_id)
-          .maybeSingle();
-        product.profiles = sellerData;
-      }
-    }
-  }
+  const [
+    {
+      data: { user },
+    },
+    { data: product },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from('products')
+      .select(
+        '*, profiles!products_seller_id_fkey(id, business_name, full_name, district, tech_trust_status, bio)'
+      )
+      .eq('id', id)
+      .maybeSingle(),
+  ])
 
   if (!product) {
-    notFound();
+    notFound()
   }
 
-  // 2. Fetch related products in the same or complementary categories
-  const currentCategory = product.category?.toLowerCase() || "";
+  const images = parseImagesList(product.images)
+  const sellerProfile = Array.isArray(product.profiles)
+    ? product.profiles[0]
+    : product.profiles
+  const sellerName =
+    sellerProfile?.business_name || sellerProfile?.full_name || 'Abuja Store'
+  const isVerifiedSeller = sellerProfile?.tech_trust_status === 'verified'
+  const district = sellerProfile?.district || product.location || 'Abuja'
 
-  const complementaryCategories: Record<string, string[]> = {
-    laptops: ["monitors", "accessories", "gaming"],
-    phones: ["accessories", "wearables", "tablets"],
-    gaming: ["monitors", "accessories", "gaming"],
-    monitors: ["accessories", "laptops", "gaming"],
-    cameras: ["accessories", "tablets"],
-    tablets: ["accessories", "phones"],
-  };
-
-  const matchingCategories = [
-    currentCategory,
-    ...(complementaryCategories[currentCategory] || ["accessories", "laptops"]),
-  ];
-
-  const { data: catalogSuggestions } = await supabase
-    .from("products")
-    .select(`
-      id,
-      title,
-      price,
-      condition,
-      images,
-      brand,
-      category,
-      profiles!products_seller_id_fkey(business_name, district)
-    `)
-    .eq("status", "published")
-    .neq("id", id)
-    .order("created_at", { ascending: false })
-    .limit(16);
-
-  const sortedSuggestions = (catalogSuggestions || []).sort((a, b) => {
-    const aMatch = matchingCategories.includes(a.category?.toLowerCase() || "");
-    const bMatch = matchingCategories.includes(b.category?.toLowerCase() || "");
-    if (aMatch && !bMatch) return -1;
-    if (!aMatch && bMatch) return 1;
-    return 0;
-  });
-
-  const uniqueSuggestions = Array.from(
-    new Map(sortedSuggestions.map((item) => [item.id, item])).values()
-  ).slice(0, 4);
-
-  const seller = product.profiles;
-  const isVerified = seller?.tech_trust_status === "verified";
-
-  const sellerAvatar =
-    seller?.avatar_url ||
-    seller?.profile_image ||
-    seller?.logo_url ||
-    seller?.photo_url ||
-    seller?.image ||
-    null;
-
-  // 3. Dynamic Specifications Engine
-  let parsedSpecs: Record<string, any> = {};
-  if (product.specs) {
-    if (typeof product.specs === "object") {
-      parsedSpecs = { ...product.specs };
-    } else if (typeof product.specs === "string") {
-      try {
-        parsedSpecs = JSON.parse(product.specs);
-      } catch {
-        // ignore malformed string
-      }
-    }
-  }
-
-  const specList: { label: string; value: string }[] = [];
-  const addSpec = (label: string, val: any) => {
-    if (val !== undefined && val !== null && val !== "" && val !== "N/A") {
-      specList.push({ label, value: String(val) });
-    }
-  };
-
-  addSpec("Brand", product.brand);
-  addSpec("Model", product.model || parsedSpecs.model);
-  addSpec("Condition", product.condition ? product.condition.replace(/_/g, " ") : "Used");
-  addSpec("Processor", product.processor || parsedSpecs.processor);
-  addSpec("RAM", product.ram || parsedSpecs.ram);
-  addSpec("Storage", product.storage || parsedSpecs.storage);
-  addSpec(
-    "Battery Health",
-    product.battery_health
-      ? `${product.battery_health}%`
-      : parsedSpecs.battery_health
-      ? String(parsedSpecs.battery_health).includes("%")
-        ? parsedSpecs.battery_health
-        : `${parsedSpecs.battery_health}%`
-      : null
-  );
-  addSpec("Screen Size", product.screen_size || parsedSpecs.screen_size);
-  addSpec("Color", product.color || parsedSpecs.color);
-  addSpec("Operating System", product.os || parsedSpecs.os || parsedSpecs.operating_system);
-  addSpec("Graphics / GPU", product.gpu || parsedSpecs.gpu || parsedSpecs.graphics);
-  addSpec("Warranty", product.warranty || parsedSpecs.warranty);
-  addSpec("Accessories Included", product.accessories || parsedSpecs.accessories);
-
-  const standardKeys = new Set([
-    "brand", "model", "condition", "processor", "ram", "storage",
-    "battery_health", "screen_size", "color", "os", "operating_system",
-    "gpu", "graphics", "warranty", "accessories"
-  ]);
-
-  Object.entries(parsedSpecs).forEach(([k, v]) => {
-    if (!standardKeys.has(k.toLowerCase()) && v !== undefined && v !== null && v !== "") {
-      const formattedLabel = k
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (char) => char.toUpperCase());
-      addSpec(formattedLabel, v);
-    }
-  });
+  const specEntries = Object.entries(product.specs || {}).filter(
+    ([key, val]) =>
+      val &&
+      typeof val === 'string' &&
+      !['ownership_proof_url', 'serial_number', 'product_verification'].includes(
+        key
+      )
+  )
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <ProductViewTracker productId={id} />
-
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar />
+      <ProductViewTracker productId={product.id} />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-8 md:space-y-12">
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          <Link
-            href="/products"
-            className="hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Products
-          </Link>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="capitalize">{product.category || "Hardware"}</span>
-          <span className="text-slate-300 dark:text-slate-700">/</span>
-          <span className="text-slate-800 dark:text-slate-200 truncate max-w-[200px] sm:max-w-xs">
-            {product.title}
-          </span>
-        </div>
+      <div className="max-w-[1700px] w-full mx-auto flex flex-1">
+        {/* Only render BuyerSidebar for signed-in users */}
+        {user && <BuyerSidebar />}
 
-        {/* 2-Column Responsive Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          {/* Left Column: Image Gallery & Specifications */}
-          <div className="lg:col-span-7 space-y-6 min-w-0">
-            <Card className="rounded-3xl border-slate-200/80 dark:border-slate-800/80 shadow-xs overflow-hidden">
-              <CardContent className="p-2 sm:p-4">
-                <ProductImageGallery
-                  images={product.images || []}
-                  title={product.title}
-                />
-              </CardContent>
-            </Card>
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
+          {/* Back Link: Routes guests back to Landing Page (/), signed-in users back to Feed/Catalog */}
+          <div>
+            <Link
+              href={user ? '/feed' : '/'}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{user ? 'Back to Marketplace' : 'Back to Home'}</span>
+            </Link>
+          </div>
 
-            {/* Specifications Card */}
-            <Card className="rounded-3xl border-slate-200/80 dark:border-slate-800/80 shadow-xs">
-              <CardContent className="p-5 sm:p-7 space-y-5">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-                  Device Specifications
-                </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+            {/* Left 6 Cols: Image Gallery */}
+            <div className="lg:col-span-6">
+              <ProductImageGallery images={images} title={product.title} />
+            </div>
 
-                <div className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs sm:text-sm">
-                  {specList.map((spec) => (
-                    <div key={spec.label} className="py-3 flex justify-between items-center">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">
-                        {spec.label}
+            {/* Right 6 Cols: Pricing, Actions, Specs & Seller Card */}
+            <div className="lg:col-span-6 space-y-5">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-bold uppercase">
+                      {product.brand || product.category || 'Hardware'}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-bold capitalize"
+                    >
+                      {product.condition?.replace(/_/g, ' ') || 'Used'}
+                    </Badge>
+                    {product.specs?.serial_masked && (
+                      <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-mono font-bold">
+                        SN: {product.specs.serial_masked}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-snug">
+                    {product.title}
+                  </h1>
+
+                  <div className="flex items-baseline gap-3 pt-1">
+                    <span className="text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400">
+                      ₦{Number(product.price || 0).toLocaleString()}
+                    </span>
+                    <span className="text-xs text-slate-400 font-semibold">
+                      • {Number(product.stock_quantity || 1)} in stock
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Buttons: Gated for Non-Signed-In Users, Isolated Hover States for Signed-In Users */}
+                {user ? (
+                  <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <BuyingRequestModal
+                      product={{
+                        id: product.id,
+                        title: product.title,
+                        price: Number(product.price || 0),
+                        seller_id: product.seller_id,
+                        location: district,
+                      }}
+                    />
+
+                    {/* 3 Independent Action Buttons (Isolated containers so hover never bleeds across buttons) */}
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <div className="flex [&>*]:w-full">
+                        <AddToCartButton product={product} variant="full" />
+                      </div>
+
+                      <div className="flex [&>*]:w-full [&>*]:h-9 [&>*]:rounded-xl">
+                        <CompareButton
+                          product={{
+                            id: product.id,
+                            title: product.title,
+                            brand: product.brand || '',
+                            model: product.model || '',
+                            price: Number(product.price || 0),
+                            condition: product.condition || 'used',
+                            category: product.category || 'hardware',
+                            images,
+                            specs: product.specs || {},
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex [&>*]:w-full [&>*]:h-9">
+                        <ShareButton
+                          title={product.title}
+                          className="w-full h-9 rounded-xl justify-center"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-3">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                      Sign in to your BenchTech account to purchase this device with 7-day inspection protection, add it to your cart, or compare specifications.
+                    </p>
+                    <div className="flex items-center gap-2.5">
+                      <Link
+                        href={`/login?next=/products/${product.id}`}
+                        className="flex-1"
+                      >
+                        <Button className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl gap-1.5 cursor-pointer">
+                          <LogIn className="w-3.5 h-3.5" />
+                          <span>Sign In to Buy</span>
+                        </Button>
+                      </Link>
+                      <Link
+                        href={`/register?next=/products/${product.id}`}
+                        className="flex-1"
+                      >
+                        <Button
+                          variant="outline"
+                          className="w-full h-10 text-xs font-bold rounded-xl border-slate-200 dark:border-slate-700 cursor-pointer"
+                        >
+                          Create Account
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* Protection Highlights */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>7-Day Buyer Inspection Escrow</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Same-Day Abuja Courier Dispatch</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Seller Information Card */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white font-black text-sm flex items-center justify-center shrink-0">
+                    {sellerName[0]?.toUpperCase() || 'S'}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-sm text-slate-900 dark:text-white truncate">
+                        {sellerName}
                       </span>
-                      <span className="font-bold text-slate-900 dark:text-slate-100 capitalize">
-                        {spec.value}
+                      {isVerifiedSeller && (
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{district}, Abuja</span>
+                    </p>
+                  </div>
+                </div>
+
+                <Link href={`/sellers/${product.seller_id}`} className="shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs font-bold rounded-xl h-9 px-3.5 border-slate-200 dark:border-slate-700 gap-1.5 cursor-pointer"
+                  >
+                    <Store className="w-3.5 h-3.5" />
+                    <span>Visit Store</span>
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Hardware Specifications & Description Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+              <h2 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-blue-600" />
+                <span>Technical Specifications</span>
+              </h2>
+
+              {specEntries.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                  {specEntries.map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800"
+                    >
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block truncate">
+                        {formatSpecLabel(key)}
+                      </span>
+                      <span className="font-bold text-slate-900 dark:text-white block mt-0.5">
+                        {String(value)}
                       </span>
                     </div>
                   ))}
                 </div>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  Standard manufacturer configuration. Inspect physical specifications upon handover.
+                </p>
+              )}
+            </div>
 
-                {product.description && (
-                  <div className="pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-                      Seller Notes
-                    </p>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
-                      {product.description}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column: Pricing, Buy & Merchant Profile */}
-          <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24 min-w-0">
-            <Card className="rounded-3xl border-slate-200/80 dark:border-slate-800/80 shadow-xs">
-              <CardContent className="p-5 sm:p-7 space-y-6">
-                <div>
-                  <Badge className="bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-900/50 text-[10px] font-bold uppercase mb-2.5">
-                    {product.category || "Tech Listing"}
-                  </Badge>
-                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight leading-snug">
-                    {product.title}
-                  </h1>
-                  <p className="text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400 mt-2">
-                    ₦{Number(product.price).toLocaleString()}
-                  </p>
-                </div>
-
-                {/* Verified Merchant Profile */}
-                {seller && (
-                  <Link
-                    href={`/sellers/${seller.id}`}
-                    className="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-slate-800 transition"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-blue-600 dark:text-blue-300 shadow-2xs text-sm overflow-hidden shrink-0">
-                        {sellerAvatar ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={sellerAvatar}
-                            alt={seller.business_name || "Seller"}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          seller.business_name ? seller.business_name[0].toUpperCase() : "S"
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
-                            {seller.business_name || seller.full_name || "BenchTech Seller"}
-                          </span>
-                          {isVerified && (
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                          <span>{seller.district ? `${seller.district}, Abuja` : "Abuja, NG"}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition" />
-                  </Link>
-                )}
-
-                {/* Primary Buy & Actions */}
-                <div className="space-y-3 pt-1">
-                  <Link href={`/checkout?productId=${product.id}`} className="block">
-                    <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition active:scale-[0.99]">
-                      <span>Buy Now</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </Link>
-
-                  <div className="grid grid-cols-3 gap-2 [&>div]:w-full [&_button]:w-full [&_button]:h-11 [&_button]:text-xs [&_button]:font-bold [&_button]:rounded-xl [&_button]:border [&_button]:border-slate-200 dark:[&_button]:border-slate-700 [&_button]:bg-white dark:[&_button]:bg-slate-800 [&_button]:text-slate-800 dark:[&_button]:text-slate-100 hover:[&_button]:bg-slate-100 dark:hover:[&_button]:bg-slate-700 transition">
-                    <AddToCartButton product={product} />
-                    <CompareButton product={product as any} />
-                    <ShareButton
-                      title={product.title}
-                      url={`https://shopbenchtech.com/products/${product.id}`}
-                    />
-                  </div>
-                </div>
-
-                {/* Buyer Protection Guarantee */}
-                <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-800 space-y-1 text-xs">
-                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    Buyer Protection
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                    Your payment is held safely until you inspect and receive your device.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* You May Also Like Section */}
-        {uniqueSuggestions.length > 0 && (
-          <section className="space-y-4 pt-6 border-t border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-black text-slate-900 dark:text-slate-100">
-                You May Also Like
+            <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-3">
+              <h2 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                Condition &amp; Seller Notes
               </h2>
-              <Link
-                href="/products"
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                View all <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                {product.description ||
+                  'Verified hardware available for physical inspection and delivery in Abuja.'}
+              </p>
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-[11px] text-slate-500">
+                <p className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Physical inspection before handover OTP release</span>
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>7-day post-delivery buyer protection window</span>
+                </p>
+              </div>
             </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-              {uniqueSuggestions.map((item) => {
-                const firstImg = resolveFirstImage(item.images);
-
-                return (
-                  <Card
-                    key={item.id}
-                    className="group rounded-2xl border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
-                  >
-                    <Link
-                      href={`/products/${item.id}`}
-                      className="flex-1 flex flex-col min-w-0"
-                    >
-                      <div className="relative w-full aspect-square bg-slate-100/70 dark:bg-slate-800/40 overflow-hidden border-b border-slate-100 dark:border-slate-800 flex items-center justify-center p-3">
-                        {firstImg ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={firstImg}
-                            alt={item.title}
-                            loading="lazy"
-                            className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <Package className="w-6 h-6 text-slate-300" />
-                        )}
-                      </div>
-
-                      <CardContent className="p-3 flex-1 flex flex-col justify-between space-y-1.5">
-                        <p className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                          {item.title}
-                        </p>
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-black text-slate-900 dark:text-slate-100">
-                            ₦{Number(item.price).toLocaleString()}
-                          </span>
-                          <span className="text-[10px] text-slate-400 capitalize">
-                            {item.condition?.replace("_", " ") || "Refurbished"}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Link>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
-        )}
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
-  );
+  )
 }
