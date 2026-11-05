@@ -43,6 +43,16 @@ export const metadata = {
   description: 'Buy, compare, and sell verified electronics and hardware in Abuja.',
 }
 
+// Curated hardware-only backgrounds (no people or faces)
+const HERO_HARDWARE_BACKGROUNDS = [
+  'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1600&q=80',
+]
+
 function resolveFirstImage(images: any): string | null {
   if (!images) return null
   if (Array.isArray(images)) return images[0] || null
@@ -90,6 +100,12 @@ export default async function MarketplaceFeedPage() {
     redirect('/')
   }
 
+  // Pick a random hardware background on every refresh
+  const heroBgUrl =
+    HERO_HARDWARE_BACKGROUNDS[
+      Math.floor(Math.random() * HERO_HARDWARE_BACKGROUNDS.length)
+    ]
+
   const [profileRes, sponsoredResults, { data: rawProducts }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
     getSponsoredProducts({ limit: 8 }).catch(() => []),
@@ -124,7 +140,6 @@ export default async function MarketplaceFeedPage() {
     sellerId?: string
   }> = []
 
-  // 1. Active Sponsored Campaign Products First
   for (const sp of sponsoredResults || []) {
     if (sp?.product?.id && !seenIds.has(sp.product.id)) {
       seenIds.add(sp.product.id)
@@ -139,7 +154,6 @@ export default async function MarketplaceFeedPage() {
 
   const allPublished = rawProducts || []
 
-  // 2. Featured Listings
   const featuredPool = shuffleArray(
     allPublished.filter((p) => p.is_featured && !seenIds.has(p.id))
   )
@@ -152,7 +166,6 @@ export default async function MarketplaceFeedPage() {
     })
   }
 
-  // 3. Organic Listings (Randomized)
   const organicPool = shuffleArray(
     allPublished.filter((p) => !seenIds.has(p.id))
   )
@@ -183,39 +196,38 @@ export default async function MarketplaceFeedPage() {
         <BuyerSidebar />
 
         <main className="flex-1 min-w-0 p-3 sm:p-6 space-y-6 sm:space-y-8">
-          {/* 1. HERO BANNER WITH FULL-BLEED BACKGROUND IMAGE & GRADIENT */}
-          <section className="relative rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 p-5 sm:p-8 lg:p-10 text-white shadow-xs">
-            {/* Background Image */}
+          {/* 1. HERO BANNER WITH BRIGHTER RANDOM HARDWARE BACKGROUND */}
+          <section className="relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-800 p-5 sm:p-8 lg:p-10 text-white shadow-xs">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1400&q=80"
-              alt="Abuja Electronics and Hardware"
-              className="absolute inset-0 w-full h-full object-cover object-center opacity-45 sm:opacity-50"
+              src={heroBgUrl}
+              alt="BenchTech Hardware Showcase"
+              className="absolute inset-0 w-full h-full object-cover object-center opacity-70 sm:opacity-80 transition-opacity duration-500"
             />
-            {/* Multi-stop gradient overlay so text is crisp on mobile and desktop */}
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/90 to-slate-950/45" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent sm:hidden" />
+            {/* Lighter gradient overlay so the background hardware is clearly visible */}
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-slate-950/15" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent sm:hidden" />
 
             <div className="relative z-10 max-w-xl space-y-3.5">
-              <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block drop-shadow-xs">
                 YOUR ONE-STOP TECH MARKETPLACE
               </span>
 
-              <h1 className="text-2xl sm:text-4xl lg:text-[40px] font-black tracking-tight leading-[1.12] text-white">
+              <h1 className="text-2xl sm:text-4xl lg:text-[40px] font-black tracking-tight leading-[1.12] text-white drop-shadow-xs">
                 Find the Right Tech. <br />
                 <span className="text-blue-400">For Your Life.</span>
               </h1>
 
-              <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-lg">
+              <p className="text-xs sm:text-sm text-slate-100 leading-relaxed max-w-lg drop-shadow-xs">
                 Buy, compare, and sell authentic hardware in Abuja. Every order includes physical inspection before funds are released.
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/85 backdrop-blur-xs border border-slate-700 text-[11px] font-bold text-slate-100">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/75 backdrop-blur-md border border-white/15 text-[11px] font-bold text-white">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   Verified Sellers
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/85 backdrop-blur-xs border border-slate-700 text-[11px] font-bold text-slate-100">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/75 backdrop-blur-md border border-white/15 text-[11px] font-bold text-white">
                   <Truck className="w-3.5 h-3.5 text-sky-400" />
                   Abuja Fast Delivery
                 </span>
@@ -231,7 +243,7 @@ export default async function MarketplaceFeedPage() {
                 <Link href="/help">
                   <Button
                     variant="outline"
-                    className="bg-slate-900/80 hover:bg-slate-900 text-white border-slate-600 font-bold text-xs rounded-xl h-10 px-4 cursor-pointer backdrop-blur-xs"
+                    className="bg-slate-950/70 hover:bg-slate-900 text-white border-white/25 font-bold text-xs rounded-xl h-10 px-4 cursor-pointer backdrop-blur-md"
                   >
                     Buyer Safety Guide
                   </Button>
@@ -296,7 +308,7 @@ export default async function MarketplaceFeedPage() {
                     Build My Setup
                   </h2>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
-                    Adaptive consultation for custom desktops, laptops, and workstations.
+                    Configure phones, cameras, laptops, consoles, and accessories.
                   </p>
                 </div>
               </div>
@@ -356,7 +368,7 @@ export default async function MarketplaceFeedPage() {
             </div>
           </section>
 
-          {/* 3. SHOP BY CATEGORY (11 TILES) */}
+          {/* 3. SHOP BY CATEGORY */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">

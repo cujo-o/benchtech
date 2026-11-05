@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Navbar } from '@/components/Navbar'
 import { formatSpecLabel } from '@/lib/specs/categorySpecs'
+import { resolveOrderItemsForOrder } from '@/lib/orders/resolveOrderItems'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,20 +34,6 @@ function getAdminDb() {
   })
 }
 
-function resolveFirstImage(images: any): string | null {
-  if (!images) return null
-  if (Array.isArray(images)) return images[0] || null
-  if (typeof images === 'string') {
-    try {
-      const parsed = JSON.parse(images)
-      if (Array.isArray(parsed)) return parsed[0] || null
-    } catch {
-      return images.startsWith('http') ? images : null
-    }
-  }
-  return null
-}
-
 export default async function OrderDetailsPage({
   params,
 }: {
@@ -63,28 +50,45 @@ export default async function OrderDetailsPage({
   }
 
   const adminDb = getAdminDb()
-  const { data: order } = await adminDb
-    .from('orders')
-    .select(
+
+  const [
+    { data: order },
+    { data: viewerProfile },
+    { data: checkoutAudit },
+    { data: allCatalogProducts },
+  ] = await Promise.all([
+    adminDb
+      .from('orders')
+      .select(
+        `
+        *,
+        product:products(*, profiles!products_seller_id_fkey(id, business_name, full_name, district, tech_trust_status)),
+        seller:profiles!orders_seller_id_fkey(id, business_name, full_name, district, tech_trust_status)
       `
-      *,
-      product:products(*, profiles!products_seller_id_fkey(id, business_name, full_name, district, tech_trust_status)),
-      seller:profiles!orders_seller_id_fkey(id, business_name, full_name, district, tech_trust_status)
-    `
-    )
-    .eq('id', id)
-    .maybeSingle()
+      )
+      .eq('id', id)
+      .maybeSingle(),
+    adminDb
+      .from('profiles')
+      .select('role, is_admin')
+      .eq('id', user.id)
+      .maybeSingle(),
+    adminDb
+      .from('audit_events')
+      .select('metadata')
+      .eq('target_id', id)
+      .eq('action', 'order_checkout_completed')
+      .maybeSingle(),
+    adminDb
+      .from('products')
+      .select(
+        '*, profiles!products_seller_id_fkey(id, business_name, full_name, district, tech_trust_status)'
+      ),
+  ])
 
   if (!order) {
     notFound()
   }
-
-  // Enforce ownership (Buyer, Seller, or Admin)
-  const { data: viewerProfile } = await adminDb
-    .from('profiles')
-    .select('role, is_admin')
-    .eq('id', user.id)
-    .maybeSingle()
 
   const isAdmin =
     viewerProfile?.role === 'admin' || viewerProfile?.is_admin === true
@@ -96,100 +100,11 @@ export default async function OrderDetailsPage({
     redirect('/orders')
   }
 
-  // Retrieve full multi-item manifest if this order had multiple cart items
-  let purchasedItems: any[] = []
-  if (Array.isArray((order as any).order_items) && (order as any).order_items.length > 0) {
-    purchasedItems = (order as any).order_items
-  } else {
-    // Check audit_events for multi-item checkout payload or Paystack metadata
-    const { data: checkoutAudit } = await adminDb
-      .from('audit_events')
-      .select('metadata')
-      .eq('target_id', order.id)
-      .eq('action', 'order_checkout_completed')
-      .maybeSingle()
-
-    if (
-      Array.isArray(checkoutAudit?.metadata?.items) &&
-      checkoutAudit.metadata.items.length > 0
-    ) {
-      purchasedItems = checkoutAudit.metadata.items
-    }
-  }
-
-  // Hydrate live product specs for all items in the order
-  if (purchasedItems.length > 0) {
-    const prodIds = purchasedItems.map((i) => i.id).filter(Boolean)
-    const { data: liveProds } = await adminDb
-      .from('products')
-      .select(
-        '*, profiles!products_seller_id_fkey(id, business_name, full_name, district, tech_trust_status)'
-      )
-      .in('id', prodIds)
-
-    const prodMap = new Map<string, any>()
-    for (const lp of liveProds || []) {
-      prodMap.set(lp.id, lp)
-    }
-
-    purchasedItems = purchasedItems.map((item) => {
-      const lp = prodMap.get(item.id)
-      const sellerObj = Array.isArray(lp?.profiles)
-        ? lp.profiles[0]
-        : lp?.profiles
-      return {
-        id: item.id,
-        title: lp?.title || item.title || 'Hardware Device',
-        price: Number(item.price || lp?.price || 0),
-        quantity: Number(item.quantity || 1),
-        condition: lp?.condition || item.condition || 'used',
-        brand: lp?.brand || item.brand || '',
-        model: lp?.model || lp?.specs?.model || item.model || '',
-        category: lp?.category || item.category || 'hardware',
-        image: resolveFirstImage(lp?.images) || item.image || null,
-        specs: { ...(lp?.specs || {}), ...(item.specs || {}) },
-        seller_id: lp?.seller_id || item.seller_id || order.seller_id,
-        seller_name:
-          sellerObj?.business_name ||
-          sellerObj?.full_name ||
-          item.seller_name ||
-          order.seller?.business_name ||
-          'Verified Store',
-        seller_district:
-          sellerObj?.district ||
-          item.seller_district ||
-          order.seller?.district ||
-          'Abuja',
-        seller_verified: sellerObj?.tech_trust_status === 'verified',
-      }
-    })
-  } else if (order.product) {
-    const p = order.product
-    const sellerObj = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles
-    purchasedItems = [
-      {
-        id: p.id,
-        title: p.title,
-        price: Number(p.price || order.total_amount || order.amount || 0),
-        quantity: 1,
-        condition: p.condition || 'used',
-        brand: p.brand || '',
-        model: p.model || p.specs?.model || '',
-        category: p.category || 'hardware',
-        image: resolveFirstImage(p.images),
-        specs: p.specs || {},
-        seller_id: p.seller_id || order.seller_id,
-        seller_name:
-          sellerObj?.business_name ||
-          sellerObj?.full_name ||
-          order.seller?.business_name ||
-          'Verified Store',
-        seller_district:
-          sellerObj?.district || order.seller?.district || 'Abuja',
-        seller_verified: sellerObj?.tech_trust_status === 'verified',
-      },
-    ]
-  }
+  const purchasedItems = resolveOrderItemsForOrder({
+    order,
+    auditItems: checkoutAudit?.metadata?.items,
+    allCatalogProducts: allCatalogProducts || [],
+  })
 
   const isCancelled = order.order_status === 'cancelled'
   const isRefunded = order.order_status === 'refunded'
@@ -201,7 +116,6 @@ export default async function OrderDetailsPage({
     order.order_status === 'delivered' ||
     order.order_status === 'completed'
 
-  // Server action: Buyer confirms receipt ONLY after order has been dispatched
   async function buyerConfirmDeliveryAction(): Promise<void> {
     'use server'
     const db = getAdminDb()
@@ -226,7 +140,6 @@ export default async function OrderDetailsPage({
     revalidatePath('/orders')
   }
 
-  // Server action: Buyer cancels unshipped order
   async function buyerCancelUnshippedAction(): Promise<void> {
     'use server'
     const db = getAdminDb()
@@ -247,6 +160,7 @@ export default async function OrderDetailsPage({
   const orderRef =
     order.order_number || order.payment_reference || order.id.slice(0, 8)
   const totalAmount = Number(order.total_amount || order.amount || 0)
+  const totalUnits = purchasedItems.reduce((sum, i) => sum + i.quantity, 0)
 
   const STAGES = [
     { key: 'placed', label: 'Placed', done: true, icon: CheckCircle2 },
@@ -321,10 +235,9 @@ export default async function OrderDetailsPage({
                 month: 'short',
                 year: 'numeric',
               })}{' '}
-              • {purchasedItems.reduce((sum, i) => sum + i.quantity, 0)} Total{' '}
-              {purchasedItems.reduce((sum, i) => sum + i.quantity, 0) === 1
-                ? 'Unit'
-                : 'Units'}
+              • {purchasedItems.length}{' '}
+              {purchasedItems.length === 1 ? 'Product' : 'Products'} ({totalUnits}{' '}
+              {totalUnits === 1 ? 'Unit' : 'Units'})
             </p>
           </div>
 
@@ -338,21 +251,17 @@ export default async function OrderDetailsPage({
           </div>
         </div>
 
-        {/* 2. Order Delivery Progress & Stage-Gated Controls */}
+        {/* 2. Order Delivery Progress */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-6">
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-400">
             Order Delivery Progress
           </h2>
 
-          {/* 4-Stage Visual Tracker */}
           <div className="grid grid-cols-4 gap-2 text-center">
             {STAGES.map((st) => {
               const Icon = st.icon
               return (
-                <div
-                  key={st.key}
-                  className="flex flex-col items-center gap-2"
-                >
+                <div key={st.key} className="flex flex-col items-center gap-2">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition ${
                       st.done
@@ -376,7 +285,6 @@ export default async function OrderDetailsPage({
             })}
           </div>
 
-          {/* STAGE-APPROPRIATE STATUS BOX (Never shows "Confirm Received" before Dispatch!) */}
           {isCancelled || isRefunded ? (
             <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300 font-semibold flex items-center gap-2.5">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -385,7 +293,6 @@ export default async function OrderDetailsPage({
               </span>
             </div>
           ) : !isDispatched ? (
-            /* STAGE 1 & 2: PLACED / PREPARING (NOT YET DISPATCHED) */
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
               <div className="flex items-start gap-3">
                 <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
@@ -414,7 +321,6 @@ export default async function OrderDetailsPage({
               )}
             </div>
           ) : !isDelivered ? (
-            /* STAGE 3: DISPATCHED / IN TRANSIT (SHOW HANDOVER OTP & CONFIRM BUTTON) */
             <div className="p-4 sm:p-5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
               <div className="space-y-1.5">
                 <p className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
@@ -448,7 +354,6 @@ export default async function OrderDetailsPage({
               )}
             </div>
           ) : (
-            /* STAGE 4: DELIVERED & IN 7-DAY BUYER INSPECTION WINDOW */
             <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
               <div className="space-y-1">
                 <p className="font-black text-sm text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
@@ -497,7 +402,6 @@ export default async function OrderDetailsPage({
               const qty = Number(item.quantity || 1)
               const lineTotal = unitPrice * qty
 
-              // Filter public specs (exclude internal URLs)
               const specEntries = Object.entries(item.specs || {}).filter(
                 ([k, v]) =>
                   v &&
@@ -577,7 +481,6 @@ export default async function OrderDetailsPage({
                     </div>
                   </div>
 
-                  {/* Item Technical Specifications Grid */}
                   {specEntries.length > 0 ? (
                     <div className="pt-3 border-t border-slate-200/70 dark:border-slate-700/70 space-y-2">
                       <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -642,7 +545,9 @@ export default async function OrderDetailsPage({
           </div>
 
           <div className="space-y-1 sm:text-right">
-            
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">
+              Escrow Settlement Status
+            </span>
             <p className="font-bold text-emerald-600 dark:text-emerald-400 flex sm:justify-end items-center gap-1">
               <Lock className="w-3.5 h-3.5" />
               <span>
@@ -651,7 +556,9 @@ export default async function OrderDetailsPage({
                   : 'Protected in Escrow Hold'}
               </span>
             </p>
-           
+            <p className="text-slate-500 dark:text-slate-400">
+              Funds are only released after verified delivery and inspection.
+            </p>
           </div>
         </div>
       </main>

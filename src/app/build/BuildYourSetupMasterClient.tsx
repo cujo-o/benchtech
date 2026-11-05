@@ -7,16 +7,20 @@ import {
   generateAdaptiveSetupRecommendations,
   revalidateSetupItemsAction,
   type SetupConsultationInput,
+  type SetupDeviceCategory,
   type SetupRecommendationOption,
 } from './actions'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  Monitor,
+  Smartphone,
+  Camera,
+  Gamepad2,
+  Headphones,
   Laptop,
   Layers,
+  Monitor,
   Cpu,
-  Gamepad2,
   GraduationCap,
   Video,
   Code2,
@@ -38,133 +42,163 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 
-const SETUP_TYPES = [
+const SETUP_TYPES: Array<{
+  id: SetupDeviceCategory
+  label: string
+  desc: string
+  icon: any
+}> = [
+  {
+    id: 'phone_mobile',
+    label: 'Smartphone & Mobile Tech',
+    desc: 'iPhones, Samsung Galaxy, tablets, mobile photography, and everyday mobile gear.',
+    icon: Smartphone,
+  },
+  {
+    id: 'camera_creator',
+    label: 'Camera, Vlogging & Content Gear',
+    desc: 'DJI Osmo Pocket, action cameras, mirrorless/film cameras, microphones, and creator kits.',
+    icon: Camera,
+  },
+  {
+    id: 'gaming_console',
+    label: 'Gaming Console & Entertainment',
+    desc: 'PlayStation, Xbox, handheld consoles, gaming monitors, and extra controllers.',
+    icon: Gamepad2,
+  },
+  {
+    id: 'peripherals_accessories',
+    label: 'Peripherals, Displays & Accessories',
+    desc: 'Monitors, headphones, keyboards, mice, external storage, Starlink, and power backup.',
+    icon: Headphones,
+  },
   {
     id: 'laptop',
     label: 'Laptop',
-    desc: 'A complete portable laptop matched to your battery, screen, and workload needs.',
+    desc: 'A portable laptop matched to your battery life, screen size, and software needs.',
     icon: Laptop,
   },
   {
     id: 'laptop_workstation',
     label: 'Laptop Workstation',
-    desc: 'A laptop paired with external monitor(s), dock, peripherals, and power protection.',
+    desc: 'A laptop paired with external monitor(s), dock, keyboard, mouse, and power protection.',
     icon: Layers,
   },
   {
     id: 'desktop',
-    label: 'Desktop PC Setup',
-    desc: 'A desktop or console tower with compatible display and peripherals.',
+    label: 'Desktop PC & Monitor Setup',
+    desc: 'A desktop computer paired with a compatible display and desk peripherals.',
     icon: Monitor,
   },
   {
-    id: 'mini_pc',
-    label: 'Compact / Mini Setup',
-    desc: 'Space-saving computer setup for tight desks, offices, or dorm rooms.',
+    id: 'multi_device',
+    label: 'Complete Multi-Device Ecosystem',
+    desc: 'Combine a phone, laptop, camera, monitor, or peripheral bundle within your budget.',
     icon: Cpu,
   },
-] as const
+]
 
 const PURPOSE_CATEGORIES = [
   {
+    id: 'content_creation',
+    label: 'Content Creation, Vlogging & Photography',
+    desc: 'TikTok/Reels, YouTube, DJI Osmo Pocket, photography, Premiere Pro, and design.',
+    icon: Video,
+  },
+  {
     id: 'gaming',
-    label: 'Gaming',
-    desc: 'Esports, AAA titles, simulation, racing, or casual gaming.',
+    label: 'Gaming & Esports',
+    desc: 'EA FC, Call of Duty, GTA, console gaming, or high-FPS PC gaming.',
     icon: Gamepad2,
   },
   {
     id: 'student',
-    label: 'Student & Education',
-    desc: 'University coursework, research, online classes, and degree software.',
+    label: 'Student & Campus Life',
+    desc: 'Coursework, research, lectures, battery longevity, and portable devices.',
     icon: GraduationCap,
   },
   {
     id: 'programming',
-    label: 'Programming & Dev',
-    desc: 'Web, mobile, backend, containers, IDEs, and software compilation.',
+    label: 'Programming & Software Dev',
+    desc: 'Web, mobile, backend, containers, IDEs, and multi-monitor coding.',
     icon: Code2,
   },
   {
-    id: 'content_creation',
-    label: 'Content Creation & Video',
-    desc: 'Premiere Pro, DaVinci Resolve, Photoshop, YouTube, and design.',
-    icon: Video,
-  },
-  {
     id: 'office_business',
-    label: 'Work & Business',
-    desc: 'Multitasking, financial spreadsheets, accounting, CRM, and calls.',
+    label: 'Business, Communication & Office',
+    desc: 'WhatsApp business, calls, spreadsheets, multitasking, and productivity.',
     icon: Briefcase,
   },
   {
     id: 'engineering_cad',
-    label: 'Engineering & CAD',
-    desc: 'AutoCAD, Revit, SolidWorks, structural and electrical modelling.',
+    label: 'Engineering & Architecture',
+    desc: 'AutoCAD, Revit, SolidWorks, and technical modelling.',
     icon: Compass,
   },
   {
     id: '3d_animation',
-    label: '3D & Animation',
-    desc: 'Blender, Cinema 4D, Maya, 3D rendering, and visual effects.',
+    label: '3D & Motion Graphics',
+    desc: 'Blender, Cinema 4D, After Effects, and rendering.',
     icon: Box,
   },
   {
     id: 'ai_ml',
-    label: 'AI & Machine Learning',
-    desc: 'Local model inference, fine-tuning, Python data science, and GPU compute.',
+    label: 'AI & Data Science',
+    desc: 'Model inference, Python data workflows, and GPU compute.',
     icon: Sparkles,
   },
   {
     id: 'cybersecurity',
-    label: 'Cybersecurity & Labs',
-    desc: 'Virtual machines, Kali Linux, Docker containers, and network labs.',
+    label: 'Cybersecurity & Virtual Labs',
+    desc: 'Virtual machines, Docker containers, and network labs.',
     icon: ShieldAlert,
   },
   {
     id: 'streaming',
-    label: 'Streaming & Broadcast',
-    desc: 'OBS Studio, simultaneous gameplay recording, and multi-camera streams.',
+    label: 'Live Streaming & Broadcast',
+    desc: 'OBS Studio, multi-camera streams, podcasts, and capture gear.',
     icon: Radio,
   },
   {
     id: 'music_production',
     label: 'Music & Audio Production',
-    desc: 'FL Studio, Logic, Ableton, low-latency recording, and VST plugins.',
+    desc: 'Audio recording, mixing, studio headphones, and DAWs.',
     icon: Music,
   },
   {
     id: 'general',
-    label: 'General / Custom Use',
-    desc: 'Everyday computing, media, browsing, or custom workflow.',
+    label: 'Everyday / Custom Use',
+    desc: 'Daily communication, media, browsing, or custom hardware setup.',
     icon: SlidersHorizontal,
   },
 ]
 
 const EXISTING_GEAR_OPTIONS = [
-  { id: 'monitor', label: 'External Monitor' },
+  { id: 'smartphone', label: 'Smartphone' },
+  { id: 'laptop_pc', label: 'Laptop / PC' },
+  { id: 'monitor', label: 'External Monitor / TV' },
+  { id: 'camera_mic', label: 'Camera / Microphone' },
   { id: 'keyboard_mouse', label: 'Keyboard & Mouse' },
   { id: 'headset_audio', label: 'Headphones / Speakers' },
-  { id: 'external_storage', label: 'External SSD / Backup Drive' },
-  { id: 'ups_power', label: 'UPS / Surge Protector' },
 ]
 
 export function BuildYourSetupMasterClient() {
   const { addItem } = useCartStore()
 
-  // Stages: 1 = Setup Type & Mode, 2 = Purpose Selection, 3 = Adaptive Workload Questions, 4 = Budget & Existing Gear, 5 = Results
   const [stage, setStage] = useState<1 | 2 | 3 | 4 | 5>(1)
 
   const [consultationMode, setConsultationMode] = useState<
     'quick' | 'detailed' | 'professional'
   >('quick')
-  const [setupType, setSetupType] = useState<
-    'desktop' | 'laptop' | 'laptop_workstation' | 'mini_pc'
-  >('laptop')
-  const [selectedPurposes, setSelectedPurposes] = useState<string[]>(['student'])
-  const [primaryPurpose, setPrimaryPurpose] = useState<string>('student')
+  const [setupType, setSetupType] =
+    useState<SetupDeviceCategory>('phone_mobile')
+  const [selectedPurposes, setSelectedPurposes] = useState<string[]>([
+    'content_creation',
+  ])
+  const [primaryPurpose, setPrimaryPurpose] =
+    useState<string>('content_creation')
 
-  // Budget & Existing Equipment
-  const [budgetMax, setBudgetMax] = useState<string>('450000')
+  const [budgetMax, setBudgetMax] = useState<string>('350000')
   const [budgetFlexibility, setBudgetFlexibility] = useState<
     'fixed' | 'somewhat_flexible' | 'flexible_if_worth_it'
   >('somewhat_flexible')
@@ -175,27 +209,25 @@ export function BuildYourSetupMasterClient() {
     'any' | 'brand_new_only'
   >('any')
   const [existingEquipment, setExistingEquipment] = useState<string[]>([])
-  const [powerBackupNeeded, setPowerBackupNeeded] = useState<boolean>(true)
+  const [powerBackupNeeded, setPowerBackupNeeded] = useState<boolean>(false)
 
-  // Adaptive Answers Dictionary
   const [answers, setAnswers] = useState<Record<string, any>>({
+    mobileOs: 'any',
+    mobileStorage: '128_256',
+    cameraStyle: 'any',
+    peripheralFocus: 'any',
     gamingType: 'unsure',
     targetResolution: '1080p',
-    fpsTarget: '60_120',
-    videoResolution: '1080p_4k',
-    timelineComplexity: 'moderate',
     studentCourse: 'computer_science',
-    runsVirtualMachines: 'unsure',
-    devType: 'web_fullstack',
-    needsDedicatedGpu: 'unsure',
+    runsVirtualMachines: 'no',
+    timelineComplexity: 'moderate',
     screenSize: '15_16',
     batteryTarget: '6_8',
-    externalMonitorCount: '1',
+    includeCompanion: 'no',
     preferredBrand: 'any',
     customNotes: '',
   })
 
-  // Results State
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [budgetNotice, setBudgetNotice] = useState<string | undefined>()
@@ -324,26 +356,13 @@ export function BuildYourSetupMasterClient() {
     setTimeout(() => setAddedLaneId(null), 2500)
   }
 
-  const hasGaming = selectedPurposes.includes('gaming')
-  const hasCreator =
-    selectedPurposes.includes('content_creation') ||
-    selectedPurposes.includes('3d_animation')
-  const hasStudent = selectedPurposes.includes('student')
-  const hasProgramming =
-    selectedPurposes.includes('programming') ||
-    selectedPurposes.includes('cybersecurity') ||
-    selectedPurposes.includes('ai_ml')
-  const hasEngineering = selectedPurposes.includes('engineering_cad')
-  const isPortable =
-    setupType === 'laptop' || setupType === 'laptop_workstation'
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header Banner */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Badge className="bg-blue-600/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold uppercase tracking-wider">
-            Adaptive Setup Consultant
+            Adaptive Tech &amp; Setup Consultant
           </Badge>
           <span className="text-xs text-slate-400 font-semibold">
             Stage {stage} of 5
@@ -355,16 +374,15 @@ export function BuildYourSetupMasterClient() {
             Build My Setup
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            Tell us what you need to do. We will help you choose a complete, compatible computer and setup from verified Abuja inventory within your budget. Not sure about technical specs? We will guide you.
+            Whether you need a smartphone, a pocket vlogging camera, a gaming console, a monitor/peripheral upgrade, or a full workstation—tell us what you want to do and we will match verified Abuja inventory to your budget.
           </p>
         </div>
 
-        {/* Stage Progress Bar */}
         <div className="grid grid-cols-5 gap-2 pt-2">
           {[
-            { num: 1, label: '1. Setup Type' },
+            { num: 1, label: '1. Device / Setup' },
             { num: 2, label: '2. Purpose' },
-            { num: 3, label: '3. Workload' },
+            { num: 3, label: '3. Preferences' },
             { num: 4, label: '4. Budget & Gear' },
             { num: 5, label: '5. Matches' },
           ].map((s) => (
@@ -396,16 +414,16 @@ export function BuildYourSetupMasterClient() {
       )}
 
       {/* =====================================================================
-          STAGE 1: SETUP TYPE & CONSULTATION DEPTH
+          STAGE 1: ALL DEVICE & SETUP CATEGORIES (PHONES, CAMERAS, CONSOLES, LAPTOPS, PERIPHERALS)
           ===================================================================== */}
       {stage === 1 && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xs space-y-6">
           <div className="space-y-1">
             <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-              1. What kind of setup do you want to build?
+              1. What kind of device or setup are you looking for?
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Select the form factor so we only ask questions relevant to your hardware path.
+              Select phones, cameras/vlogging gear (such as DJI Osmo Pocket), gaming consoles, peripherals, laptops, or a multi-device bundle.
             </p>
           </div>
 
@@ -440,7 +458,6 @@ export function BuildYourSetupMasterClient() {
             })}
           </div>
 
-          {/* Consultation Mode Selector */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
             <label className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
               Consultation Depth
@@ -449,18 +466,18 @@ export function BuildYourSetupMasterClient() {
               {[
                 {
                   id: 'quick',
-                  label: 'Quick Build (5–8 Questions)',
-                  desc: 'Fast essentials: purpose, workload intensity, and budget.',
+                  label: 'Quick Match',
+                  desc: 'Fast essentials: device type, main use, and budget.',
                 },
                 {
                   id: 'detailed',
                   label: 'Detailed Consultation',
-                  desc: 'Includes software, display, battery, and upgradeability checks.',
+                  desc: 'Includes storage, battery, companion accessories, and brand preferences.',
                 },
                 {
                   id: 'professional',
-                  label: 'Professional / Specialist',
-                  desc: 'Deep checks for 4K codecs, CAD/3D models, VMs, or local AI.',
+                  label: 'Specialist / Pro Workflow',
+                  desc: 'Deep checks for creator codecs, studio gear, CAD, or multi-device setups.',
                 },
               ].map((m) => (
                 <button
@@ -498,16 +515,16 @@ export function BuildYourSetupMasterClient() {
       )}
 
       {/* =====================================================================
-          STAGE 2: PURPOSE SELECTION (ZERO HARDCODED MINIMUM PRICES!)
+          STAGE 2: PURPOSE SELECTION
           ===================================================================== */}
       {stage === 2 && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xs space-y-6">
           <div className="space-y-1">
             <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-              2. What will you use this setup for? (Select one or more)
+              2. What will you mainly use it for? (Select one or more)
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Choose all that apply. No preset minimum prices are forced—your actual budget will be matched in Stage 4.
+              Choose your primary and secondary activities.
             </p>
           </div>
 
@@ -576,7 +593,7 @@ export function BuildYourSetupMasterClient() {
               onClick={() => setStage(3)}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-6 gap-1.5 cursor-pointer"
             >
-              <span>Continue to Workload Details</span>
+              <span>Continue to Device Preferences</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -584,243 +601,188 @@ export function BuildYourSetupMasterClient() {
       )}
 
       {/* =====================================================================
-          STAGE 3: ADAPTIVE WORKLOAD QUESTIONS (CONDITIONAL BRANCHING)
+          STAGE 3: ADAPTIVE QUESTIONS TAILORED TO PHONES, CAMERAS, CONSOLES, PERIPHERALS OR COMPUTERS
           ===================================================================== */}
       {stage === 3 && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xs space-y-6 text-xs">
           <div className="space-y-1 border-b border-slate-100 dark:border-slate-800 pb-4">
             <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-              3. Tell us about your workload
+              3. Device &amp; Companion Preferences
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Only questions relevant to your selected purposes ({selectedPurposes
-                .map((p) => p.replace(/_/g, ' '))
-                .join(', ')}) are shown below. Select &quot;Not sure — recommend for me&quot; anytime.
+              Questions are adapted to your selection ({setupType.replace(/_/g, ' ')}). Choose &quot;Not sure — recommend for me&quot; anytime.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {/* Conditional Branch: Gaming */}
-            {hasGaming && (
+            {/* Branch A: Smartphone & Mobile */}
+            {setupType === 'phone_mobile' && (
               <>
                 <div className="space-y-1.5">
                   <label className="font-bold text-slate-700 dark:text-slate-300 block">
-                    What type of games do you mainly play?
+                    Preferred Mobile Ecosystem
+                  </label>
+                  <select
+                    value={answers.mobileOs}
+                    onChange={(e) => updateAnswer('mobileOs', e.target.value)}
+                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+                  >
+                    <option value="any">No preference — best value in budget</option>
+                    <option value="ios">Apple iOS (iPhone / iPad)</option>
+                    <option value="android">Android (Samsung Galaxy, Pixel, etc.)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block">
+                    Target Storage &amp; Camera Priority
+                  </label>
+                  <select
+                    value={answers.mobileStorage}
+                    onChange={(e) =>
+                      updateAnswer('mobileStorage', e.target.value)
+                    }
+                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+                  >
+                    <option value="128_256">128GB – 256GB (Balanced daily &amp; video)</option>
+                    <option value="512_plus">512GB+ (Heavy 4K video &amp; creator storage)</option>
+                    <option value="unsure">Not sure — recommend for me</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {/* Branch B: Camera, Vlogging & Creator Gear (DJI Osmo Pocket, Mirrorless, Film, Audio) */}
+            {setupType === 'camera_creator' && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block">
+                    Camera / Creator Form Factor
+                  </label>
+                  <select
+                    value={answers.cameraStyle}
+                    onChange={(e) =>
+                      updateAnswer('cameraStyle', e.target.value)
+                    }
+                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+                  >
+                    <option value="any">
+                      Any Camera or Creator Gear (Pocket Gimbal, Mirrorless, DSLR, Vintage)
+                    </option>
+                    <option value="pocket_vlog">
+                      Pocket Gimbal / Action / Vlogging Camera (e.g. DJI Osmo Pocket, GoPro)
+                    </option>
+                    <option value="mirrorless_dslr">
+                      Dedicated Mirrorless / DSLR / Photography Camera
+                    </option>
+                    <option value="audio_lighting">
+                      Microphones, Audio Interfaces &amp; Studio Lighting
+                    </option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {/* Branch C: Gaming Console */}
+            {setupType === 'gaming_console' && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block">
+                    Console &amp; Display Preference
                   </label>
                   <select
                     value={answers.gamingType}
                     onChange={(e) => updateAnswer('gamingType', e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
                   >
                     <option value="unsure">
-                      Not sure — recommend a balanced gaming setup
+                      Best available console (PlayStation / Xbox)
                     </option>
-                    <option value="esports">
-                      Competitive Esports (Valorant, CS2, EA FC, Fortnite)
+                    <option value="console_plus_monitor">
+                      Console + External Monitor / Display Bundle
                     </option>
-                    <option value="aaa">
-                      Demanding AAA Games (Cyberpunk, GTA, Call of Duty, Flight Sim)
-                    </option>
-                    <option value="casual">Casual / Strategy / Indie Games</option>
-                  </select>
-                  <span className="text-[10px] text-slate-400 block">
-                    Why we ask: Esports titles prioritize fast CPU/refresh rates, while AAA games require higher GPU VRAM.
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700 dark:text-slate-300 block">
-                    Target Gaming Resolution &amp; Frame Rate
-                  </label>
-                  <select
-                    value={answers.targetResolution}
-                    onChange={(e) =>
-                      updateAnswer('targetResolution', e.target.value)
-                    }
-                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
-                  >
-                    <option value="1080p">1080p (Full HD) — Smooth 60–144+ FPS</option>
-                    <option value="1440p">1440p (QHD) — High Detail</option>
-                    <option value="4k">4K UHD — Maximum Fidelity</option>
-                    <option value="unsure">Not sure — recommend for me</option>
                   </select>
                 </div>
               </>
             )}
 
-            {/* Conditional Branch: Student / Education */}
-            {hasStudent && (
+            {/* Branch D: Peripherals, Displays & Accessories */}
+            {setupType === 'peripherals_accessories' && (
               <div className="space-y-1.5">
                 <label className="font-bold text-slate-700 dark:text-slate-300 block">
-                  What course or field are you studying?
+                  Primary Peripheral or Accessory Needed
                 </label>
                 <select
-                  value={answers.studentCourse}
-                  onChange={(e) => updateAnswer('studentCourse', e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+                  value={answers.peripheralFocus}
+                  onChange={(e) =>
+                    updateAnswer('peripheralFocus', e.target.value)
+                  }
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
                 >
-                  <option value="computer_science">
-                    Computer Science / Software Engineering / IT
-                  </option>
-                  <option value="cybersecurity">
-                    Cybersecurity / Networking (Virtual Machines &amp; Labs)
-                  </option>
-                  <option value="engineering_arch">
-                    Engineering / Architecture (AutoCAD, Revit, MATLAB)
-                  </option>
-                  <option value="business_law_arts">
-                    Business, Accounting, Law, Medicine, or Humanities
-                  </option>
-                  <option value="design_media">
-                    Mass Communication, Design, or Media
-                  </option>
+                  <option value="any">All Monitors, Audio &amp; Accessories</option>
+                  <option value="monitor">External Monitor / Display</option>
+                  <option value="audio">Headphones, Earbuds &amp; Microphones</option>
+                  <option value="keyboard_mouse">Keyboards, Mice &amp; Docks</option>
+                  <option value="networking">Starlink &amp; Networking Gear</option>
                 </select>
-                <span className="text-[10px] text-slate-400 block">
-                  Why we ask: Business/Arts students don&apos;t need heavy GPUs, whereas Architecture and Cybersecurity require extra RAM.
-                </span>
               </div>
             )}
 
-            {/* Conditional Branch: Programming / Cybersecurity / VMs */}
-            {(hasProgramming ||
-              answers.studentCourse === 'cybersecurity' ||
-              answers.studentCourse === 'computer_science') && (
+            {/* Branch E: Laptops & Workstations */}
+            {(setupType === 'laptop' ||
+              setupType === 'laptop_workstation' ||
+              setupType === 'desktop') && (
               <>
                 <div className="space-y-1.5">
                   <label className="font-bold text-slate-700 dark:text-slate-300 block">
-                    Will you run Virtual Machines (VMs), Docker, or Android Emulators?
-                  </label>
-                  <select
-                    value={answers.runsVirtualMachines}
-                    onChange={(e) =>
-                      updateAnswer('runsVirtualMachines', e.target.value)
-                    }
-                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
-                  >
-                    <option value="no">
-                      No — mostly VS Code, browsers, and standard IDEs
-                    </option>
-                    <option value="yes">
-                      Yes — Docker containers, Android Studio, or multiple VMs
-                    </option>
-                    <option value="unsure">Not sure — recommend for me</option>
-                  </select>
-                  <span className="text-[10px] text-slate-400 block">
-                    Why we ask: Running VMs and Docker benefits from 16GB–32GB RAM rather than an expensive gaming GPU.
-                  </span>
-                </div>
-              </>
-            )}
-
-            {/* Conditional Branch: Content Creation / Video / 3D / Engineering */}
-            {(hasCreator || hasEngineering) && (
-              <>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700 dark:text-slate-300 block">
-                    Project &amp; Timeline Complexity
-                  </label>
-                  <select
-                    value={answers.timelineComplexity}
-                    onChange={(e) =>
-                      updateAnswer('timelineComplexity', e.target.value)
-                    }
-                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
-                  >
-                    <option value="light">
-                      1080p video cuts, graphic design, or 2D CAD drafting
-                    </option>
-                    <option value="moderate">
-                      4K editing, multi-track timelines, or medium 3D models
-                    </option>
-                    <option value="heavy">
-                      Heavy 4K/6K VFX, 3D animation rendering, or large Revit assemblies
-                    </option>
-                    <option value="unsure">Not sure — recommend for me</option>
-                  </select>
-                </div>
-              </>
-            )}
-
-            {/* Conditional Branch: Portability & Battery (For Laptops) */}
-            {isPortable && (
-              <>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700 dark:text-slate-300 block">
-                    Preferred Laptop Screen Size
+                    Preferred Screen Size
                   </label>
                   <select
                     value={answers.screenSize}
                     onChange={(e) => updateAnswer('screenSize', e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
                   >
-                    <option value="13_14">
-                      13&quot; – 14&quot; (Ultra-portable &amp; lightweight)
-                    </option>
-                    <option value="15_16">
-                      15&quot; – 16&quot; (Balanced screen space &amp; portability)
-                    </option>
-                    <option value="17_plus">
-                      17&quot;+ (Desktop replacement)
-                    </option>
+                    <option value="13_14">13&quot; – 14&quot; (Compact &amp; Portable)</option>
+                    <option value="15_16">15&quot; – 16&quot; (Balanced Workspace)</option>
+                    <option value="24_plus">24&quot;+ External Monitor / Desktop</option>
                     <option value="unsure">No preference — recommend for me</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700 dark:text-slate-300 block">
-                    Minimum Battery Life Needed Away from Power
-                  </label>
-                  <select
-                    value={answers.batteryTarget}
-                    onChange={(e) =>
-                      updateAnswer('batteryTarget', e.target.value)
-                    }
-                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
-                  >
-                    <option value="4_6">4 – 6 hours</option>
-                    <option value="6_8">6 – 8 hours</option>
-                    <option value="8_plus">8+ hours (All-day classes/work)</option>
-                    <option value="unsure">Not sure — recommend for me</option>
                   </select>
                 </div>
               </>
             )}
 
-            {/* Detailed / Professional Mode Extra Questions */}
-            {consultationMode !== 'quick' && (
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700 dark:text-slate-300 block">
-                  Brand Preference
-                </label>
-                <select
-                  value={answers.preferredBrand}
-                  onChange={(e) =>
-                    updateAnswer('preferredBrand', e.target.value)
-                  }
-                  className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
-                >
-                  <option value="any">No brand preference (Best match)</option>
-                  <option value="apple">Apple (MacBook)</option>
-                  <option value="dell">Dell</option>
-                  <option value="hp">HP</option>
-                  <option value="lenovo">Lenovo (ThinkPad / Legion)</option>
-                  <option value="asus">ASUS</option>
-                  <option value="sony">Sony PlayStation</option>
-                </select>
-              </div>
-            )}
+            {/* Companion Device Option */}
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700 dark:text-slate-300 block">
+                Include Companion Gear or Second Device in Bundle?
+              </label>
+              <select
+                value={answers.includeCompanion}
+                onChange={(e) =>
+                  updateAnswer('includeCompanion', e.target.value)
+                }
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+              >
+                <option value="no">
+                  Single device focus (plus optional bundle comparison)
+                </option>
+                <option value="yes">
+                  Yes — pair with a compatible monitor, camera, or accessory
+                </option>
+              </select>
+            </div>
           </div>
 
           <div className="space-y-1.5">
             <label className="font-bold text-slate-700 dark:text-slate-300 block">
-              Any specific applications, games, or requirements? (Optional)
+              Specific Device Model, Keyword, or Requirement (Optional)
             </label>
             <input
               type="text"
               value={answers.customNotes}
               onChange={(e) => updateAnswer('customNotes', e.target.value)}
-              placeholder="e.g. AutoCAD 2026, VS Code, FIFA/FC 25, or dual monitor support..."
-              className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              placeholder="e.g. DJI Osmo Pocket, iPhone 13, PS4 Pro, Hisense Monitor, Dell Vostro..."
+              className="w-full h-10 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
             />
           </div>
 
@@ -847,7 +809,7 @@ export function BuildYourSetupMasterClient() {
       )}
 
       {/* =====================================================================
-          STAGE 4: BUDGET, FLEXIBILITY & EXISTING EQUIPMENT REUSE
+          STAGE 4: BUDGET & EXISTING EQUIPMENT
           ===================================================================== */}
       {stage === 4 && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xs space-y-6 text-xs">
@@ -856,7 +818,7 @@ export function BuildYourSetupMasterClient() {
               4. Budget &amp; Existing Equipment
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Set your target spend and check any equipment you already own so we don&apos;t recommend duplicates.
+              Enter your target budget and select any gear you already own so we avoid recommending duplicates.
             </p>
           </div>
 
@@ -867,11 +829,11 @@ export function BuildYourSetupMasterClient() {
               </label>
               <input
                 type="number"
-                min={50000}
-                step={10000}
+                min={10000}
+                step={5000}
                 value={budgetMax}
                 onChange={(e) => setBudgetMax(e.target.value)}
-                placeholder="e.g. 450000"
+                placeholder="e.g. 350000"
                 className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-black text-slate-900 dark:text-white"
               />
             </div>
@@ -883,16 +845,14 @@ export function BuildYourSetupMasterClient() {
               <select
                 value={budgetFlexibility}
                 onChange={(e) => setBudgetFlexibility(e.target.value as any)}
-                className="w-full h-11 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                className="w-full h-11 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold"
               >
-                <option value="fixed">
-                  Strict / Fixed Maximum — Do not exceed
-                </option>
+                <option value="fixed">Strict Maximum — Do not exceed</option>
                 <option value="somewhat_flexible">
                   Somewhat Flexible (Up to +10% if worthwhile)
                 </option>
                 <option value="flexible_if_worth_it">
-                  Flexible (+20% if it significantly improves longevity)
+                  Flexible (+20% for a better tier or bundle)
                 </option>
               </select>
             </div>
@@ -904,10 +864,10 @@ export function BuildYourSetupMasterClient() {
               <select
                 value={valuePriority}
                 onChange={(e) => setValuePriority(e.target.value as any)}
-                className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
               >
                 <option value="balanced">Best Value &amp; Balance</option>
-                <option value="performance">Maximum Performance</option>
+                <option value="performance">Maximum Capability</option>
                 <option value="lowest_cost">Lowest Sensible Cost</option>
               </select>
             </div>
@@ -919,7 +879,7 @@ export function BuildYourSetupMasterClient() {
               <select
                 value={conditionPreference}
                 onChange={(e) => setConditionPreference(e.target.value as any)}
-                className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
               >
                 <option value="any">
                   Brand New or Verified Foreign/Open-Box Used
@@ -929,10 +889,9 @@ export function BuildYourSetupMasterClient() {
             </div>
           </div>
 
-          {/* Existing Equipment Checkboxes */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <label className="font-bold text-slate-700 dark:text-slate-300 block">
-              Which equipment do you already own and want to reuse?
+              Which equipment do you already own?
             </label>
             <div className="flex flex-wrap gap-2">
               {EXISTING_GEAR_OPTIONS.map((gear) => {
@@ -989,22 +948,21 @@ export function BuildYourSetupMasterClient() {
       )}
 
       {/* =====================================================================
-          STAGE 5: VERIFIED RECOMMENDATION LANES & ITEM SWAPPING
+          STAGE 5: VERIFIED RECOMMENDATION LANES
           ===================================================================== */}
       {stage === 5 && (
         <div className="space-y-6">
-          {/* Quick Budget Adjuster Bar */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4 text-xs">
             <div className="flex items-center gap-3">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setStage(3)}
+                onClick={() => setStage(1)}
                 className="rounded-xl font-bold h-9 gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Edit Answers</span>
+                <span>Change Device Type</span>
               </Button>
               <span className="font-bold text-slate-700 dark:text-slate-300">
                 Target Budget: ₦{Number(budgetMax || 0).toLocaleString()}
@@ -1017,7 +975,7 @@ export function BuildYourSetupMasterClient() {
                 step={25000}
                 value={budgetMax}
                 onChange={(e) => setBudgetMax(e.target.value)}
-                className="h-9 w-36 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-black"
+                className="h-9 w-36 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-black"
               />
               <Button
                 type="button"
@@ -1039,7 +997,6 @@ export function BuildYourSetupMasterClient() {
             </div>
           )}
 
-          {/* Recommendation Lanes Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
             {options.map((opt) => (
               <div
@@ -1066,11 +1023,7 @@ export function BuildYourSetupMasterClient() {
 
                     <Badge
                       variant="outline"
-                      className={`text-[10px] font-bold ${
-                        opt.compatibilityStatus === 'Verified Compatible'
-                          ? 'text-emerald-600 border-emerald-300 dark:border-emerald-800'
-                          : 'text-amber-600 border-amber-300 dark:border-amber-800'
-                      }`}
+                      className="text-[10px] font-bold text-emerald-600 border-emerald-300 dark:border-emerald-800"
                     >
                       {opt.compatibilityStatus}
                     </Badge>
@@ -1094,7 +1047,6 @@ export function BuildYourSetupMasterClient() {
                     {opt.whyItFits}
                   </p>
 
-                  {/* Included Real Products + Swap Dropdown */}
                   <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
                       Included Catalog Items
@@ -1143,7 +1095,7 @@ export function BuildYourSetupMasterClient() {
                                   handleSwapItem(opt.laneId, idx, chosen)
                                 }
                               }}
-                              className="w-full h-8 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold"
+                              className="w-full h-8 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-[11px] font-semibold"
                             >
                               <option value="">
                                 Swap with alternative ({entry.alternatives.length} available)...
@@ -1160,11 +1112,7 @@ export function BuildYourSetupMasterClient() {
                     ))}
                   </div>
 
-                  {/* Capabilities & Known Limits */}
                   <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px]">
-                    <span className="text-[10px] font-black uppercase text-slate-400 block">
-                      Capabilities &amp; Notes
-                    </span>
                     {opt.expectedCapabilities.map((cap, i) => (
                       <p
                         key={i}
@@ -1186,7 +1134,6 @@ export function BuildYourSetupMasterClient() {
                   </div>
                 </div>
 
-                {/* Add Validated Setup to Cart */}
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                   <Button
                     type="button"

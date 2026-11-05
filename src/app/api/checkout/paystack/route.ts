@@ -1,58 +1,88 @@
 import { NextResponse } from 'next/server'
+import { headers } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
+
+async function getOrigin() {
+  const h = await headers()
+  const host = h.get('x-forwarded-host') || h.get('host')
+  const proto = h.get('x-forwarded-proto') || 'https'
+  if (host) return `${proto}://${host}`
+  return process.env.NEXT_PUBLIC_SITE_URL || 'https://shopbenchtech.com'
+}
 
 export async function POST(request: Request) {
   try {
-    const { amount, email, metadata } = await request.json()
     const secretKey = process.env.PAYSTACK_SECRET_KEY
-
     if (!secretKey) {
-      return NextResponse.json({ message: 'Paystack Secret Key is missing' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Paystack secret key is not configured.' },
+        { status: 500 }
+      )
     }
 
-    const koboAmount = Math.round(Number(amount) * 100)
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    // Detect domain
-    const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
-    const proto = request.headers.get('x-forwarded-proto') || 'https'
-    const origin =
-      request.headers.get('origin') ||
-      (host ? `${proto}://${host}` : null) ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      'https://shopbenchtech.com'
+    const body = await request.json()
+    const amountNaira = Number(body.amount || 0)
+    const email = (body.email || user?.email || '').trim()
+    const incomingMetadata = body.metadata || {}
 
-    // Route subscriptions to seller portal and item purchases to orders
-    const isSubscription = metadata?.purpose === 'seller_subscription'
-    const callbackPath = isSubscription ? '/seller/subscription' : '/orders'
-    const callbackUrl = `${origin.replace(/\/$/, '')}${callbackPath}`
-
-    const response = await fetch('https://api.paystack.co/transaction/initialize', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        amount: koboAmount,
-        callback_url: callbackUrl,
-        metadata: {
-          purpose: isSubscription ? 'seller_subscription' : 'marketplace_checkout',
-          ...metadata,
-        },
-      }),
-    })
-
-    const data = await response.json()
-
-    if (!data.status) {
+    if (!email || amountNaira <= 0) {
       return NextResponse.json(
-        { message: data.message || 'Payment initialization failed' },
+        { error: 'Valid email and amount are required.' },
         { status: 400 }
       )
     }
 
-    return NextResponse.json({ authorization_url: data.data.authorization_url }, { status: 200 })
-  } catch (error: any) {
-    return NextResponse.json({ message: error.message || 'Server error' }, { status: 500 })
+    const origin = await getOrigin()
+    const callbackUrl =
+      body.callbackUrl || `${origin}/checkout/success`
+
+    const paystackRes = await fetch(
+      'https://api.paystack.co/transaction/initialize',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          amount: Math.round(amountNaira * 100),
+          callback_url: callbackUrl,
+          metadata: {
+            ...incomingMetadata,
+            buyer_id: incomingMetadata.buyer_id || user?.id || null,
+            items: Array.isArray(incomingMetadata.items)
+              ? incomingMetadata.items
+              : [],
+          },
+        }),
+      }
+    )
+
+    const paystackData = await paystackRes.json()
+    if (!paystackData.status || !paystackData.data?.authorization_url) {
+      return NextResponse.json(
+        {
+          error:
+            paystackData.message || 'Could not initialize Paystack checkout.',
+        },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json({
+      authorization_url: paystackData.data.authorization_url,
+      reference: paystackData.data.reference,
+    })
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || 'Checkout initialization error.' },
+      { status: 500 }
+    )
   }
 }

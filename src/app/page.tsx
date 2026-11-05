@@ -150,6 +150,15 @@ export default async function LandingGatewayPage() {
 
   const displayProducts = finalProducts.slice(0, 12)
 
+  const HERO_HARDWARE_BACKGROUNDS = [
+  'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=1600&q=80',
+  'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1600&q=80',
+]
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       {/* Sticky Header */}
@@ -236,11 +245,11 @@ export default async function LandingGatewayPage() {
           <div className="lg:col-span-8 relative rounded-3xl overflow-hidden bg-slate-900 text-white border border-slate-800 min-h-[280px] sm:min-h-[340px] flex flex-col justify-between p-6 sm:p-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1400&q=80"
+              src={HERO_HARDWARE_BACKGROUNDS[Math.floor(Math.random() * HERO_HARDWARE_BACKGROUNDS.length)]}
               alt="Hardware Showcase"
-              className="absolute inset-0 w-full h-full object-cover opacity-35"
+              className= "absolute inset-0 w-full h-full object-cover opacity-65 sm:opacity-75"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-slate-950/30" />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-slate-950/15" />
 
             <div className="relative z-10 max-w-xl space-y-3">
               <Badge className="bg-blue-600/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5">
