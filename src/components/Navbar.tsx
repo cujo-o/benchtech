@@ -52,10 +52,9 @@ export async function Navbar() {
   const sellerDestination = isSeller ? '/seller/dashboard' : '/seller/onboarding'
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
-      <div className="max-w-[1700px] mx-auto px-3 sm:px-5 h-16 flex items-center justify-between gap-2 sm:gap-4">
+    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
+      <div className="w-full px-3 sm:px-5 lg:px-6 h-16 lg:h-[68px] flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Only show Mobile Sidebar Drawer to signed-in users */}
           {user && <MobileSidebarDrawer profile={profile} />}
 
           <Link
@@ -64,52 +63,51 @@ export async function Navbar() {
           >
             <BenchTechLogo />
             <div className="hidden min-[480px]:block">
-              <span className="font-black text-base sm:text-lg text-slate-900 dark:text-slate-100 tracking-tight leading-none block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+              <span className="font-black text-base sm:text-lg lg:text-xl text-slate-900 dark:text-slate-100 tracking-tight leading-none block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
                 BenchTech
               </span>
-              <span className="text-[9px] text-slate-400 dark:text-slate-500 font-semibold tracking-wider hidden sm:block mt-0.5">
+              <span className="text-[9px] lg:text-[11px] text-slate-400 dark:text-slate-500 font-semibold tracking-wider hidden sm:block mt-0.5">
                 Buy Smart. Sell Easy.
               </span>
             </div>
           </Link>
         </div>
 
-        {/* Global Search Bar */}
         <form
           action="/products"
           method="GET"
-          className="flex-1 min-w-0 max-w-xl mx-2 flex items-center relative"
+          className="flex-1 min-w-0 max-w-xl lg:max-w-2xl mx-2 flex items-center relative"
         >
           <input
             type="text"
             name="q"
             placeholder="Search gadgets in Abuja..."
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 pl-3.5 pr-9 py-2 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-800 transition font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 pl-3.5 lg:pl-4 pr-10 py-2 lg:py-2.5 text-xs lg:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-800 transition font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
           <button
             type="submit"
             aria-label="Search"
-            className="absolute right-1.5 bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded-lg transition shrink-0 shadow-2xs cursor-pointer"
+            className="absolute right-1.5 bg-blue-600 hover:bg-blue-700 text-white p-1.5 lg:p-2 rounded-lg transition shrink-0 shadow-2xs cursor-pointer"
           >
-            <Search className="w-3.5 h-3.5" />
+            <Search className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
           </button>
         </form>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0">
           {user ? (
             <>
               <div className="shrink-0">
                 <CartDrawer />
               </div>
 
-              <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2.5 border-l border-slate-200 dark:border-slate-800">
                 {isAdmin && (
                   <Link href="/admin" className="hidden sm:block">
                     <Button
                       size="sm"
-                      className="bg-slate-900 hover:bg-black text-white dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 dark:border dark:border-slate-700 text-xs h-8 px-2.5 gap-1.5 font-bold shadow-2xs rounded-xl transition cursor-pointer"
+                      className="bg-slate-900 hover:bg-black text-white dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 dark:border dark:border-slate-700 text-xs lg:text-[13px] h-8 lg:h-9 px-2.5 lg:px-3.5 gap-1.5 font-bold shadow-2xs rounded-xl transition cursor-pointer"
                     >
-                      <ShieldAlert className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
+                      <ShieldAlert className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-red-500 dark:text-red-400" />
                       <span>Admin</span>
                     </Button>
                   </Link>
@@ -120,10 +118,10 @@ export async function Navbar() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-xs h-8 px-2.5 gap-1.5 border-sky-200 dark:border-sky-800/80 text-sky-600 dark:text-sky-400 bg-white dark:bg-slate-900 hover:bg-sky-50 dark:hover:bg-sky-950/40 font-bold rounded-xl shadow-2xs transition cursor-pointer"
+                      className="text-xs lg:text-[13px] h-8 lg:h-9 px-2.5 lg:px-3.5 gap-1.5 border-sky-200 dark:border-sky-800/80 text-sky-600 dark:text-sky-400 bg-white dark:bg-slate-900 hover:bg-sky-50 dark:hover:bg-sky-950/40 font-bold rounded-xl shadow-2xs transition cursor-pointer"
                       title="Delivery Hub"
                     >
-                      <Truck className="w-3.5 h-3.5" />
+                      <Truck className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                       <span className="hidden md:inline">Delivery Hub</span>
                     </Button>
                   </Link>
@@ -133,10 +131,10 @@ export async function Navbar() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs h-8 px-2.5 gap-1.5 border-blue-200 dark:border-blue-800/80 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-bold rounded-xl shadow-2xs transition cursor-pointer"
+                    className="text-xs lg:text-[13px] h-8 lg:h-9 px-2.5 lg:px-3.5 gap-1.5 border-blue-200 dark:border-blue-800/80 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-bold rounded-xl shadow-2xs transition cursor-pointer"
                     title={isSeller ? 'Seller Hub' : 'Become a Seller'}
                   >
-                    <Store className="w-3.5 h-3.5" />
+                    <Store className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                     <span className="hidden md:inline">
                       {isSeller ? 'Seller Hub' : 'Become Seller'}
                     </span>
@@ -150,7 +148,7 @@ export async function Navbar() {
                     aria-label="Sign Out"
                     className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition cursor-pointer"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-4 h-4 lg:w-[18px] lg:h-[18px]" />
                   </button>
                 </form>
               </div>
@@ -161,7 +159,7 @@ export async function Navbar() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-xs h-8 px-2.5 sm:px-3 rounded-xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  className="text-xs lg:text-sm h-8 lg:h-9 px-2.5 sm:px-3.5 rounded-xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
                   Sign In
                 </Button>
@@ -169,7 +167,7 @@ export async function Navbar() {
               <Link href="/register">
                 <Button
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3 font-bold rounded-xl shadow-2xs transition cursor-pointer"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs lg:text-sm h-8 lg:h-9 px-3 lg:px-4 font-bold rounded-xl shadow-2xs transition cursor-pointer"
                 >
                   Register
                 </Button>

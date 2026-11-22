@@ -42,28 +42,30 @@ export default async function ProductsCatalogPage({
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar />
 
-      <div className="max-w-[1700px] w-full mx-auto flex flex-1">
+      <div className="w-full flex flex-1">
         {user && <BuyerSidebar />}
 
-        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-4">
-          {!user && (
-            <div>
-              <Link
-                href="/"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Home</span>
-              </Link>
-            </div>
-          )}
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
+          <div className="max-w-[1440px] mx-auto space-y-4">
+            {!user && (
+              <div>
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1.5 text-xs lg:text-sm font-bold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Home</span>
+                </Link>
+              </div>
+            )}
 
-          <ProductsCatalogClient
-            initialProducts={products || []}
-            initialCategory={params?.category || 'all'}
-            initialQuery={params?.q || ''}
-            isAuthenticated={Boolean(user)}
-          />
+            <ProductsCatalogClient
+              initialProducts={products || []}
+              initialCategory={params?.category || 'all'}
+              initialQuery={params?.q || ''}
+              isAuthenticated={Boolean(user)}
+            />
+          </div>
         </main>
       </div>
     </div>

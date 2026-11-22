@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/Navbar'
 import { BuyerSidebar } from '@/components/storefront/BuyerSidebar'
@@ -6,8 +7,8 @@ import { BuyerSettingsClient } from './BuyerSettingsClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Account Settings & Theme | BenchTech',
-  description: 'Manage your display theme, Abuja delivery address, and password settings.',
+  title: 'Account Settings & Preferences | BenchTech Abuja',
+  description: 'Manage your BenchTech profile, Abuja delivery defaults, display theme, and security settings.',
 }
 
 export default async function BuyerSettingsPage() {
@@ -16,26 +17,28 @@ export default async function BuyerSettingsPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  let profile: any = null
-  if (user) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle()
-    profile = data
+  if (!user) {
+    redirect('/login?next=/settings')
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle()
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar />
-      <div className="max-w-[1700px] w-full mx-auto flex flex-1">
+      <div className="w-full flex flex-1">
         <BuyerSidebar />
         <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
-          <BuyerSettingsClient
-            user={user ? { id: user.id, email: user.email || '' } : null}
-            profile={profile}
-          />
+          <div className="max-w-4xl mx-auto">
+            <BuyerSettingsClient
+              user={{ id: user.id, email: user.email || '' }}
+              profile={profile}
+            />
+          </div>
         </main>
       </div>
     </div>
