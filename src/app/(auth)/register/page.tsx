@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { signUp } from '@/app/(auth)/actions'
+import { signUp, resendVerificationEmail } from '@/app/(auth)/actions'
 import { BenchTechLogo } from '@/components/BenchTechLogo'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +16,7 @@ import {
   Store,
   ArrowLeft,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react'
 
 function RegisterForm() {
@@ -27,15 +28,21 @@ function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resentMsg, setResentMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [duplicateInfo, setDuplicateInfo] = useState<{
+    type: 'password' | 'google' | 'unconfirmed'
+    email: string
+  } | null>(null)
 
   async function handleGoogleSignUp() {
     if (googleLoading || loading) return
     setGoogleLoading(true)
     setError(null)
+    setDuplicateInfo(null)
 
     try {
-      // Save role in a cookie so redirectTo remains a clean URL
       document.cookie = `bt_oauth_role=${role}; path=/; max-age=600; SameSite=Lax`
 
       const supabase = createClient()
@@ -60,12 +67,27 @@ function RegisterForm() {
     }
   }
 
+  async function handleResendUnconfirmed() {
+    if (!duplicateInfo?.email || resending) return
+    setResending(true)
+    setResentMsg(null)
+    const res = await resendVerificationEmail(duplicateInfo.email)
+    setResending(false)
+    if (res?.error) {
+      setError(res.error)
+      return
+    }
+    setResentMsg('Verification email resent. Check your inbox or enter the 6-digit code.')
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (loading || googleLoading) return
 
     setLoading(true)
     setError(null)
+    setDuplicateInfo(null)
+    setResentMsg(null)
 
     try {
       const formData = new FormData(e.currentTarget)
@@ -75,7 +97,20 @@ function RegisterForm() {
 
       if (res?.error) {
         setError(res.error)
+        if ('duplicateType' in res && res.duplicateType && res.email) {
+          setDuplicateInfo({
+            type: res.duplicateType,
+            email: res.email,
+          })
+        }
         setLoading(false)
+        return
+      }
+
+      if (res?.requiresEmailConfirmation) {
+        window.location.href =
+          res.redirectTo ||
+          `/verify-email?email=${encodeURIComponent(res.email || '')}&role=${role}`
         return
       }
 
@@ -170,12 +205,11 @@ function RegisterForm() {
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {role === 'seller'
-                  ? 'Step 1: Create your login to begin one-time seller verification'
+                  ? 'Step 1: Create and confirm your login to begin one-time seller verification'
                   : 'Join BenchTech to buy and inspect electronics in Abuja'}
               </p>
             </div>
 
-            {/* Account Type Toggle */}
             <div className="grid grid-cols-2 gap-2.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
               <button
                 type="button"
@@ -205,13 +239,62 @@ function RegisterForm() {
             </div>
 
             {error && (
-              <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs font-semibold text-red-700 dark:text-red-300 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                <span>{error}</span>
+              <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs font-semibold text-red-700 dark:text-red-300 space-y-2.5">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+
+                {duplicateInfo?.type === 'password' && (
+                  <div className="flex flex-wrap items-center gap-3 pl-6">
+                    <Link
+                      href="/login"
+                      className="text-blue-700 dark:text-blue-400 font-bold underline"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/forgot-password"
+                      className="text-slate-700 dark:text-slate-300 font-bold underline"
+                    >
+                      Forgot Password?
+                    </Link>
+                  </div>
+                )}
+
+                {duplicateInfo?.type === 'unconfirmed' && (
+                  <div className="flex flex-wrap items-center gap-2 pl-6">
+                    <button
+                      type="button"
+                      onClick={handleResendUnconfirmed}
+                      disabled={resending}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 text-slate-900 dark:text-white font-bold text-[11px] cursor-pointer"
+                    >
+                      <RefreshCw
+                        className={`w-3 h-3 ${resending ? 'animate-spin' : ''}`}
+                      />
+                      <span>{resending ? 'Sending...' : 'Resend Email'}</span>
+                    </button>
+                    <Link
+                      href={`/verify-email?email=${encodeURIComponent(
+                        duplicateInfo.email
+                      )}&role=${role}`}
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold text-[11px]"
+                    >
+                      Enter 6-Digit Code
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Google Sign-Up Button */}
+            {resentMsg && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{resentMsg}</span>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleGoogleSignUp}
@@ -321,7 +404,11 @@ function RegisterForm() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1"
                     aria-label="Toggle password visibility"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -341,7 +428,7 @@ function RegisterForm() {
                     <span>Creating Account...</span>
                   </>
                 ) : role === 'seller' ? (
-                  <span>Continue to Seller Verification</span>
+                  <span>Create Seller Account</span>
                 ) : (
                   <span>Create Buyer Account</span>
                 )}

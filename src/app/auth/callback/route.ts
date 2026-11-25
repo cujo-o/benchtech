@@ -13,6 +13,19 @@ function getAdminClient() {
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
+
+  // Forward token_hash confirmation links cleanly to /auth/confirm
+  const tokenHash = searchParams.get('token_hash')
+  const type = searchParams.get('type')
+  if (tokenHash && type) {
+    const confirmUrl = new URL('/auth/confirm', origin)
+    confirmUrl.searchParams.set('token_hash', tokenHash)
+    confirmUrl.searchParams.set('type', type)
+    const next = searchParams.get('next')
+    if (next) confirmUrl.searchParams.set('next', next)
+    return NextResponse.redirect(confirmUrl)
+  }
+
   const code = searchParams.get('code')
   const oauthError =
     searchParams.get('error_description') || searchParams.get('error')
@@ -53,7 +66,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error || !data?.user) {
-      const msg = error?.message || 'Google sign-in could not be completed.'
+      const msg = error?.message || 'Sign-in link expired or could not be completed.'
       return NextResponse.redirect(
         `${origin}/login?error=${encodeURIComponent(msg)}`
       )
@@ -61,30 +74,29 @@ export async function GET(request: NextRequest) {
 
     const user = data.user
     const adminDb = getAdminClient()
-    const isSellerIntent = requestedRole === 'seller'
+    const isSellerIntent =
+      requestedRole === 'seller' || user.user_metadata?.role === 'seller'
 
-    // Fetch existing profile with '*' to avoid column errors
     const { data: existingProfile } = await adminDb
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .maybeSingle()
 
-    const googleName =
+    const displayName =
       user.user_metadata?.full_name ||
       user.user_metadata?.name ||
       user.email?.split('@')[0] ||
       'BenchTech User'
-    const googleAvatar =
+    const avatarUrl =
       user.user_metadata?.avatar_url || user.user_metadata?.picture || null
 
     if (!existingProfile) {
-      // 1. Insert core profile fields without phone requirement
       await adminDb.from('profiles').upsert(
         {
           id: user.id,
-          full_name: googleName,
-          avatar_url: googleAvatar,
+          full_name: displayName,
+          avatar_url: avatarUrl,
           role: isSellerIntent ? 'seller' : 'buyer',
           tech_trust_status: 'unverified',
           updated_at: new Date().toISOString(),
@@ -92,7 +104,6 @@ export async function GET(request: NextRequest) {
         { onConflict: 'id' }
       )
 
-      // 2. Best-effort update for extended columns
       try {
         await adminDb
           .from('profiles')
@@ -142,12 +153,10 @@ export async function GET(request: NextRequest) {
 
     const response = NextResponse.redirect(`${origin}${targetPath}`)
 
-    // Attach all Supabase session cookies to the redirect response
     cookiesToAttach.forEach(({ name, value, options }) => {
       response.cookies.set(name, value, options)
     })
 
-    // Clear temporary OAuth intent cookies
     response.cookies.set('bt_oauth_role', '', { path: '/', maxAge: 0 })
     response.cookies.set('bt_oauth_next', '', { path: '/', maxAge: 0 })
 

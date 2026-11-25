@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { signIn } from '@/app/(auth)/actions'
+import { signIn, resendVerificationEmail } from '@/app/(auth)/actions'
 import { BenchTechLogo } from '@/components/BenchTechLogo'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,10 +12,12 @@ import {
   EyeOff,
   Loader2,
   AlertCircle,
+  CheckCircle2,
   ArrowLeft,
   ShieldCheck,
   Truck,
   Lock,
+  RefreshCw,
 } from 'lucide-react'
 
 function LoginForm() {
@@ -27,11 +29,24 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(urlError)
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+  const [resentInfo, setResentInfo] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [cooldown])
 
   async function handleGoogleSignIn() {
     if (googleLoading || loading) return
     setGoogleLoading(true)
     setError(null)
+    setUnconfirmedEmail(null)
 
     try {
       document.cookie = `bt_oauth_role=buyer; path=/; max-age=600; SameSite=Lax`
@@ -61,12 +76,28 @@ function LoginForm() {
     }
   }
 
+  async function handleResendConfirmation() {
+    if (!unconfirmedEmail || resending || cooldown > 0) return
+    setResending(true)
+    setResentInfo(null)
+    const res = await resendVerificationEmail(unconfirmedEmail)
+    setResending(false)
+    if (res?.error) {
+      setError(res.error)
+      return
+    }
+    setCooldown(60)
+    setResentInfo('Confirmation email resent from admin@shopbenchtech.com.')
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (loading || googleLoading) return
 
     setLoading(true)
     setError(null)
+    setUnconfirmedEmail(null)
+    setResentInfo(null)
 
     try {
       const formData = new FormData(e.currentTarget)
@@ -74,6 +105,9 @@ function LoginForm() {
 
       if (res?.error) {
         setError(res.error)
+        if ('unconfirmedEmail' in res && res.unconfirmedEmail && res.email) {
+          setUnconfirmedEmail(res.email)
+        }
         setLoading(false)
         return
       }
@@ -96,7 +130,6 @@ function LoginForm() {
         </Link>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs grid grid-cols-1 lg:grid-cols-12">
-          {/* Left / Top Hardware Showcase */}
           <div className="lg:col-span-5 relative bg-slate-900 text-white p-5 sm:p-7 flex flex-col justify-between min-h-[160px] sm:min-h-[200px] lg:min-h-full overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -140,7 +173,6 @@ function LoginForm() {
             </div>
           </div>
 
-          {/* Right: Login Form */}
           <div className="lg:col-span-7 p-5 sm:p-8 flex flex-col justify-center space-y-5">
             <div>
               <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -152,13 +184,52 @@ function LoginForm() {
             </div>
 
             {error && (
-              <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs font-semibold text-red-700 dark:text-red-300 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                <span>{error}</span>
+              <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs font-semibold text-red-700 dark:text-red-300 space-y-2.5">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+
+                {unconfirmedEmail && (
+                  <div className="flex flex-wrap items-center gap-2 pl-6">
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      disabled={resending || cooldown > 0}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 text-slate-900 dark:text-white font-bold text-[11px] cursor-pointer disabled:opacity-60"
+                    >
+                      <RefreshCw
+                        className={`w-3 h-3 ${resending ? 'animate-spin' : ''}`}
+                      />
+                      <span>
+                        {cooldown > 0
+                          ? `Resend in ${cooldown}s`
+                          : resending
+                          ? 'Sending...'
+                          : 'Resend Confirmation Email'}
+                      </span>
+                    </button>
+
+                    <Link
+                      href={`/verify-email?email=${encodeURIComponent(
+                        unconfirmedEmail
+                      )}`}
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold text-[11px]"
+                    >
+                      Enter 6-Digit Code
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Google Sign-In Button */}
+            {resentInfo && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{resentInfo}</span>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleGoogleSignIn}
@@ -187,7 +258,9 @@ function LoginForm() {
                   />
                 </svg>
               )}
-              <span>{googleLoading ? 'Connecting to Google...' : 'Continue with Google'}</span>
+              <span>
+                {googleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+              </span>
             </button>
 
             <div className="relative flex items-center justify-center">
@@ -253,7 +326,11 @@ function LoginForm() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1"
                     aria-label="Toggle password visibility"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>

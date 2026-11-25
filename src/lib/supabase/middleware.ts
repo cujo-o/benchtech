@@ -21,7 +21,10 @@ const PROTECTED_BUYER_PREFIXES = [
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  if (pathname.startsWith('/auth/callback')) {
+  if (
+    pathname.startsWith('/auth/callback') ||
+    pathname.startsWith('/auth/confirm')
+  ) {
     return NextResponse.next({ request })
   }
 
@@ -67,14 +70,13 @@ export async function updateSession(request: NextRequest) {
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   )
 
-  // Block unauthenticated users from all member/seller/admin/delivery features
-  if (
-    !user &&
-    (isProtectedBuyerRoute ||
-      pathname.startsWith('/seller') ||
-      pathname.startsWith('/admin') ||
-      pathname.startsWith('/delivery'))
-  ) {
+  const isAnyProtectedRoute =
+    isProtectedBuyerRoute ||
+    pathname.startsWith('/seller') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/delivery')
+
+  if (!user && isAnyProtectedRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('next', pathname)
@@ -82,6 +84,18 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
+    // Block unconfirmed email/password accounts from accessing protected routes
+    if (!user.email_confirmed_at) {
+      if (isAnyProtectedRoute) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/verify-email'
+        url.search = ''
+        if (user.email) url.searchParams.set('email', user.email)
+        return NextResponse.redirect(url)
+      }
+      return supabaseResponse
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
@@ -131,7 +145,6 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Force any unverified user accessing /seller/* into /seller/onboarding
     if (
       pathname.startsWith('/seller') &&
       !pathname.startsWith('/seller/onboarding') &&
@@ -143,7 +156,11 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (pathname === '/login' || pathname === '/register') {
+    if (
+      pathname === '/login' ||
+      pathname === '/register' ||
+      pathname === '/verify-email'
+    ) {
       const nextParam =
         request.nextUrl.searchParams.get('next') ||
         request.nextUrl.searchParams.get('redirect')

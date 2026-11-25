@@ -1,15 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { requestPasswordReset } from '@/app/(auth)/actions'
 import { BenchTechLogo } from '@/components/BenchTechLogo'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Loader2, CheckCircle2, AlertCircle, Mail } from 'lucide-react'
+import {
+  ArrowLeft,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Mail,
+} from 'lucide-react'
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordForm() {
+  const searchParams = useSearchParams()
+  const urlError = searchParams.get('error')
+
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(urlError)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -59,8 +69,8 @@ export default function ForgotPasswordPage() {
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs font-semibold text-red-700 dark:text-red-300 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+            <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs font-semibold text-red-700 dark:text-red-300 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
@@ -80,12 +90,18 @@ export default function ForgotPasswordPage() {
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 text-[11px] text-slate-500 dark:text-slate-400">
                 <Mail className="w-4 h-4 text-blue-600 shrink-0" />
                 <span>
-                  Sender: <strong className="text-slate-800 dark:text-slate-200">admin@shopbenchtech.com</strong>
+                  Sender:{' '}
+                  <strong className="text-slate-800 dark:text-slate-200">
+                    admin@shopbenchtech.com
+                  </strong>
                 </span>
               </div>
 
               <Link href="/login" className="block">
-                <Button variant="outline" className="w-full h-11 rounded-xl text-xs font-bold">
+                <Button
+                  variant="outline"
+                  className="w-full h-11 rounded-xl text-xs font-bold"
+                >
                   Return to Sign In
                 </Button>
               </Link>
@@ -132,5 +148,13 @@ export default function ForgotPasswordPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-slate-50 dark:bg-slate-950" />}>
+      <ForgotPasswordForm />
+    </Suspense>
   )
 }
