@@ -1,14 +1,14 @@
-'use client'
+"use client";
 
-import { useState, useEffect, Suspense } from 'react'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   resendVerificationEmail,
   verifyEmailOtpAction,
-} from '@/app/(auth)/actions'
-import { BenchTechLogo } from '@/components/BenchTechLogo'
-import { Button } from '@/components/ui/button'
+} from "@/app/(auth)/actions";
+import { BenchTechLogo } from "@/components/BenchTechLogo";
+import { Button } from "@/components/ui/button";
 import {
   Mail,
   Loader2,
@@ -17,68 +17,69 @@ import {
   RefreshCw,
   ArrowLeft,
   ShieldCheck,
-} from 'lucide-react'
+} from "lucide-react";
 
 function VerifyEmailContent() {
-  const searchParams = useSearchParams()
-  const emailParam = (searchParams.get('email') || '').trim().toLowerCase()
-  const roleParam = searchParams.get('role') === 'seller' ? 'seller' : 'buyer'
+  const searchParams = useSearchParams();
+  const emailParam = (searchParams.get("email") || "").trim().toLowerCase();
+  const roleParam = searchParams.get("role") === "seller" ? "seller" : "buyer";
 
-  const [email, setEmail] = useState(emailParam)
-  const [code, setCode] = useState('')
-  const [verifying, setVerifying] = useState(false)
-  const [resending, setResending] = useState(false)
-  const [cooldown, setCooldown] = useState(0)
-  const [error, setError] = useState<string | null>(null)
-  const [info, setInfo] = useState<string | null>(null)
+  const [email, setEmail] = useState(emailParam);
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   useEffect(() => {
-    if (cooldown <= 0) return
+    if (cooldown <= 0) return;
     const timer = setInterval(() => {
-      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1))
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [cooldown])
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   async function handleVerifyCode(e: React.FormEvent) {
-    e.preventDefault()
-    if (verifying) return
+    e.preventDefault();
+    if (verifying) return;
 
-    setVerifying(true)
-    setError(null)
-    setInfo(null)
+    setVerifying(true);
+    setError(null);
+    setInfo(null);
 
-    const res = await verifyEmailOtpAction(email, code)
-    setVerifying(false)
+    const res = await verifyEmailOtpAction(email, code);
+    setVerifying(false);
 
     if (res?.error) {
-      setError(res.error)
-      return
+      setError(res.error);
+      return;
     }
 
     window.location.href =
-      res?.redirectTo || (roleParam === 'seller' ? '/seller/onboarding' : '/feed')
+      res?.redirectTo ||
+      (roleParam === "seller" ? "/seller/onboarding" : "/feed");
   }
 
   async function handleResend() {
-    if (resending || cooldown > 0 || !email) return
+    if (resending || cooldown > 0 || !email) return;
 
-    setResending(true)
-    setError(null)
-    setInfo(null)
+    setResending(true);
+    setError(null);
+    setInfo(null);
 
-    const res = await resendVerificationEmail(email)
-    setResending(false)
+    const res = await resendVerificationEmail(email);
+    setResending(false);
 
     if (res?.error) {
-      setError(res.error)
-      return
+      setError(res.error);
+      return;
     }
 
-    setCooldown(60)
+    setCooldown(60);
     setInfo(
-      'A fresh confirmation email has been sent from admin@shopbenchtech.com. Check your inbox and spam folder.'
-    )
+      "A fresh confirmation email has been sent from admin@shopbenchtech.com. Check your inbox and spam folder.",
+    );
   }
 
   return (
@@ -108,9 +109,9 @@ function VerifyEmailContent() {
                 Confirm Your Email Address
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                We sent a confirmation link and 6-digit code to{' '}
+                We sent a confirmation link and 6-digit code to{" "}
                 <strong className="text-slate-900 dark:text-white">
-                  {email || 'your email address'}
+                  {email || "your email address"}
                 </strong>
                 . Confirm your email to activate your account.
               </p>
@@ -154,18 +155,18 @@ function VerifyEmailContent() {
                 htmlFor="otpCode"
                 className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
               >
-                Or Enter 6-Digit Code From Your Email
+                Or Enter Verification Code From Your Email
               </label>
               <input
                 id="otpCode"
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                maxLength={6}
+                maxLength={10}
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
-                className="w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center font-mono text-lg font-black tracking-[0.4em] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="Enter code"
+                className="w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center font-mono text-lg font-black tracking-[0.25em] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -205,12 +206,12 @@ function VerifyEmailContent() {
               <span>
                 {cooldown > 0
                   ? `Resend available in ${cooldown}s`
-                  : 'Resend Confirmation Email'}
+                  : "Resend Confirmation Email"}
               </span>
             </Button>
 
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Didn&apos;t see it? Check Spam or Promotions for an email from{' '}
+              Didn&apos;t see it? Check Spam or Promotions for an email from{" "}
               <strong className="text-slate-600 dark:text-slate-300">
                 admin@shopbenchtech.com
               </strong>
@@ -218,7 +219,7 @@ function VerifyEmailContent() {
             </p>
 
             <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">
-              Already confirmed?{' '}
+              Already confirmed?{" "}
               <Link
                 href="/login"
                 className="font-bold text-blue-600 dark:text-blue-400 hover:underline"
@@ -230,13 +231,15 @@ function VerifyEmailContent() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-slate-50 dark:bg-slate-950" />}>
+    <Suspense
+      fallback={<div className="min-h-dvh bg-slate-50 dark:bg-slate-950" />}
+    >
       <VerifyEmailContent />
     </Suspense>
-  )
+  );
 }

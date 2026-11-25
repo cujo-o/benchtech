@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
-import { useTheme } from 'next-themes'
-import { createClient } from '@/lib/supabase/client'
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useTheme } from "next-themes";
+import { createClient } from "@/lib/supabase/client";
 import {
   updateBuyerProfileAction,
   requestEmailChangeAction,
@@ -13,10 +13,10 @@ import {
   sendMagicLoginLinkAction,
   signOutOtherDevicesAction,
   signOutAllDevicesAction,
-} from './actions'
-import { signOut, resendVerificationEmail } from '@/app/(auth)/actions'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+} from "./actions";
+import { signOut, resendVerificationEmail } from "@/app/(auth)/actions";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Sun,
   Moon,
@@ -41,37 +41,37 @@ import {
   Copy,
   Trash2,
   RefreshCw,
-} from 'lucide-react'
+} from "lucide-react";
 
 const ABUJA_DISTRICTS = [
-  'Wuse 2',
-  'Gwarinpa',
-  'Maitama',
-  'Banex / Wuse',
-  'Garki',
-  'Utako',
-  'Jabi',
-  'Asokoro',
-  'Lugbe',
-  'Kubwa',
-  'Lokogoma',
-  'Central Area',
-]
+  "Wuse 2",
+  "Gwarinpa",
+  "Maitama",
+  "Banex / Wuse",
+  "Garki",
+  "Utako",
+  "Jabi",
+  "Asokoro",
+  "Lugbe",
+  "Kubwa",
+  "Lokogoma",
+  "Central Area",
+];
 
 interface AuthInfoProps {
-  emailConfirmedAt: string | null
-  newEmail: string | null
-  lastSignInAt: string | null
-  createdAt: string | null
-  providers: string[]
+  emailConfirmedAt: string | null;
+  newEmail: string | null;
+  lastSignInAt: string | null;
+  createdAt: string | null;
+  providers: string[];
 }
 
 interface EnrolledFactor {
-  id: string
-  friendly_name?: string
-  factor_type: string
-  status: string
-  created_at?: string
+  id: string;
+  friendly_name?: string;
+  factor_type: string;
+  status: string;
+  created_at?: string;
 }
 
 export function BuyerSettingsClient({
@@ -79,382 +79,382 @@ export function BuyerSettingsClient({
   profile,
   authInfo,
 }: {
-  user: { id: string; email: string } | null
-  profile: any
-  authInfo?: AuthInfoProps
+  user: { id: string; email: string } | null;
+  profile: any;
+  authInfo?: AuthInfoProps;
 }) {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
   // Profile State
-  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{
-    type: 'success' | 'error'
-    text: string
-  } | null>(null)
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Email Change & Verification State
-  const [emailLoading, setEmailLoading] = useState(false)
-  const [resendVerifyLoading, setResendVerifyLoading] = useState(false)
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [resendVerifyLoading, setResendVerifyLoading] = useState(false);
   const [pendingNewEmail, setPendingNewEmail] = useState<string | null>(
-    authInfo?.newEmail || null
-  )
+    authInfo?.newEmail || null,
+  );
   const [emailMsg, setEmailMsg] = useState<{
-    type: 'success' | 'error'
-    text: string
-  } | null>(null)
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Connected Providers State
-  const [linkingGoogle, setLinkingGoogle] = useState(false)
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
   const [providerMsg, setProviderMsg] = useState<{
-    type: 'success' | 'error'
-    text: string
-  } | null>(null)
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Password, Reauthentication & Magic Link State
-  const [showPassword, setShowPassword] = useState(false)
-  const [pwLoading, setPwLoading] = useState(false)
-  const [reauthLoading, setReauthLoading] = useState(false)
-  const [showReauthInput, setShowReauthInput] = useState(false)
-  const [recoveryLoading, setRecoveryLoading] = useState(false)
-  const [magicLinkLoading, setMagicLinkLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
+  const [reauthLoading, setReauthLoading] = useState(false);
+  const [showReauthInput, setShowReauthInput] = useState(false);
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
   const [pwMsg, setPwMsg] = useState<{
-    type: 'success' | 'error'
-    text: string
-  } | null>(null)
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Two-Factor Authentication (TOTP MFA) State
-  const [mfaLoading, setMfaLoading] = useState(true)
-  const [mfaFactors, setMfaFactors] = useState<EnrolledFactor[]>([])
-  const [enrollingMfa, setEnrollingMfa] = useState(false)
+  const [mfaLoading, setMfaLoading] = useState(true);
+  const [mfaFactors, setMfaFactors] = useState<EnrolledFactor[]>([]);
+  const [enrollingMfa, setEnrollingMfa] = useState(false);
   const [mfaSetup, setMfaSetup] = useState<{
-    factorId: string
-    qrCode: string
-    secret: string
-  } | null>(null)
-  const [mfaCode, setMfaCode] = useState('')
-  const [verifyingMfa, setVerifyingMfa] = useState(false)
-  const [removingFactorId, setRemovingFactorId] = useState<string | null>(null)
-  const [secretCopied, setSecretCopied] = useState(false)
+    factorId: string;
+    qrCode: string;
+    secret: string;
+  } | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [verifyingMfa, setVerifyingMfa] = useState(false);
+  const [removingFactorId, setRemovingFactorId] = useState<string | null>(null);
+  const [secretCopied, setSecretCopied] = useState(false);
   const [mfaMsg, setMfaMsg] = useState<{
-    type: 'success' | 'error'
-    text: string
-  } | null>(null)
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Sessions State
-  const [sessionLoading, setSessionLoading] = useState(false)
+  const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionMsg, setSessionMsg] = useState<{
-    type: 'success' | 'error'
-    text: string
-  } | null>(null)
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const loadMfaFactors = useCallback(async () => {
     if (!user) {
-      setMfaLoading(false)
-      return
+      setMfaLoading(false);
+      return;
     }
     try {
-      const supabase = createClient()
-      const { data, error } = await supabase.auth.mfa.listFactors()
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.mfa.listFactors();
       if (!error && data) {
         const verifiedTotp = (data.totp || []).filter(
-          (f: any) => f.status === 'verified'
-        )
-        setMfaFactors(verifiedTotp)
+          (f: any) => f.status === "verified",
+        );
+        setMfaFactors(verifiedTotp);
       }
     } catch {}
-    setMfaLoading(false)
-  }, [user])
+    setMfaLoading(false);
+  }, [user]);
 
   useEffect(() => {
-    setMounted(true)
-    loadMfaFactors()
-  }, [loadMfaFactors])
+    setMounted(true);
+    loadMfaFactors();
+  }, [loadMfaFactors]);
 
   const isSeller =
-    profile?.role === 'seller' ||
+    profile?.role === "seller" ||
     profile?.is_seller === true ||
-    Boolean(profile?.business_name)
+    Boolean(profile?.business_name);
 
-  const providers = authInfo?.providers || ['email']
-  const hasGoogleLinked = providers.includes('google')
-  const hasEmailPassword = providers.includes('email')
-  const isEmailConfirmed = Boolean(authInfo?.emailConfirmedAt)
+  const providers = authInfo?.providers || ["email"];
+  const hasGoogleLinked = providers.includes("google");
+  const hasEmailPassword = providers.includes("email");
+  const isEmailConfirmed = Boolean(authInfo?.emailConfirmedAt);
 
   async function handleProfileSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setProfileLoading(true)
-    setProfileMsg(null)
+    e.preventDefault();
+    setProfileLoading(true);
+    setProfileMsg(null);
 
-    const formData = new FormData(e.currentTarget)
-    const res = await updateBuyerProfileAction(formData)
+    const formData = new FormData(e.currentTarget);
+    const res = await updateBuyerProfileAction(formData);
 
-    setProfileLoading(false)
+    setProfileLoading(false);
     if (res?.error) {
-      setProfileMsg({ type: 'error', text: res.error })
+      setProfileMsg({ type: "error", text: res.error });
     } else if (res?.success) {
-      setProfileMsg({ type: 'success', text: res.success })
+      setProfileMsg({ type: "success", text: res.success });
     }
   }
 
   async function handleEmailChangeSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setEmailLoading(true)
-    setEmailMsg(null)
+    e.preventDefault();
+    setEmailLoading(true);
+    setEmailMsg(null);
 
-    const formEl = e.currentTarget
-    const formData = new FormData(formEl)
-    const res = await requestEmailChangeAction(formData)
+    const formEl = e.currentTarget;
+    const formData = new FormData(formEl);
+    const res = await requestEmailChangeAction(formData);
 
-    setEmailLoading(false)
+    setEmailLoading(false);
     if (res?.error) {
-      setEmailMsg({ type: 'error', text: res.error })
+      setEmailMsg({ type: "error", text: res.error });
     } else if (res?.success) {
-      setEmailMsg({ type: 'success', text: res.success })
-      if (res.pendingEmail) setPendingNewEmail(res.pendingEmail)
-      formEl.reset()
+      setEmailMsg({ type: "success", text: res.success });
+      if (res.pendingEmail) setPendingNewEmail(res.pendingEmail);
+      formEl.reset();
     }
   }
 
   async function handleResendConfirmation() {
-    if (!user?.email) return
-    setResendVerifyLoading(true)
-    setEmailMsg(null)
-    const res = await resendVerificationEmail(user.email)
-    setResendVerifyLoading(false)
+    if (!user?.email) return;
+    setResendVerifyLoading(true);
+    setEmailMsg(null);
+    const res = await resendVerificationEmail(user.email);
+    setResendVerifyLoading(false);
     if (res?.error) {
-      setEmailMsg({ type: 'error', text: res.error })
+      setEmailMsg({ type: "error", text: res.error });
     } else {
       setEmailMsg({
-        type: 'success',
+        type: "success",
         text: `Verification email resent to ${user.email}.`,
-      })
+      });
     }
   }
 
   async function handleLinkGoogle() {
-    setLinkingGoogle(true)
-    setProviderMsg(null)
+    setLinkingGoogle(true);
+    setProviderMsg(null);
 
     try {
-      const supabase = createClient()
+      const supabase = createClient();
       const { error } = await supabase.auth.linkIdentity({
-        provider: 'google',
+        provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
         },
-      })
+      });
       if (error) {
-        setProviderMsg({ type: 'error', text: error.message })
-        setLinkingGoogle(false)
+        setProviderMsg({ type: "error", text: error.message });
+        setLinkingGoogle(false);
       }
     } catch {
       setProviderMsg({
-        type: 'error',
-        text: 'Could not start Google account linking. Ensure Manual Linking is enabled in Supabase Auth settings.',
-      })
-      setLinkingGoogle(false)
+        type: "error",
+        text: "Could not start Google account linking. Ensure Manual Linking is enabled in Supabase Auth settings.",
+      });
+      setLinkingGoogle(false);
     }
   }
 
   async function handleRequestReauthCode() {
-    setReauthLoading(true)
-    setPwMsg(null)
-    const res = await requestReauthenticationCodeAction()
-    setReauthLoading(false)
+    setReauthLoading(true);
+    setPwMsg(null);
+    const res = await requestReauthenticationCodeAction();
+    setReauthLoading(false);
     if (res?.error) {
-      setPwMsg({ type: 'error', text: res.error })
-      return
+      setPwMsg({ type: "error", text: res.error });
+      return;
     }
-    setShowReauthInput(true)
-    setPwMsg({ type: 'success', text: res.success || 'Security code sent.' })
+    setShowReauthInput(true);
+    setPwMsg({ type: "success", text: res.success || "Security code sent." });
   }
 
   async function handlePasswordSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setPwLoading(true)
-    setPwMsg(null)
+    e.preventDefault();
+    setPwLoading(true);
+    setPwMsg(null);
 
-    const formEl = e.currentTarget
-    const formData = new FormData(formEl)
-    const res = await changeBuyerPasswordAction(formData)
+    const formEl = e.currentTarget;
+    const formData = new FormData(formEl);
+    const res = await changeBuyerPasswordAction(formData);
 
-    setPwLoading(false)
+    setPwLoading(false);
     if (res?.error) {
-      setPwMsg({ type: 'error', text: res.error })
-      if ('requiresReauth' in res && res.requiresReauth) {
-        setShowReauthInput(true)
+      setPwMsg({ type: "error", text: res.error });
+      if ("requiresReauth" in res && res.requiresReauth) {
+        setShowReauthInput(true);
       }
     } else if (res?.success) {
-      setPwMsg({ type: 'success', text: res.success })
-      setShowReauthInput(false)
-      formEl.reset()
+      setPwMsg({ type: "success", text: res.success });
+      setShowReauthInput(false);
+      formEl.reset();
     }
   }
 
   async function handleSendRecoveryEmail() {
-    setRecoveryLoading(true)
-    setPwMsg(null)
-    const res = await sendBuyerPasswordRecoveryEmailAction(user?.email)
-    setRecoveryLoading(false)
+    setRecoveryLoading(true);
+    setPwMsg(null);
+    const res = await sendBuyerPasswordRecoveryEmailAction(user?.email);
+    setRecoveryLoading(false);
     if (res?.error) {
-      setPwMsg({ type: 'error', text: res.error })
+      setPwMsg({ type: "error", text: res.error });
     } else if (res?.success) {
-      setPwMsg({ type: 'success', text: res.success })
+      setPwMsg({ type: "success", text: res.success });
     }
   }
 
   async function handleSendMagicLink() {
-    setMagicLinkLoading(true)
-    setPwMsg(null)
-    const res = await sendMagicLoginLinkAction()
-    setMagicLinkLoading(false)
+    setMagicLinkLoading(true);
+    setPwMsg(null);
+    const res = await sendMagicLoginLinkAction();
+    setMagicLinkLoading(false);
     if (res?.error) {
-      setPwMsg({ type: 'error', text: res.error })
+      setPwMsg({ type: "error", text: res.error });
     } else if (res?.success) {
-      setPwMsg({ type: 'success', text: res.success })
+      setPwMsg({ type: "success", text: res.success });
     }
   }
 
   async function handleStartMfaEnroll() {
-    setEnrollingMfa(true)
-    setMfaMsg(null)
-    setMfaCode('')
+    setEnrollingMfa(true);
+    setMfaMsg(null);
+    setMfaCode("");
 
     try {
-      const supabase = createClient()
+      const supabase = createClient();
       const { data, error } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        friendlyName: `BenchTech Authenticator (${new Date().toLocaleDateString('en-NG')})`,
-      })
+        factorType: "totp",
+        friendlyName: `BenchTech Authenticator (${new Date().toLocaleDateString("en-NG")})`,
+      });
 
       if (error || !data) {
         setMfaMsg({
-          type: 'error',
-          text: error?.message || 'Could not start two-factor setup.',
-        })
-        setEnrollingMfa(false)
-        return
+          type: "error",
+          text: error?.message || "Could not start two-factor setup.",
+        });
+        setEnrollingMfa(false);
+        return;
       }
 
       setMfaSetup({
         factorId: data.id,
         qrCode: data.totp.qr_code,
         secret: data.totp.secret,
-      })
+      });
     } catch {
       setMfaMsg({
-        type: 'error',
-        text: 'Unable to initialize authenticator setup.',
-      })
+        type: "error",
+        text: "Unable to initialize authenticator setup.",
+      });
     }
-    setEnrollingMfa(false)
+    setEnrollingMfa(false);
   }
 
   async function handleVerifyMfaEnroll(e: React.FormEvent) {
-    e.preventDefault()
-    if (!mfaSetup || mfaCode.length !== 6) return
+    e.preventDefault();
+    if (!mfaSetup || mfaCode.length !== 6) return;
 
-    setVerifyingMfa(true)
-    setMfaMsg(null)
+    setVerifyingMfa(true);
+    setMfaMsg(null);
 
     try {
-      const supabase = createClient()
+      const supabase = createClient();
       const { data: challengeData, error: challengeErr } =
         await supabase.auth.mfa.challenge({
           factorId: mfaSetup.factorId,
-        })
+        });
 
       if (challengeErr || !challengeData) {
         setMfaMsg({
-          type: 'error',
-          text: challengeErr?.message || 'Could not create MFA challenge.',
-        })
-        setVerifyingMfa(false)
-        return
+          type: "error",
+          text: challengeErr?.message || "Could not create MFA challenge.",
+        });
+        setVerifyingMfa(false);
+        return;
       }
 
       const { error: verifyErr } = await supabase.auth.mfa.verify({
         factorId: mfaSetup.factorId,
         challengeId: challengeData.id,
         code: mfaCode,
-      })
+      });
 
       if (verifyErr) {
         setMfaMsg({
-          type: 'error',
-          text: verifyErr.message || 'Invalid 6-digit authenticator code.',
-        })
-        setVerifyingMfa(false)
-        return
+          type: "error",
+          text: verifyErr.message || "Invalid 6-digit authenticator code.",
+        });
+        setVerifyingMfa(false);
+        return;
       }
 
-      setMfaSetup(null)
-      setMfaCode('')
+      setMfaSetup(null);
+      setMfaCode("");
       setMfaMsg({
-        type: 'success',
-        text: 'Two-factor authentication is now active on your account.',
-      })
-      await loadMfaFactors()
+        type: "success",
+        text: "Two-factor authentication is now active on your account.",
+      });
+      await loadMfaFactors();
     } catch {
       setMfaMsg({
-        type: 'error',
-        text: 'Verification failed. Please try again.',
-      })
+        type: "error",
+        text: "Verification failed. Please try again.",
+      });
     }
-    setVerifyingMfa(false)
+    setVerifyingMfa(false);
   }
 
   async function handleCancelMfaEnroll() {
-    if (!mfaSetup) return
+    if (!mfaSetup) return;
     try {
-      const supabase = createClient()
-      await supabase.auth.mfa.unenroll({ factorId: mfaSetup.factorId })
+      const supabase = createClient();
+      await supabase.auth.mfa.unenroll({ factorId: mfaSetup.factorId });
     } catch {}
-    setMfaSetup(null)
-    setMfaCode('')
+    setMfaSetup(null);
+    setMfaCode("");
   }
 
   async function handleRemoveMfaFactor(factorId: string) {
-    setRemovingFactorId(factorId)
-    setMfaMsg(null)
+    setRemovingFactorId(factorId);
+    setMfaMsg(null);
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.mfa.unenroll({ factorId })
+      const supabase = createClient();
+      const { error } = await supabase.auth.mfa.unenroll({ factorId });
       if (error) {
-        setMfaMsg({ type: 'error', text: error.message })
+        setMfaMsg({ type: "error", text: error.message });
       } else {
         setMfaMsg({
-          type: 'success',
-          text: 'Authenticator device removed from your account.',
-        })
-        await loadMfaFactors()
+          type: "success",
+          text: "Authenticator device removed from your account.",
+        });
+        await loadMfaFactors();
       }
     } catch {
       setMfaMsg({
-        type: 'error',
-        text: 'Could not remove authenticator device.',
-      })
+        type: "error",
+        text: "Could not remove authenticator device.",
+      });
     }
-    setRemovingFactorId(null)
+    setRemovingFactorId(null);
   }
 
   async function handleSignOutOtherDevices() {
-    setSessionLoading(true)
-    setSessionMsg(null)
-    const res = await signOutOtherDevicesAction()
-    setSessionLoading(false)
+    setSessionLoading(true);
+    setSessionMsg(null);
+    const res = await signOutOtherDevicesAction();
+    setSessionLoading(false);
     if (res?.error) {
-      setSessionMsg({ type: 'error', text: res.error })
+      setSessionMsg({ type: "error", text: res.error });
     } else if (res?.success) {
-      setSessionMsg({ type: 'success', text: res.success })
+      setSessionMsg({ type: "success", text: res.success });
     }
   }
 
   function handleCopySecret(secret: string) {
-    navigator.clipboard?.writeText(secret)
-    setSecretCopied(true)
-    setTimeout(() => setSecretCopied(false), 2000)
+    navigator.clipboard?.writeText(secret);
+    setSecretCopied(true);
+    setTimeout(() => setSecretCopied(false), 2000);
   }
 
   return (
@@ -466,7 +466,8 @@ export function BuyerSettingsClient({
             Account Settings &amp; Security
           </h1>
           <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Manage your profile, sign-in methods, email verification, two-factor security, and sessions.
+            Manage your profile, sign-in methods, email verification, two-factor
+            security, and sessions.
           </p>
         </div>
 
@@ -475,12 +476,12 @@ export function BuyerSettingsClient({
             <Badge
               className={`text-xs font-bold py-1 px-3 rounded-xl ${
                 isEmailConfirmed
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                  : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-              {isEmailConfirmed ? 'Email Verified' : 'Email Unverified'}
+              {isEmailConfirmed ? "Email Verified" : "Email Unverified"}
             </Badge>
             <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold py-1 px-3 rounded-xl">
               {user.email}
@@ -496,18 +497,19 @@ export function BuyerSettingsClient({
             Display Appearance
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Choose between Light Mode, Dark Mode, or follow your device&apos;s system setting.
+            Choose between Light Mode, Dark Mode, or follow your device&apos;s
+            system setting.
           </p>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           {[
-            { id: 'light', label: 'Light Mode', icon: Sun },
-            { id: 'dark', label: 'Dark Mode', icon: Moon },
-            { id: 'system', label: 'System Default', icon: Monitor },
+            { id: "light", label: "Light Mode", icon: Sun },
+            { id: "dark", label: "Dark Mode", icon: Moon },
+            { id: "system", label: "System Default", icon: Monitor },
           ].map((option) => {
-            const Icon = option.icon
-            const isSelected = mounted && theme === option.id
+            const Icon = option.icon;
+            const isSelected = mounted && theme === option.id;
             return (
               <button
                 key={option.id}
@@ -515,8 +517,8 @@ export function BuyerSettingsClient({
                 onClick={() => setTheme(option.id)}
                 className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between gap-3 cursor-pointer ${
                   isSelected
-                    ? 'border-2 border-blue-600 bg-blue-50/50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 shadow-2xs'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                    ? "border-2 border-blue-600 bg-blue-50/50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 shadow-2xs"
+                    : "border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -529,7 +531,7 @@ export function BuyerSettingsClient({
                   {option.label}
                 </span>
               </button>
-            )
+            );
           })}
         </div>
       </div>
@@ -543,19 +545,20 @@ export function BuyerSettingsClient({
               Personal &amp; Default Abuja Delivery Info
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Used to pre-fill your contact and delivery location during checkout.
+              Used to pre-fill your contact and delivery location during
+              checkout.
             </p>
           </div>
 
           {profileMsg && (
             <div
               className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 ${
-                profileMsg.type === 'success'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+                profileMsg.type === "success"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+                  : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300"
               }`}
             >
-              {profileMsg.type === 'success' ? (
+              {profileMsg.type === "success" ? (
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
               ) : (
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -573,7 +576,7 @@ export function BuyerSettingsClient({
                 <input
                   type="text"
                   name="fullName"
-                  defaultValue={profile?.full_name || ''}
+                  defaultValue={profile?.full_name || ""}
                   required
                   placeholder="Your full name"
                   className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs lg:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -587,7 +590,7 @@ export function BuyerSettingsClient({
                 <input
                   type="tel"
                   name="phone"
-                  defaultValue={profile?.phone || ''}
+                  defaultValue={profile?.phone || ""}
                   placeholder="080 1234 5678"
                   className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs lg:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -601,7 +604,7 @@ export function BuyerSettingsClient({
                 </label>
                 <select
                   name="district"
-                  defaultValue={profile?.district || 'Wuse 2'}
+                  defaultValue={profile?.district || "Wuse 2"}
                   className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs lg:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {ABUJA_DISTRICTS.map((d) => (
@@ -621,7 +624,9 @@ export function BuyerSettingsClient({
                   <input
                     type="text"
                     name="streetAddress"
-                    defaultValue={profile?.street_address || profile?.address || ''}
+                    defaultValue={
+                      profile?.street_address || profile?.address || ""
+                    }
                     placeholder="House number, street, landmark"
                     className="w-full h-11 pl-9 pr-3.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-xs lg:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -635,7 +640,9 @@ export function BuyerSettingsClient({
                 disabled={profileLoading}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs lg:text-[13px] rounded-xl h-10 px-6 cursor-pointer gap-2"
               >
-                {profileLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {profileLoading && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                )}
                 <span>Save Profile Changes</span>
               </Button>
             </div>
@@ -652,19 +659,20 @@ export function BuyerSettingsClient({
               Email Address &amp; Sign-In Methods
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Update your account email with confirmation, or connect Google Sign-In for faster login.
+              Update your account email with confirmation, or connect Google
+              Sign-In for faster login.
             </p>
           </div>
 
           {emailMsg && (
             <div
               className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 ${
-                emailMsg.type === 'success'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+                emailMsg.type === "success"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+                  : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300"
               }`}
             >
-              {emailMsg.type === 'success' ? (
+              {emailMsg.type === "success" ? (
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
               ) : (
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -687,7 +695,7 @@ export function BuyerSettingsClient({
                 className="text-xs font-bold rounded-xl h-9 border-amber-300 dark:border-amber-700 gap-1.5 cursor-pointer"
               >
                 <RefreshCw
-                  className={`w-3.5 h-3.5 ${resendVerifyLoading ? 'animate-spin' : ''}`}
+                  className={`w-3.5 h-3.5 ${resendVerifyLoading ? "animate-spin" : ""}`}
                 />
                 <span>Resend Confirmation</span>
               </Button>
@@ -698,7 +706,9 @@ export function BuyerSettingsClient({
             <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-200 font-semibold flex items-center gap-2">
               <Mail className="w-4 h-4 text-blue-600 shrink-0" />
               <span>
-                Pending email change to <strong>{pendingNewEmail}</strong>. Check your inbox and click the confirmation link to complete the switch.
+                Pending email change to <strong>{pendingNewEmail}</strong>.
+                Check your inbox and click the confirmation link to complete the
+                switch.
               </span>
             </div>
           )}
@@ -737,7 +747,9 @@ export function BuyerSettingsClient({
                   disabled={emailLoading}
                   className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl cursor-pointer gap-1.5"
                 >
-                  {emailLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {emailLoading && (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  )}
                   <span>Update</span>
                 </Button>
               </div>
@@ -753,9 +765,9 @@ export function BuyerSettingsClient({
             {providerMsg && (
               <div
                 className={`p-3 rounded-xl border text-xs font-semibold ${
-                  providerMsg.type === 'success'
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-700'
-                    : 'bg-red-50 dark:bg-red-950/40 border-red-200 text-red-700 dark:text-red-300'
+                  providerMsg.type === "success"
+                    ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-700"
+                    : "bg-red-50 dark:bg-red-950/40 border-red-200 text-red-700 dark:text-red-300"
                 }`}
               >
                 {providerMsg.text}
@@ -771,18 +783,20 @@ export function BuyerSettingsClient({
                       Email &amp; Password
                     </p>
                     <p className="text-[11px] text-slate-400">
-                      {hasEmailPassword ? 'Active sign-in method' : 'Set a password below to enable'}
+                      {hasEmailPassword
+                        ? "Active sign-in method"
+                        : "Set a password below to enable"}
                     </p>
                   </div>
                 </div>
                 <Badge
                   className={`text-[10px] font-bold ${
                     hasEmailPassword
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                      : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
                   }`}
                 >
-                  {hasEmailPassword ? 'Enabled' : 'Not Set'}
+                  {hasEmailPassword ? "Enabled" : "Not Set"}
                 </Badge>
               </div>
 
@@ -794,7 +808,9 @@ export function BuyerSettingsClient({
                       Google Account
                     </p>
                     <p className="text-[11px] text-slate-400">
-                      {hasGoogleLinked ? 'Connected for 1-click sign-in' : 'Not linked yet'}
+                      {hasGoogleLinked
+                        ? "Connected for 1-click sign-in"
+                        : "Not linked yet"}
                     </p>
                   </div>
                 </div>
@@ -814,7 +830,7 @@ export function BuyerSettingsClient({
                     {linkingGoogle ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
-                      'Link Google'
+                      "Link Google"
                     )}
                   </Button>
                 )}
@@ -833,7 +849,8 @@ export function BuyerSettingsClient({
               Password, Reauthentication &amp; Recovery
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Update your password with optional 6-digit email reauthentication, request recovery, or send a one-time sign-in link.
+              Update your password with optional 6-digit email reauthentication,
+              request recovery, or send a one-time sign-in link.
             </p>
           </div>
         </div>
@@ -841,12 +858,12 @@ export function BuyerSettingsClient({
         {pwMsg && (
           <div
             className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 ${
-              pwMsg.type === 'success'
-                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-                : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+              pwMsg.type === "success"
+                ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+                : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300"
             }`}
           >
-            {pwMsg.type === 'success' ? (
+            {pwMsg.type === "success" ? (
               <CheckCircle2 className="w-4 h-4 shrink-0" />
             ) : (
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -864,7 +881,7 @@ export function BuyerSettingsClient({
                 </label>
                 <div className="relative">
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     name="newPassword"
                     minLength={6}
                     required
@@ -891,7 +908,7 @@ export function BuyerSettingsClient({
                   Confirm New Password
                 </label>
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   name="confirmPassword"
                   minLength={6}
                   required
@@ -910,9 +927,9 @@ export function BuyerSettingsClient({
                   type="text"
                   name="nonce"
                   inputMode="numeric"
-                  maxLength={6}
-                  placeholder="Enter 6-digit security code"
-                  className="w-full sm:w-64 h-10 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 font-mono text-sm font-black tracking-[0.25em] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  maxLength={10}
+                  placeholder="Enter security code"
+                  className="w-full sm:w-64 h-10 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 font-mono text-sm font-black tracking-[0.2em] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             )}
@@ -954,7 +971,8 @@ export function BuyerSettingsClient({
                 <span>Password Recovery Link</span>
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Send a reset link from admin@shopbenchtech.com if you forgot your password.
+                Send a reset link from admin@shopbenchtech.com if you forgot
+                your password.
               </p>
             </div>
             <Button
@@ -964,7 +982,9 @@ export function BuyerSettingsClient({
               onClick={handleSendRecoveryEmail}
               className="w-full text-xs font-bold rounded-xl h-9 border-slate-200 dark:border-slate-700 cursor-pointer gap-1.5"
             >
-              {recoveryLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {recoveryLoading && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              )}
               <span>Send Recovery Link</span>
             </Button>
           </div>
@@ -976,7 +996,8 @@ export function BuyerSettingsClient({
                 <span>One-Time Sign-In Link / OTP</span>
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Email yourself a passwordless sign-in link and code for logging in on another device.
+                Email yourself a passwordless sign-in link and code for logging
+                in on another device.
               </p>
             </div>
             <Button
@@ -986,7 +1007,9 @@ export function BuyerSettingsClient({
               onClick={handleSendMagicLink}
               className="w-full text-xs font-bold rounded-xl h-9 border-slate-200 dark:border-slate-700 cursor-pointer gap-1.5"
             >
-              {magicLinkLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {magicLinkLoading && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              )}
               <span>Send One-Time Link</span>
             </Button>
           </div>
@@ -1003,30 +1026,31 @@ export function BuyerSettingsClient({
                 Two-Factor Authentication (Authenticator App)
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Protect your account, wallet, and orders with a 6-digit code from Google Authenticator, Authy, or 1Password.
+                Protect your account, wallet, and orders with a 6-digit code
+                from Google Authenticator, Authy, or 1Password.
               </p>
             </div>
 
             <Badge
               className={`text-[10px] font-bold px-2.5 py-1 rounded-xl ${
                 mfaFactors.length > 0
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
               }`}
             >
-              {mfaFactors.length > 0 ? '2FA Active' : 'Not Configured'}
+              {mfaFactors.length > 0 ? "2FA Active" : "Not Configured"}
             </Badge>
           </div>
 
           {mfaMsg && (
             <div
               className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 ${
-                mfaMsg.type === 'success'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+                mfaMsg.type === "success"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+                  : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300"
               }`}
             >
-              {mfaMsg.type === 'success' ? (
+              {mfaMsg.type === "success" ? (
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
               ) : (
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1056,7 +1080,7 @@ export function BuyerSettingsClient({
                         </div>
                         <div className="min-w-0">
                           <p className="font-bold text-slate-900 dark:text-white truncate">
-                            {factor.friendly_name || 'Authenticator App (TOTP)'}
+                            {factor.friendly_name || "Authenticator App (TOTP)"}
                           </p>
                           <p className="text-[11px] text-slate-400">
                             Active 6-digit verification app
@@ -1104,7 +1128,9 @@ export function BuyerSettingsClient({
                         1. Scan QR Code in Your Authenticator App
                       </p>
                       <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Open Google Authenticator, Authy, or Microsoft Authenticator and scan this QR code, or enter the manual key below:
+                        Open Google Authenticator, Authy, or Microsoft
+                        Authenticator and scan this QR code, or enter the manual
+                        key below:
                       </p>
 
                       <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
@@ -1136,7 +1162,7 @@ export function BuyerSettingsClient({
                           required
                           value={mfaCode}
                           onChange={(e) =>
-                            setMfaCode(e.target.value.replace(/\D/g, ''))
+                            setMfaCode(e.target.value.replace(/\D/g, ""))
                           }
                           placeholder="6-digit code"
                           className="h-10 w-36 px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-sm font-black tracking-widest text-center"
@@ -1178,8 +1204,8 @@ export function BuyerSettingsClient({
                   )}
                   <span>
                     {mfaFactors.length > 0
-                      ? 'Add Another Authenticator App'
-                      : 'Set Up Authenticator App (2FA)'}
+                      ? "Add Another Authenticator App"
+                      : "Set Up Authenticator App (2FA)"}
                   </span>
                 </Button>
               )}
@@ -1197,19 +1223,20 @@ export function BuyerSettingsClient({
               Active Sessions &amp; Devices
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Sign out of lost or shared browsers immediately if you notice unfamiliar activity.
+              Sign out of lost or shared browsers immediately if you notice
+              unfamiliar activity.
             </p>
           </div>
 
           {sessionMsg && (
             <div
               className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 ${
-                sessionMsg.type === 'success'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+                sessionMsg.type === "success"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+                  : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300"
               }`}
             >
-              {sessionMsg.type === 'success' ? (
+              {sessionMsg.type === "success" ? (
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
               ) : (
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1224,13 +1251,13 @@ export function BuyerSettingsClient({
                 Current Session
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Last sign-in:{' '}
+                Last sign-in:{" "}
                 {authInfo?.lastSignInAt
-                  ? new Date(authInfo.lastSignInAt).toLocaleString('en-NG', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
+                  ? new Date(authInfo.lastSignInAt).toLocaleString("en-NG", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
                     })
-                  : 'Active now'}
+                  : "Active now"}
               </p>
             </div>
 
@@ -1242,7 +1269,9 @@ export function BuyerSettingsClient({
                 onClick={handleSignOutOtherDevices}
                 className="text-xs font-bold rounded-xl h-9 px-3.5 border-slate-200 dark:border-slate-700 cursor-pointer gap-1.5"
               >
-                {sessionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {sessionLoading && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                )}
                 <span>Sign Out Other Devices</span>
               </Button>
 
@@ -1271,24 +1300,24 @@ export function BuyerSettingsClient({
             <div>
               <h3 className="text-xs lg:text-sm font-black text-slate-900 dark:text-white">
                 {isSeller
-                  ? 'Seller Account Active'
-                  : 'Want to Sell Hardware on BenchTech?'}
+                  ? "Seller Account Active"
+                  : "Want to Sell Hardware on BenchTech?"}
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 {isSeller
-                  ? 'Manage your listings, orders, and payouts in the Seller Hub.'
-                  : 'Complete your one-time Individual or Business verification to start listing.'}
+                  ? "Manage your listings, orders, and payouts in the Seller Hub."
+                  : "Complete your one-time Individual or Business verification to start listing."}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5">
-            <Link href={isSeller ? '/seller/dashboard' : '/seller/onboarding'}>
+            <Link href={isSeller ? "/seller/dashboard" : "/seller/onboarding"}>
               <Button
                 variant="outline"
                 className="text-xs font-bold rounded-xl h-9 px-4 border-slate-200 dark:border-slate-700 cursor-pointer"
               >
-                {isSeller ? 'Open Seller Hub' : 'Become a Seller'}
+                {isSeller ? "Open Seller Hub" : "Become a Seller"}
               </Button>
             </Link>
 
@@ -1306,5 +1335,5 @@ export function BuyerSettingsClient({
         </div>
       )}
     </div>
-  )
+  );
 }
