@@ -7,8 +7,9 @@ import { BuyerSettingsClient } from './BuyerSettingsClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Account Settings & Preferences | BenchTech Abuja',
-  description: 'Manage your BenchTech profile, Abuja delivery defaults, display theme, and security settings.',
+  title: 'Account Settings & Security | BenchTech Abuja',
+  description:
+    'Manage your BenchTech profile, email address, password, two-factor authentication, sessions, and display theme.',
 }
 
 export default async function BuyerSettingsPage() {
@@ -27,6 +28,20 @@ export default async function BuyerSettingsPage() {
     .eq('id', user.id)
     .maybeSingle()
 
+  const providers: string[] = Array.isArray(user.app_metadata?.providers)
+    ? user.app_metadata.providers
+    : user.app_metadata?.provider
+    ? [user.app_metadata.provider]
+    : ['email']
+
+  const authInfo = {
+    emailConfirmedAt: user.email_confirmed_at || null,
+    newEmail: user.new_email || null,
+    lastSignInAt: user.last_sign_in_at || null,
+    createdAt: user.created_at || null,
+    providers,
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar />
@@ -37,6 +52,7 @@ export default async function BuyerSettingsPage() {
             <BuyerSettingsClient
               user={{ id: user.id, email: user.email || '' }}
               profile={profile}
+              authInfo={authInfo}
             />
           </div>
         </main>
